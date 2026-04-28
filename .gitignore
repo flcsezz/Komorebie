@@ -1,0 +1,82 @@
+# ─── OS ──────────────────────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ─── Editor ──────────────────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+*.sublime-project
+*.sublime-workspace
+.cursor/
+
+# ─── Node ────────────────────────────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnp
+.pnp.js
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+
+# ─── Next.js ─────────────────────────────────────────────────────────────────
+.next/
+out/
+build/
+.next/cache/
+
+# ─── Environment & Secrets ───────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+!.env.local.example
+
+# ─── Supabase ────────────────────────────────────────────────────────────────
+supabase/.temp/
+supabase/functions/.cache/
+
+# ─── Build & Dist ────────────────────────────────────────────────────────────
+dist/
+dist-ssr/
+*.local
+
+# ─── Testing ─────────────────────────────────────────────────────────────────
+coverage/
+.nyc_output/
+test-results/
+playwright-report/
+playwright/.cache/
+
+# ─── 3D & Media Assets (large files) ─────────────────────────────────────────
+# Uncomment if not using Git LFS for these
+# *.glb
+# *.gltf
+# *.hdr
+# *.exr
+*.mp4
+*.mov
+*.avi
+*.mkv
+
+# ─── TypeScript ──────────────────────────────────────────────────────────────
+*.tsbuildinfo
+next-env.d.ts
+
+# ─── Misc ────────────────────────────────────────────────────────────────────
+.turbo/
+.vercel/
+.cache/
+*.log
+logs/
+scripts/
