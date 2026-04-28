@@ -1,7 +1,7 @@
-# AetherStudy Website Plan
+# Komorebie Website Plan
 
 ## Goal
-Create a premium, low-distraction website and web app plan for AetherStudy, then use it to guide parallel AI agents through product, design, and architecture work.
+Create a premium, low-distraction website and web app plan for Komorebie, then use it to guide parallel AI agents through product, design, and architecture work.
 
 ## Tasks
 - [ ] Define final information architecture for marketing site and authenticated app flows → Verify: sitemap and route list exist

@@ -1,4 +1,4 @@
-# AetherStudy Agent Workspace
+# Komorebie Agent Workspace
 
 ## Purpose
 - Keep agent collaboration structured, low-noise, and resumable.

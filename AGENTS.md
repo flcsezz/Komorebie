@@ -1,7 +1,7 @@
 # Agent Instructions
 
 ## Mission
-- Build AetherStudy as a premium deep-work product.
+- Build Komorebie as a premium deep-work product.
 - Prioritize calm, high-end UX over feature noise.
 - Protect focus mode: minimal UI, zero unnecessary motion, fast task access.
 
@@ -15,7 +15,7 @@
 - Design system: `.agents/context/design-system.md`
 - Tech decisions: `.agents/context/tech-stack.md`
 - Workflow: `.agents/context/workflow.md`
-- Active plan: `aetherstudy-website-plan.md`
+- Active plan: `komorebie-website-plan.md`
 - Task registry: `.agents/tasks/task-board.md`
 
 ## Communication

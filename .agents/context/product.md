@@ -1,7 +1,7 @@
-# AetherStudy Product Context
+# Komorebie Product Context
 
 ## Vision
-- AetherStudy is a premium deep-work sanctuary, not a generic productivity app.
+- Komorebie is a premium deep-work sanctuary, not a generic productivity app.
 - The experience should feel immersive, tactile, calm, and intelligent.
 
 ## Product Pillars
