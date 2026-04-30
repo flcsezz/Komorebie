@@ -1,0 +1,175 @@
+@import "tailwindcss";
+
+@theme {
+  --color-slate-950: #121212;
+  --color-charcoal-800: #1E1E1E;
+  --color-charcoal-700: #242424;
+  --color-sage-200: #B7C9B0;
+  --color-indigo-700: #4A5568;
+
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-display: "Manrope", sans-serif;
+
+  --animate-breath: breath 8s ease-in-out infinite;
+  --animate-slow-spin: slow-spin 30s linear infinite;
+  --animate-slow-spin-reverse: slow-spin-reverse 40s linear infinite;
+  --animate-shimmer: shimmer 2s linear infinite;
+
+  @keyframes breath {
+    0%, 100% { opacity: 0.4; transform: scale(1); }
+    50% { opacity: 0.8; transform: scale(1.05); }
+  }
+
+  @keyframes slow-spin {
+    from { transform: translate(-50%, -50%) rotate(0deg); }
+    to { transform: translate(-50%, -50%) rotate(360deg); }
+  }
+
+  @keyframes slow-spin-reverse {
+    from { transform: translate(-50%, -50%) rotate(360deg); }
+    to { transform: translate(-50%, -50%) rotate(0deg); }
+  }
+
+  @keyframes shimmer {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(100%); }
+  }
+}
+
+/* Custom Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(183, 201, 176, 0.2);
+}
+
+/* React Grid Layout Styles */
+.react-grid-layout {
+  position: relative;
+  transition: height 200ms ease;
+}
+.react-grid-item {
+  transition: all 200ms ease;
+  transition-property: left, top;
+}
+.react-grid-item.cssTransforms {
+  transition-property: transform;
+}
+.react-grid-item.resizing {
+  z-index: 1000;
+  will-change: width, height;
+}
+.react-grid-item.react-draggable-dragging {
+  transition: none;
+  z-index: 1003;
+  will-change: transform;
+}
+.react-grid-item.dropping {
+  visibility: hidden;
+}
+.react-grid-placeholder {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-radius: 20px !important;
+  opacity: 0.5 !important;
+  transition-duration: 100ms !important;
+  z-index: 2 !important;
+  user-select: none !important;
+}
+
+.react-resizable-handle {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  bottom: 0;
+  right: 0;
+  cursor: se-resize;
+  z-index: 10;
+}
+
+.react-resizable-handle::after {
+  content: "";
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+  transition: border-color 0.3s ease;
+}
+
+.react-grid-item:hover .react-resizable-handle::after {
+  border-color: rgba(183, 201, 176, 0.5);
+}
+
+:root {
+  background-color: var(--color-slate-950);
+  color: white;
+  font-family: var(--font-sans);
+}
+
+body {
+  margin: 0;
+  overflow-x: hidden;
+}
+
+/* Glassmorphism Classes (Minimalist & High Performance) */
+.glass, .glass-hero, .glass-icy, .glass-frosted {
+  background: rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  will-change: transform, backdrop-filter;
+  transform: translateZ(0);
+}
+
+.glass-deep {
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  will-change: transform, backdrop-filter;
+  transform: translateZ(0);
+}
+
+.glass-interactive {
+  background: rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  transition: all 0.4s ease;
+  will-change: transform, backdrop-filter;
+}
+
+.glass-interactive:hover {
+  background: rgba(0, 0, 0, 0.3);
+  border-color: rgba(255, 255, 255, 0.1);
+  transform: translateY(-2px);
+}
+
+.zen-gradient {
+  background: radial-gradient(circle at center, rgba(183, 201, 176, 0.1) 0%, rgba(18, 18, 18, 0) 70%);
+}
+
+/* Hide dnd-kit screen reader announcements */
+[id^="rfd-announcement-"],
+[id^="rfd-hidden-text-"] {
+  display: none !important;
+}
+
+/* Focus States */
+button:focus-visible, a:focus-visible, input:focus-visible {
+  outline: 2px solid var(--color-sage-200);
+  outline-offset: 4px;
+}

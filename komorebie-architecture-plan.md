@@ -1,305 +1,182 @@
 # Komorebie — Sitemap, Route Map & User Flows
 
-> **Repo**: `git@github.com:flcsezz/Komorebie.git`  
-> **Stack**: Next.js 15 App Router · Supabase · R3F · Framer Motion · Gemini AI  
-> **Design system**: Luminous Glass (Obsidian + Cyan `#00F2FF` + Electric Purple `#9D00FF`)
-
----
+> **Repo reality**: `Vite + React 19 + React Router + TypeScript`
+> **Target backend**: `Supabase` after core frontend flow stabilizes
+> **Design system**: `Zen System`
 
 ## 1. Full Sitemap
 
-```
-Komorebie (Komorebie)
+```text
+Komorebie
 │
-├── Marketing Site  (unauthenticated)
-│   ├── /                          Home — Hero, value prop, 3D scene teaser
-│   ├── /features                  Feature deep-dive (immersion, AI, progression, social)
-│   ├── /pricing                   Free vs Premium tiers
+├── Marketing Site
+│   ├── /                          Home
+│   ├── /features                  Feature deep-dive
+│   ├── /pricing                   Free vs premium positioning
 │   ├── /about                     Brand story / manifesto
-│   ├── /changelog                 Public changelog
 │   └── /legal
-│       ├── /legal/privacy         Privacy policy
-│       └── /legal/terms           Terms of service
+│       ├── /legal/privacy
+│       └── /legal/terms
 │
-├── Auth  (shared shell)
-│   ├── /login                     Email / OAuth sign-in
-│   ├── /signup                    Registration + welcome flow
-│   ├── /onboarding                3-step first-run wizard
-│   └── /forgot-password           Password reset
-│
-└── App  (authenticated, behind /app layout)
-    │
-    ├── /app                       Redirects → /app/sanctuary (default)
-    │
-    ├── /app/sanctuary             Sanctuary Mode — 3D room, companion, ambient social
-    │
-    ├── /app/focus                 Focus Mode shell
-    │   └── /app/focus/[sessionId] Active focus session
-    │
-    ├── /app/tasks                 Task manager
-    │   ├── /app/tasks             Today view
-    │   └── /app/tasks/[id]        Task detail / edit
-    │
+└── App
+    ├── /app                       Sanctuary dashboard / task capture
+    ├── /app/focus                 Focus setup
+    ├── /app/focus/session         Active focus mode
+    ├── /app/tasks                 Task library
     ├── /app/notes                 Note library
-    │   ├── /app/notes             All notes + search
-    │   ├── /app/notes/upload      Upload / paste note
-    │   └── /app/notes/[id]        Note viewer + AI panel
-    │
-    ├── /app/flashcards            Flashcard library
-    │   ├── /app/flashcards        All decks
-    │   ├── /app/flashcards/[id]   Deck viewer
-    │   └── /app/flashcards/[id]/study  Active study session (spaced repetition)
-    │
-    ├── /app/sessions              Session history + analytics
-    │
-    ├── /app/social                Social layer
-    │   ├── /app/social            Ambient leaderboard + friend presence
-    │   └── /app/social/[username] Friend profile
-    │
-    ├── /app/room                  Room & companion customization store
-    │
-    └── /app/settings              User settings
-        ├── /app/settings/profile  Profile & avatar
-        ├── /app/settings/audio    Sound & music preferences
-        ├── /app/settings/appearance  Theme, environment defaults
-        └── /app/settings/billing  Subscription & plan
+    ├── /app/notes/:noteId         Note detail + AI actions
+    ├── /app/flashcards            Deck library
+    ├── /app/flashcards/:deckId    Deck detail
+    ├── /app/analytics             Session analytics
+    ├── /app/room                  Companion and room customization
+    ├── /app/social                Ambient presence + leaderboard
+    └── /app/settings              Preferences
 ```
 
----
+## 2. Route Map For This Repo
 
-## 2. Route Map (Next.js App Router)
-
-```
-app/
-├── layout.tsx                     Root layout (fonts, providers, analytics)
-├── page.tsx                       → Marketing Home
-├── features/page.tsx
-├── pricing/page.tsx
-├── about/page.tsx
-├── changelog/page.tsx
-├── legal/
-│   ├── privacy/page.tsx
-│   └── terms/page.tsx
-│
-├── (auth)/                        Auth group layout (centered card, Luminous Glass)
-│   ├── layout.tsx
-│   ├── login/page.tsx
-│   ├── signup/page.tsx
-│   ├── onboarding/page.tsx
-│   └── forgot-password/page.tsx
-│
-└── (app)/                         Authenticated app group layout
-    ├── layout.tsx                 Supabase session guard + sidebar shell
-    ├── app/
-    │   ├── page.tsx               Redirect → /app/sanctuary
-    │   ├── sanctuary/
-    │   │   └── page.tsx           Sanctuary Mode (R3F canvas + glass HUD)
-    │   ├── focus/
-    │   │   ├── page.tsx           Focus pre-session config
-    │   │   └── [sessionId]/
-    │   │       └── page.tsx       Active session (timer-first layout)
-    │   ├── tasks/
-    │   │   ├── page.tsx
-    │   │   └── [id]/page.tsx
-    │   ├── notes/
-    │   │   ├── page.tsx
-    │   │   ├── upload/page.tsx
-    │   │   └── [id]/page.tsx
-    │   ├── flashcards/
-    │   │   ├── page.tsx
-    │   │   └── [id]/
-    │   │       ├── page.tsx
-    │   │       └── study/page.tsx
-    │   ├── sessions/page.tsx
-    │   ├── social/
-    │   │   ├── page.tsx
-    │   │   └── [username]/page.tsx
-    │   ├── room/page.tsx
-    │   └── settings/
-    │       ├── layout.tsx         Settings sub-nav
-    │       ├── profile/page.tsx
-    │       ├── audio/page.tsx
-    │       ├── appearance/page.tsx
-    │       └── billing/page.tsx
+```text
+src/
+├── App.tsx
+├── components/
+│   ├── layout/
+│   │   ├── AppLayout.tsx
+│   │   └── SmoothScroll.tsx
+│   ├── three/
+│   │   └── ZenEnvironment.tsx
+│   └── ui/
+│       └── GlassCard.tsx
+└── pages/
+    ├── LandingPage.tsx
+    ├── FeaturesPage.tsx
+    ├── PricingPage.tsx
+    ├── AboutPage.tsx
+    ├── LegalPrivacyPage.tsx
+    ├── LegalTermsPage.tsx
+    ├── TaskCapture.tsx
+    ├── FocusSetup.tsx
+    ├── FocusSession.tsx
+    ├── TaskLibrary.tsx
+    ├── NotesLibrary.tsx
+    ├── NoteDetail.tsx
+    ├── FlashcardLibrary.tsx
+    ├── FlashcardDeck.tsx
+    ├── FlowAnalytics.tsx
+    ├── RoomPage.tsx
+    ├── SocialPage.tsx
+    └── SettingsPage.tsx
 ```
 
-### Route Hierarchy (Mermaid)
+## 3. Route Hierarchy
 
 ```mermaid
 graph TD
-    Root["/ (Marketing)"] --> Features["/features"]
+    Root["/"] --> Features["/features"]
     Root --> Pricing["/pricing"]
     Root --> About["/about"]
-    Root --> Login["(auth)/login"]
-    Root --> Signup["(auth)/signup"]
-    Login --> Onboarding["(auth)/onboarding"]
-    Signup --> Onboarding
-
-    Onboarding --> Sanctuary["(app)/app/sanctuary"]
-
-    Sanctuary --> Focus["(app)/app/focus"]
-    Sanctuary --> Notes["(app)/app/notes"]
-    Sanctuary --> Flashcards["(app)/app/flashcards"]
-    Sanctuary --> Tasks["(app)/app/tasks"]
-    Sanctuary --> Social["(app)/app/social"]
-    Sanctuary --> Room["(app)/app/room"]
-    Sanctuary --> Sessions["(app)/app/sessions"]
-    Sanctuary --> Settings["(app)/app/settings"]
-
-    Focus --> ActiveSession["(app)/app/focus/[sessionId]"]
-    Notes --> NoteDetail["(app)/app/notes/[id]"]
-    Notes --> NoteUpload["(app)/app/notes/upload"]
-    NoteDetail --> FlashcardGen["AI: Generate Flashcards"]
-    FlashcardGen --> FlashcardDeck["(app)/app/flashcards/[id]"]
-    FlashcardDeck --> Study["(app)/app/flashcards/[id]/study"]
+    Root --> App["/app"]
+    App --> Focus["/app/focus"]
+    App --> Tasks["/app/tasks"]
+    App --> Notes["/app/notes"]
+    App --> Flashcards["/app/flashcards"]
+    App --> Analytics["/app/analytics"]
+    App --> Room["/app/room"]
+    App --> Social["/app/social"]
+    App --> Settings["/app/settings"]
+    Focus --> ActiveSession["/app/focus/session"]
+    Notes --> NoteDetail["/app/notes/:noteId"]
+    Flashcards --> DeckDetail["/app/flashcards/:deckId"]
 ```
 
----
+## 4. User Flows
 
-## 3. User Flows
-
-### 3.1 New User — First Session
+### 4.1 New Visitor To First Focus Session
 
 ```mermaid
 flowchart LR
-    A([Land on /]) --> B[View hero + 3D teaser]
-    B --> C{CTA: Start Free}
-    C --> D[/signup — email + password]
-    D --> E[Supabase creates user]
-    E --> F[/onboarding Step 1: Choose default environment]
-    F --> G[Onboarding Step 2: Pick study goal & timer style]
-    G --> H[Onboarding Step 3: Optional — upload first note]
-    H --> I[/app/sanctuary — 3D room loads, companion appears]
-    I --> J{User clicks Start Focus}
-    J --> K[Focus pre-config sheet — task + duration]
-    K --> L[/app/focus/sessionId — Full focus mode]
-    L --> M[Timer runs, ambient music plays]
-    M --> N{Session ends or paused}
-    N --> O[Session summary card — XP earned, mana gained]
-    O --> P[/app/sanctuary — room reacts to completed session]
+    A([Land on /]) --> B[Understand premium calm value]
+    B --> C{Click primary CTA}
+    C --> D[/app]
+    D --> E[Type or select task]
+    E --> F[/app/focus]
+    F --> G[Confirm session settings]
+    G --> H[/app/focus/session]
+    H --> I[Run focus session]
+    I --> J[Show session summary]
+    J --> K[/app or /app/analytics]
 ```
 
-### 3.2 Returning User — Quick Start (< 10 seconds)
+### 4.2 Returning User Quick Start
 
 ```mermaid
 flowchart LR
-    A([Open app — already authed]) --> B[/app/sanctuary auto-loads last environment]
-    B --> C[Companion + ambient state restored]
-    C --> D{One-tap: Resume Last Session or New Session}
-    D -->|New| E[Pre-config sheet with last task pre-filled]
-    D -->|Resume| F[/app/focus/sessionId — straight to timer]
-    E --> F
+    A([Open /app]) --> B[Load last task and ambience defaults]
+    B --> C{Resume or start new}
+    C -->|Resume| D[/app/focus/session]
+    C -->|New| E[/app/focus]
+    E --> D
 ```
 
-### 3.3 AI Sidekick — Note → Flashcard Flow
+### 4.3 Notes To Flashcards
 
 ```mermaid
 flowchart TD
-    A([User in /app/notes]) --> B[Click Upload Note]
-    B --> C[/app/notes/upload — paste text or upload PDF/image]
-    C --> D[Supabase Storage receives file]
-    D --> E[Edge Function: parse + embed note]
-    E --> F[/app/notes/id — Note viewer opens]
-    F --> G[AI panel renders: Summary · Key points · Focus tasks]
-    G --> H{User taps Generate Flashcards}
-    H --> I[Gemini Edge Function — generates card set]
-    I --> J[New deck appears in /app/flashcards]
-    J --> K[User taps Study Deck → /app/flashcards/id/study]
-    K --> L[Spaced-repetition card loop — SR algorithm]
-    L --> M[Session XP earned]
+    A([Open /app/notes]) --> B[Upload or select note]
+    B --> C[AI parses note]
+    C --> D[/app/notes/:noteId shows summary]
+    D --> E{Generate flashcards}
+    E --> F[Save deck to /app/flashcards/:deckId]
+    F --> G[Study now or later]
 ```
 
-### 3.4 Focus Mode — UI State Machine
+### 4.4 Focus Mode State Model
 
 ```mermaid
 stateDiagram-v2
     [*] --> PreSession: Open /app/focus
     PreSession --> ActiveFocus: Start timer
-    ActiveFocus --> Paused: Pause button
+    ActiveFocus --> Paused: Pause
     Paused --> ActiveFocus: Resume
     ActiveFocus --> Completed: Timer reaches zero
-    ActiveFocus --> Abandoned: Manual exit (confirm dialog)
-    Completed --> Summary: Show XP + mana reward
-    Abandoned --> Summary: Show partial credit
-    Summary --> Sanctuary: Return to room
-    Sanctuary --> [*]
+    ActiveFocus --> Abandoned: Manual exit
+    Completed --> Summary: Show session summary
+    Abandoned --> Summary: Show partial progress
+    Summary --> Dashboard: Return to /app
+    Dashboard --> [*]
 
     note right of ActiveFocus
-      Visible: Timer, task label,
-      ambient controls, exit/pause
-      Hidden: Leaderboard, store,
-      companion overlays, nav bar
+      Visible: timer, task label,
+      pause/resume, exit,
+      minimal ambience controls
+      Hidden: nav, social, companion,
+      analytics, room customization
     end note
 ```
 
-### 3.5 Social — Ambient Presence Flow
+## 5. Layout Zones
 
-```mermaid
-flowchart LR
-    A[User enters Sanctuary] --> B[Supabase Realtime channel subscribed]
-    B --> C{Friends in active focus?}
-    C -->|Yes| D[Ambient silhouettes appear in room at low opacity]
-    C -->|No| E[Room feels solo — no indicator]
-    D --> F{User hovers silhouette}
-    F --> G[Minimal tooltip: friend name + session duration]
-    G --> H{User taps social button}
-    H --> I[/app/social — Leaderboard + presence grid]
-    I --> J[Click friend → /app/social/username]
-```
-
-### 3.6 Progression — Mana Economy Loop
-
-```mermaid
-flowchart TD
-    A[Completed focus session] --> B[Calculate Mana: minutes × multiplier]
-    B --> C[Supabase: update user mana balance]
-    C --> D[Companion XP bar fills → evolution checkpoint?]
-    D -->|Yes| E[Evolution animation in Sanctuary]
-    D -->|No| F[Mana added silently]
-    E --> G[User visits /app/room — new companion stage unlocked]
-    F --> G
-    G --> H[Spend Mana on room items or cosmetics]
-    H --> C
-```
-
----
-
-## 4. Layout Zones
-
-| Zone | Focus Mode | Sanctuary Mode | Marketing |
+| Zone | Focus Mode | Sanctuary Dashboard | Marketing |
 |---|---|---|---|
-| **Nav bar** | Hidden | Collapsed icon rail | Full header |
-| **3D canvas** | Ambient only (blurred bg) | Full interactive | Hero section only |
-| **Timer** | Primary — center stage | Compact widget | — |
-| **AI panel** | Hidden | Accessible via icon | — |
-| **Social presence** | Hidden | Ambient silhouettes | — |
-| **Companion** | Hidden | Full stage | Teaser only |
-| **Room store** | Hidden | Available | — |
+| Nav | Hidden | Minimal app nav | Full header |
+| 3D canvas | Ambient only | Lightweight interactive | Hero only |
+| Timer | Primary | Secondary widget | none |
+| AI panel | Hidden | Secondary | none |
+| Social | Hidden | Ambient only | none |
+| Companion | Hidden | Secondary | teaser only |
 
----
+## 6. Open Decisions
 
-## 5. Open Decisions for Review
+1. Keep current prototype unauthenticated until core flows stabilize, or add auth now?
+2. Split task capture and focus setup into separate routes, or keep one screen with progressive reveal?
+3. Make notes and flashcards MVP routes, or phase them after session flow stability?
+4. Keep 3D ambience globally mounted, or load it only where it adds value?
+5. Lock the product name as `Komorebie` or rename before more implementation?
 
-> [!IMPORTANT]
-> The following need a call before scaffolding begins.
+## 7. Recommended Implementation Order
 
-1. **Onboarding depth** — 3-step wizard as shown, or inline first-session contextual hints instead?
-2. **Focus URL** — Does `/app/focus/[sessionId]` need to be bookmarkable / shareable, or is session state ephemeral (sessionStorage only)?
-3. **Social auth** — Google OAuth only, or also GitHub/Discord? (Discord aligns with the student demographic)
-4. **Mobile** — PWA with service worker for offline timer resilience, or native mobile is a separate phase?
-5. **Spline vs R3F** — Authored Spline scenes for marketing + default environments, fully programmatic R3F for in-session reactivity?
-6. **Mana naming** — Keep "Mana" as internal currency label or rename to something more thematically tied to "Komorebie" (dappled light metaphor)?
-
----
-
-## 6. Next Actions (maps to task-board.md)
-
-| Priority | Task | Owner |
-|---|---|---|
-| 1 | Scaffold Next.js 15 App Router repo in this workspace | Agent |
-| 2 | Create route group layouts: `(auth)`, `(app)` | Agent |
-| 3 | Implement Supabase auth middleware & session guard | Agent |
-| 4 | Build Marketing Home page with hero + R3F teaser | Agent |
-| 5 | Define Supabase schema: users, sessions, notes, flashcards, progression | Agent |
-| 6 | Build Focus Mode page — timer-first, minimal chrome | Agent |
-| 7 | Wire AI sidekick Edge Function for notes → flashcards | Agent |
+1. Lock sitemap and route map
+2. Refactor router to match approved route skeleton
+3. Audit current UI against Zen System and focus constraints
+4. Fix current lint and UX issues
+5. Add missing page scaffolds
+6. Define backend and AI contracts
