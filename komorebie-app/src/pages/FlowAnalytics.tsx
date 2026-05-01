@@ -1,5 +1,4 @@
 import React, { useState, useMemo } from 'react';
-import { motion, type Variants } from 'framer-motion';
 import { useAnalytics } from '../hooks/useAnalytics';
 import GlassCard from '../components/ui/GlassCard';
 import { 
@@ -10,29 +9,6 @@ import {
   Activity,
   Clock
 } from 'lucide-react';
-
-const containerVariants: Variants = {
-  hidden: { opacity: 0 },
-  show: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.1,
-      delayChildren: 0.2
-    }
-  }
-};
-
-const itemVariants: Variants = {
-  hidden: { opacity: 0, y: 20 },
-  show: { 
-    opacity: 1, 
-    y: 0, 
-    transition: { 
-      duration: 0.6, 
-      ease: [0.16, 1, 0.3, 1] as any
-    } 
-  }
-};
 
 const FlowAnalytics: React.FC = () => {
   const [timeRange, setTimeRange] = useState<'day' | 'week' | 'month' | 'year'>('week');
@@ -56,13 +32,8 @@ const FlowAnalytics: React.FC = () => {
   }, [streaks]);
 
   return (
-    <motion.div 
-      variants={containerVariants}
-      initial="hidden"
-      animate="show"
-      className="min-h-screen pt-12 pb-20 px-6 max-w-7xl mx-auto"
-    >
-      <motion.header variants={itemVariants} className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-8">
+    <div className="min-h-screen pt-12 pb-20 px-6 max-w-7xl mx-auto">
+      <header className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-8">
         <div>
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 rounded-2xl bg-sage-200/10 flex items-center justify-center border border-sage-200/20">
@@ -92,7 +63,7 @@ const FlowAnalytics: React.FC = () => {
             </button>
           ))}
         </div>
-      </motion.header>
+      </header>
 
       {/* Main Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
@@ -132,7 +103,7 @@ const FlowAnalytics: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Large Stats View */}
-        <motion.div variants={itemVariants} className="lg:col-span-2">
+        <div className="lg:col-span-2">
           <GlassCard className="p-8 h-[450px] flex flex-col">
             <div className="flex items-center justify-between mb-12">
               <div>
@@ -159,10 +130,10 @@ const FlowAnalytics: React.FC = () => {
               <span>Sun</span>
             </div>
           </GlassCard>
-        </motion.div>
+        </div>
 
         {/* Focus Garden / Heatmap */}
-        <motion.div variants={itemVariants} className="lg:col-span-1">
+        <div className="lg:col-span-1">
           <GlassCard className="p-8 h-full flex flex-col">
             <div className="mb-8">
               <h3 className="text-xl font-display font-light text-white/80">Focus Garden</h3>
@@ -170,19 +141,16 @@ const FlowAnalytics: React.FC = () => {
             </div>
             
             <div className="grid grid-cols-7 gap-2 flex-1">
-              {gardenData.map((day, i) => (
-                <motion.div
+              {gardenData.map((day) => (
+                <div
                   key={day.dateStr}
-                  initial={{ scale: 0, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={{ delay: 0.2 + i * 0.005 }}
                   className={`aspect-square rounded-sm transition-colors duration-500 hover:bg-white relative group/day ${day.active ? 'bg-sage-200' : 'bg-white/10'}`}
                   style={{ opacity: day.opacity }}
                 >
                   <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900 text-[8px] text-white rounded opacity-0 group-hover/day:opacity-100 whitespace-nowrap pointer-events-none z-50">
                     {day.dateStr}
                   </div>
-                </motion.div>
+                </div>
               ))}
             </div>
 
@@ -198,9 +166,9 @@ const FlowAnalytics: React.FC = () => {
               </div>
             </div>
           </GlassCard>
-        </motion.div>
+        </div>
       </div>
-    </motion.div>
+    </div>
   );
 };
 
@@ -222,7 +190,7 @@ const StatCard = ({ icon: Icon, label, value, subValue, trend, color }: StatCard
   };
 
   return (
-    <motion.div variants={itemVariants}>
+    <div>
       <GlassCard className="p-8 group hover:border-white/20 transition-all duration-500">
         <div className={`w-10 h-10 rounded-2xl flex items-center justify-center mb-6 border ${colors[color]}`}>
           <Icon className="w-5 h-5" />
@@ -236,7 +204,7 @@ const StatCard = ({ icon: Icon, label, value, subValue, trend, color }: StatCard
           </span>
         </div>
       </GlassCard>
-    </motion.div>
+    </div>
   );
 };
 

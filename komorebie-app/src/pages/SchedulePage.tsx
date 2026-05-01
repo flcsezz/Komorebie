@@ -73,25 +73,6 @@ const formatTime = (hour: string, minute: string, ampm: string) => {
   return `${h.toString().padStart(2, '0')}:${minute.padStart(2, '0')}`;
 };
 
-const containerVariants: Variants = {
-  hidden: { opacity: 0, y: 15 },
-  show: {
-    opacity: 1,
-    y: 0,
-    transition: {
-      duration: 0.4,
-      staggerChildren: 0.05,
-      delayChildren: 0.1,
-      ease: [0.16, 1, 0.3, 1] as any
-    }
-  }
-};
-
-const itemVariants: Variants = {
-  hidden: { opacity: 0, y: 10 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.3 } }
-};
-
 const eventVariants: Variants = {
   hidden: { opacity: 0, scale: 0.95 },
   show: { 
@@ -315,15 +296,10 @@ export default function SchedulePage() {
 
   return (
     <>
-    <motion.div 
-      className="h-full flex flex-col pt-12 max-w-[1400px] mx-auto px-6"
-      variants={containerVariants}
-      initial="hidden"
-      animate="show"
-    >
+    <div className="h-full flex flex-col pt-12 max-w-[1400px] mx-auto px-6">
       
       {/* Header */}
-      <motion.div variants={itemVariants} className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
           <h1 className="text-3xl font-display font-light text-white">
             {format(currentDate, view === 'week' ? 'MMMM yyyy' : 'MMMM d, yyyy')}
@@ -374,10 +350,10 @@ export default function SchedulePage() {
             New
           </button>
         </div>
-      </motion.div>
+      </div>
 
       {/* Calendar Body */}
-      <motion.div variants={itemVariants} className="flex-1 flex flex-col overflow-hidden mb-6 relative">
+      <div className="flex-1 flex flex-col overflow-hidden mb-6 relative">
         <GlassCard variant="frosted" className="flex-1 flex flex-col overflow-hidden relative h-full">
         {/* Days Header */}
         <div className="flex border-b border-white/10 pr-4"> {/* pr-4 to account for scrollbar */}
@@ -488,8 +464,8 @@ export default function SchedulePage() {
           <Clock className="w-5 h-5" />
         </button>
       </GlassCard>
-      </motion.div>
-      </motion.div>
+      </div>
+    </div>
 
       {/* Event Modal (Rendered via Portal to escape transforms) */}
       {createPortal(

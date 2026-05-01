@@ -113,7 +113,6 @@ const ZenClock: React.FC = () => {
 
   return (
     <motion.div 
-      layout
       className={`relative flex flex-col items-center justify-center w-full transition-all duration-700 ease-in-out ${
         isActive ? 'min-h-[580px]' : 'min-h-[480px]'
       } group/clock`}
@@ -137,7 +136,6 @@ const ZenClock: React.FC = () => {
       </AnimatePresence>
 
       <motion.div 
-        layout
         className={`relative flex items-center justify-center transition-all duration-700 ${
           isActive || isSessionComplete ? 'scale-110' : 'scale-100'
         }`}
@@ -292,7 +290,6 @@ const ZenClock: React.FC = () => {
             </div>
             
             <motion.div 
-              layout
               className="text-[10px] font-mono uppercase tracking-[0.4em] text-white/30 mt-4 h-3 flex items-center justify-center"
             >
               {!isSessionComplete && (isActive ? 'Remaining' : 'Minutes')}
@@ -301,7 +298,6 @@ const ZenClock: React.FC = () => {
             {/* Start / Stop Toggle */}
             <div className="flex flex-col items-center gap-4 mt-6">
               <motion.button
-                layout
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={isSessionComplete ? completeSession : toggleTimer}

@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { useZenClock } from '../../context/ZenClockContext';
 import { useAuth } from '../../context/AuthContext';
+import InitialLoader from '../ui/InitialLoader';
 
 const BACKGROUNDS = [
   { id: 'forest', name: 'Forest Sanctuary', url: 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?q=80&w=2560&auto=format&fit=crop' },
@@ -20,6 +21,7 @@ const BACKGROUNDS = [
   { id: 'city', name: 'Night City', url: 'https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?q=80&w=2560&auto=format&fit=crop' }
 ];
 
+// Spring configuration for animations
 const springConfig = { type: "spring" as const, stiffness: 300, damping: 35 };
 
 const BrandingText = () => (
@@ -89,7 +91,7 @@ const SidebarLink = ({ to, icon: Icon, label, active, isCollapsed }: {
       className={`w-5 h-5 relative z-10 transition-transform duration-300 group-hover:scale-110 ${active ? 'text-white' : ''}`} 
       strokeWidth={active ? 2 : 1.5} 
     />
-    <AnimatePresence>
+    <AnimatePresence initial={false}>
       {!isCollapsed && (
         <motion.span 
           initial={{ opacity: 0, x: -10 }}
@@ -151,10 +153,30 @@ const AppLayout: React.FC = () => {
   const { user, loading: authLoading, signOut } = useAuth();
   const location = useLocation();
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const lastPath = React.useRef(location.pathname);
+  
+  // Instant Render-phase path change detection to prevent "flashing"
+  if (location.pathname !== lastPath.current) {
+    lastPath.current = location.pathname;
+    if (!isTransitioning) {
+      setIsTransitioning(true);
+    }
+  }
+
+  // Effect to handle the timeout for the transition
+  useEffect(() => {
+    if (isTransitioning) {
+      const timer = setTimeout(() => {
+        setIsTransitioning(false);
+      }, 1300); // Reduced to 1.3s
+      return () => clearTimeout(timer);
+    }
+  }, [isTransitioning]);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
+    return () => clearTimeout(timer);
   }, []);
 
   const handleSignOut = async () => {
@@ -163,17 +185,10 @@ const AppLayout: React.FC = () => {
 
   const [bgImage, setBgImage] = useState(() => localStorage.getItem('komorebie-bg') || BACKGROUNDS[0].url);
   const [showBgPicker, setShowBgPicker] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // Sync sidebar with timer state
-  useEffect(() => {
-    if (isActive) {
-      setIsCollapsed(true);
-    } else {
-      setIsCollapsed(false);
-    }
-  }, [isActive]);
+  // Sidebar is now handled by hover-peek logic
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -215,6 +230,9 @@ const AppLayout: React.FC = () => {
 
   return (
     <div className="flex h-screen overflow-hidden relative bg-transparent">
+        {/* Premium Route Transition Loader */}
+        <InitialLoader show={isTransitioning} />
+
         {/* Dynamic Background Image */}
         <div 
           className="fixed inset-0 z-0 bg-cover bg-center transition-all duration-1000 ease-in-out pointer-events-none opacity-40"
@@ -223,15 +241,35 @@ const AppLayout: React.FC = () => {
         {/* Dark Overlay */}
         <div className="fixed inset-0 z-[1] bg-slate-950/20 pointer-events-none" />
         
-        {/* Sidebar */}
+        {/* Ambient Gradient Orbs */}
+        <div className="fixed inset-0 z-[2] pointer-events-none overflow-hidden">
+          <div 
+            className="ambient-orb ambient-orb-sage w-[500px] h-[500px] -top-20 -right-20" 
+            style={{ animationDelay: '0s' }}
+          />
+          <div 
+            className="ambient-orb ambient-orb-indigo w-[400px] h-[400px] bottom-10 left-1/4" 
+            style={{ animationDelay: '-7s' }}
+          />
+          <div 
+            className="ambient-orb ambient-orb-warm w-[350px] h-[350px] top-1/3 left-10" 
+            style={{ animationDelay: '-13s' }}
+          />
+        </div>
+        
+        {/* Sidebar - Hover Peek Behavior */}
         <motion.aside 
           initial={false}
           animate={{ width: isCollapsed ? 80 : 260 }}
           transition={springConfig}
+          onMouseEnter={() => setIsCollapsed(false)}
+          onMouseLeave={() => setIsCollapsed(true)}
           className="h-screen border-r border-white/10 flex flex-col z-30 glass relative"
         >
           {/* Sidebar Header */}
-          <div className={`py-6 flex items-center min-h-[80px] overflow-hidden transition-all duration-300 ${isCollapsed ? 'justify-center px-0' : 'px-6'}`}>
+          <div 
+            className={`py-6 flex items-center min-h-[80px] overflow-hidden transition-all duration-300 ${isCollapsed ? 'justify-center px-0' : 'px-6'}`}
+          >
             <Branding isCollapsed={isCollapsed} />
           </div>
 
@@ -242,7 +280,7 @@ const AppLayout: React.FC = () => {
               className={`flex items-center gap-3 p-2 rounded-2xl bg-white/5 border border-white/5 transition-colors hover:bg-white/10 group/profile ${isCollapsed ? 'w-12 h-12 justify-center mx-auto' : 'w-full'}`}
             >
               <div className="w-8 h-8 rounded-lg bg-cover bg-center flex-shrink-0 border border-white/10 group-hover/profile:border-sage-200/30 transition-colors" style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=100&auto=format&fit=crop)' }} />
-              <AnimatePresence>
+              <AnimatePresence initial={false}>
                 {!isCollapsed && (
                   <motion.div
                     initial={{ opacity: 0, x: -10 }}
@@ -307,7 +345,7 @@ const AppLayout: React.FC = () => {
               className={`w-full flex items-center gap-3 px-4 py-2 text-red-400/60 hover:text-red-400 hover:bg-red-400/5 rounded-xl transition-colors duration-300 text-sm font-light group cursor-pointer ${isCollapsed ? 'justify-center' : ''}`}
             >
               <LogOut className="w-5 h-5 transition-transform group-hover:-translate-x-0.5" strokeWidth={1.5} />
-              <AnimatePresence>
+              <AnimatePresence initial={false}>
                 {!isCollapsed && (
                   <motion.span
                     initial={{ opacity: 0, x: -10 }}
@@ -329,27 +367,32 @@ const AppLayout: React.FC = () => {
           {/* Topbar */}
           <header className="h-20 flex items-center justify-between px-8 relative z-30">
             <div className="flex items-center gap-4">
-              <button 
-                onClick={() => setIsCollapsed(!isCollapsed)}
-                className="p-2 -ml-2 rounded-xl transition-colors text-white/40 hover:text-white cursor-pointer hover:bg-white/5 flex-shrink-0 mr-2"
-                title="Toggle Sidebar"
+              <div 
+                className="flex items-center gap-2 cursor-pointer group"
+                onMouseEnter={() => isCollapsed && setIsCollapsed(false)}
               >
-                <Menu className="w-5 h-5" />
-              </button>
+                <button 
+                  onClick={() => setIsCollapsed(!isCollapsed)}
+                  className="p-2 -ml-2 rounded-xl transition-colors text-white/40 group-hover:text-white cursor-pointer hover:bg-white/5 flex-shrink-0 mr-2"
+                  title="Toggle Sidebar"
+                >
+                  <Menu className="w-5 h-5" />
+                </button>
 
-              <AnimatePresence initial={false}>
-                {isCollapsed && (
-                  <motion.div
-                    initial={{ width: 0, opacity: 0 }}
-                    animate={{ width: 'auto', opacity: 1 }}
-                    exit={{ width: 0, opacity: 0 }}
-                    transition={springConfig}
-                    className="overflow-hidden mr-2"
-                  >
-                    <BrandingText />
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                <AnimatePresence initial={false}>
+                  {isCollapsed && (
+                    <motion.div
+                      initial={{ width: 0, opacity: 0 }}
+                      animate={{ width: 'auto', opacity: 1 }}
+                      exit={{ width: 0, opacity: 0 }}
+                      transition={springConfig}
+                      className="overflow-hidden mr-2"
+                    >
+                      <BrandingText />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
               
               <div className="flex items-center gap-3 px-4 py-1.5 bg-white/5 border border-white/10 rounded-full group">
                 <Clock className="w-3.5 h-3.5 text-sage-200" />
@@ -430,21 +473,9 @@ const AppLayout: React.FC = () => {
 
           {/* Page Content */}
           <main className="flex-1 overflow-y-auto p-6 custom-scrollbar relative">
-            <AnimatePresence mode="popLayout" initial={false}>
-              <motion.div
-                key={location.pathname}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ 
-                  duration: 0.4, 
-                  ease: [0.16, 1, 0.3, 1] as any
-                }}
-                className="min-h-full"
-              >
-                <Outlet />
-              </motion.div>
-            </AnimatePresence>
+            <div className="min-h-full">
+              <Outlet />
+            </div>
           </main>
         </div>
     </div>

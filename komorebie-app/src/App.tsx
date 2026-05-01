@@ -18,6 +18,7 @@ const SchedulePage = lazy(() => import('./pages/SchedulePage'));
 import { TasksPage, NotesPage, RoomPage, SocialPage, PlaceholderPage } from './pages/Placeholders';
 
 import ZenLoader from './components/ui/ZenLoader';
+import InitialLoader from './components/ui/InitialLoader';
 import { ZenClockProvider } from './context/ZenClockContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import AuthGateway from './pages/AuthGateway';
@@ -60,6 +61,9 @@ const RootHandler = () => {
 function App() {
   return (
     <div className="relative text-white font-sans selection:bg-sage-200/30 min-h-screen bg-slate-950">
+      {/* Premium initial loading animation */}
+      <InitialLoader minDuration={1300} />
+      
       <Suspense fallback={<PageLoader />}>
         <AuthProvider>
           <ZenClockProvider>
