@@ -151,26 +151,30 @@ const AppLayout: React.FC = () => {
   const { user, loading: authLoading, signOut } = useAuth();
   const location = useLocation();
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(true);
   const lastPath = React.useRef(location.pathname);
   
-  // Instant Render-phase path change detection to prevent "flashing"
-  if (location.pathname !== lastPath.current) {
-    lastPath.current = location.pathname;
-    if (!isTransitioning) {
-      setIsTransitioning(true);
-    }
-  }
-
-  // Effect to handle the timeout for the transition
+  // Mount effect to show initial loader
   useEffect(() => {
-    if (isTransitioning) {
+    setIsTransitioning(true);
+    const timer = setTimeout(() => {
+      setIsTransitioning(false);
+    }, 1300);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Stable route change detection
+  useEffect(() => {
+    if (location.pathname !== lastPath.current) {
+      lastPath.current = location.pathname;
+      setIsTransitioning(true);
+      
       const timer = setTimeout(() => {
         setIsTransitioning(false);
-      }, 1300); // Reduced to 1.3s
+      }, 1300);
       return () => clearTimeout(timer);
     }
-  }, [isTransitioning]);
+  }, [location.pathname]);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);

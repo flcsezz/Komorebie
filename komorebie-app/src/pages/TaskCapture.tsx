@@ -8,6 +8,7 @@ import StreakWidget from '../components/dashboard/StreakWidget';
 import SoundscapeSelector from '../components/dashboard/SoundscapeSelector';
 import ThePathWidget from '../components/dashboard/ThePathWidget';
 import ZenClock from '../components/dashboard/ZenClock';
+import { useZenClock } from '../context/ZenClockContext';
 import { useAnalytics } from '../hooks/useAnalytics';
 
 const TaskCapture: React.FC = () => {
