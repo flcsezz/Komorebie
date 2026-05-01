@@ -240,24 +240,8 @@ const AppLayout: React.FC = () => {
           className="fixed inset-0 z-0 bg-cover bg-center transition-all duration-1000 ease-in-out pointer-events-none opacity-40"
           style={{ backgroundImage: `url(${bgImage})`, transform: 'scale(1.1)' }}
         />
-        {/* Dark Overlay */}
+        {/* Background Overlay */}
         <div className="fixed inset-0 z-[1] bg-slate-950/20 pointer-events-none" />
-        
-        {/* Ambient Gradient Orbs */}
-        <div className="fixed inset-0 z-[2] pointer-events-none overflow-hidden">
-          <div 
-            className="ambient-orb ambient-orb-sage w-[500px] h-[500px] -top-20 -right-20" 
-            style={{ animationDelay: '0s' }}
-          />
-          <div 
-            className="ambient-orb ambient-orb-indigo w-[400px] h-[400px] bottom-10 left-1/4" 
-            style={{ animationDelay: '-7s' }}
-          />
-          <div 
-            className="ambient-orb ambient-orb-warm w-[350px] h-[350px] top-1/3 left-10" 
-            style={{ animationDelay: '-13s' }}
-          />
-        </div>
         
         {/* Sidebar - Hover Peek Behavior */}
         <motion.aside 
