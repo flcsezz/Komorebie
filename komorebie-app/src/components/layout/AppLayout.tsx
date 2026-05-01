@@ -9,7 +9,6 @@ import {
   Calendar, SlidersHorizontal, Music, Eye, Image as ImageIcon,
   Trophy, MessageSquare, Share2, LifeBuoy, Clock, BarChart3, Loader2
 } from 'lucide-react';
-import { useZenClock } from '../../context/ZenClockContext';
 import { useAuth } from '../../context/AuthContext';
 import InitialLoader from '../ui/InitialLoader';
 
@@ -149,7 +148,6 @@ const SidebarSection = ({ label, isCollapsed, children }: { label: string, isCol
 };
 
 const AppLayout: React.FC = () => {
-  const { isActive } = useZenClock();
   const { user, loading: authLoading, signOut } = useAuth();
   const location = useLocation();
   const [currentTime, setCurrentTime] = useState(new Date());
