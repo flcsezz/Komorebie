@@ -163,7 +163,7 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         setTimeLeft((prev) => {
           const nextValue = prev - 1;
           
-          // Trigger alarm and completion state exactly when hitting 0
+          // Trigger alarm exactly when hitting 0
           if (nextValue === 0) {
             if (isPomodoroMode) {
               playTransitionSound();
@@ -171,17 +171,6 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               playAlarm();
             }
             setIsSessionComplete(true);
-            
-            // Log session as completed in Supabase
-            if (user) {
-              logFocusSession({
-                profile_id: user.id,
-                duration_seconds: duration * 60,
-                elapsed_seconds: duration * 60,
-                status: 'completed',
-                started_at: sessionStartTime || new Date().toISOString()
-              });
-            }
 
             // Automatically exit fullscreen when a session finishes
             if (document.fullscreenElement) {
@@ -199,21 +188,36 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [isActive, playAlarm, playTransitionSound, isPomodoroMode, user, duration, sessionStartTime]);
+  }, [isActive, playAlarm, playTransitionSound, isPomodoroMode, user, duration, sessionStartTime, pomodoroState]);
 
   const toggleTimer = async () => {
     if (isSessionComplete) {
-      setIsActive(false); // Stop the count-up
+      // User is stopping an already-completed session (Complete Session)
+      // This is where we log the final focus time, including any overtime
+      if (user && (!isPomodoroMode || pomodoroState === 'work')) {
+        const totalElapsedSeconds = duration * 60 + Math.abs(Math.min(0, timeLeft));
+        if (totalElapsedSeconds >= 300) {
+          logFocusSession({
+            user_id: user.id,
+            duration_seconds: duration * 60,
+            elapsed_seconds: totalElapsedSeconds,
+            status: 'completed',
+            started_at: sessionStartTime || new Date().toISOString()
+          });
+        }
+      }
+
+      setIsActive(false); 
       completeSession();
       return;
     }
 
     if (isActive) {
-      // Manual stop - log as abandoned if significant time elapsed (e.g. > 30s)
+      // Manual stop before completion - log as abandoned ONLY if significant time elapsed (>= 5 mins)
       const elapsed = duration * 60 - timeLeft;
-      if (user && elapsed > 30) {
+      if (user && elapsed >= 300 && (!isPomodoroMode || pomodoroState === 'work')) {
         logFocusSession({
-          profile_id: user.id,
+          user_id: user.id,
           duration_seconds: duration * 60,
           elapsed_seconds: elapsed,
           status: 'abandoned',

@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { useAnalytics } from '../hooks/useAnalytics';
 import GlassCard from '../components/ui/GlassCard';
+import { motion } from 'framer-motion';
 import { 
   Flame, 
   CheckCircle2, 
@@ -11,25 +12,33 @@ import {
 } from 'lucide-react';
 
 const FlowAnalytics: React.FC = () => {
-  const [timeRange, setTimeRange] = useState<'day' | 'week' | 'month' | 'year'>('week');
-  const { stats, streaks } = useAnalytics();
+  const { stats, streakDates } = useAnalytics();
 
   // Map streaks to garden grid (49 cells = 7 weeks)
   const gardenData = useMemo(() => {
-    const data = Array.from({ length: 49 }).map((_, i) => {
+    return Array.from({ length: 49 }).map((_, i) => {
       const date = new Date();
       date.setDate(date.getDate() - (48 - i));
       const dateStr = date.toISOString().split('T')[0];
-      const streakEntry = streaks.find((s: any) => s.focus_date === dateStr);
+      const entry = streakDates.get(dateStr);
       
-      // Calculate opacity based on focus time (max 4 hours = 14400s)
-      const focusTime = streakEntry ? streakEntry.total_focus_seconds : 0;
+      const focusTime = entry ? entry.seconds : 0;
       const opacity = focusTime === 0 ? 0.05 : Math.min(0.15 + (focusTime / 14400) * 0.85, 1);
       
       return { dateStr, opacity, active: focusTime > 0 };
     });
-    return data;
-  }, [streaks]);
+  }, [streakDates]);
+
+  // Weekly distribution data for bar chart
+  const weeklyBarData = useMemo(() => {
+    return stats.weeklyData.map(d => ({
+      ...d,
+      hours: Math.round((d.seconds / 3600) * 10) / 10,
+      percent: Math.max(d.seconds > 0 ? 8 : 3, (d.seconds / Math.max(...stats.weeklyData.map(w => w.seconds), 1)) * 100),
+    }));
+  }, [stats.weeklyData]);
+
+  const totalHoursFormatted = stats.totalHours >= 1 ? `${stats.totalHours}h` : `${stats.totalMinutes}m`;
 
   return (
     <div className="min-h-screen pt-12 pb-20 px-6 max-w-7xl mx-auto">
@@ -47,22 +56,6 @@ const FlowAnalytics: React.FC = () => {
             Flow <span className="text-white/40">Analytics</span>
           </h1>
         </div>
-
-        <div className="flex bg-white/5 p-1 rounded-2xl border border-white/10 backdrop-blur-xl">
-          {(['day', 'week', 'month', 'year'] as const).map((range) => (
-            <button
-              key={range}
-              onClick={() => setTimeRange(range)}
-              className={`px-6 py-2 rounded-xl text-[10px] uppercase tracking-[0.2em] transition-all duration-500 ${
-                timeRange === range 
-                ? 'bg-sage-200/10 text-sage-200 shadow-lg' 
-                : 'text-white/30 hover:text-white/60'
-              }`}
-            >
-              {range}
-            </button>
-          ))}
-        </div>
       </header>
 
       {/* Main Stats Grid */}
@@ -70,17 +63,17 @@ const FlowAnalytics: React.FC = () => {
         <StatCard 
           icon={Clock} 
           label="Focus Time" 
-          value={`${stats.totalHours}h`} 
+          value={totalHoursFormatted} 
           subValue={`${stats.weekHours}h this week`} 
-          trend={stats.totalHours > 0 ? "+100%" : "0%"} 
+          trend={stats.totalHours > 0 ? `${stats.sessionsToday} today` : "Start a session"} 
           color="sage"
         />
         <StatCard 
           icon={Flame} 
           label="Current Streak" 
-          value={`${stats.currentStreak} Days`} 
-          subValue="Keep the fire alive" 
-          trend="Consistency" 
+          value={`${stats.currentStreak}`} 
+          subValue={`Best: ${stats.bestStreak} days`} 
+          trend={stats.currentStreak > 0 ? "🔥 Active" : "Inactive"} 
           color="amber"
         />
         <StatCard 
@@ -102,32 +95,49 @@ const FlowAnalytics: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Large Stats View */}
+        {/* Weekly Distribution */}
         <div className="lg:col-span-2">
           <GlassCard className="p-8 h-[450px] flex flex-col">
-            <div className="flex items-center justify-between mb-12">
+            <div className="flex items-center justify-between mb-8">
               <div>
-                <h3 className="text-xl font-display font-light text-white/80">Growth Summary</h3>
-                <p className="text-xs text-white/30 tracking-widest uppercase mt-1">Deep work distribution</p>
+                <h3 className="text-xl font-display font-light text-white/80">Weekly Focus</h3>
+                <p className="text-xs text-white/30 tracking-widest uppercase mt-1">This week's distribution</p>
               </div>
               <TrendingUp className="w-5 h-5 text-sage-200/40" />
             </div>
 
-            <div className="flex-1 flex items-center justify-center">
-              <div className="text-center">
-                <div className="text-6xl font-display font-light text-white mb-4">84%</div>
-                <div className="text-[10px] uppercase tracking-[0.3em] text-sage-200/40 font-bold">Flow Efficiency</div>
-              </div>
+            {/* Bar Chart */}
+            <div className="flex-1 flex items-end gap-3 px-4">
+              {weeklyBarData.map((d, i) => {
+                const isToday = i === weeklyBarData.length - 1;
+                return (
+                  <div key={d.date} className="flex-1 flex flex-col items-center gap-2 h-full justify-end group/bar relative">
+                    <div className="absolute -top-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-slate-900/95 border border-white/10 text-[9px] text-white/70 rounded-lg opacity-0 group-hover/bar:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-20">
+                      {d.hours}h
+                    </div>
+                    <motion.div
+                      initial={{ height: 0 }}
+                      animate={{ height: `${d.percent}%` }}
+                      transition={{ duration: 0.8, delay: 0.3 + i * 0.08, ease: [0.16, 1, 0.3, 1] }}
+                      className={`w-full max-w-[60px] rounded-t-lg transition-colors ${
+                        isToday ? 'bg-sage-200/50 shadow-[0_0_12px_rgba(183,201,176,0.2)]' 
+                        : d.seconds > 0 ? 'bg-white/15 hover:bg-white/25' : 'bg-white/5'
+                      }`}
+                    />
+                  </div>
+                );
+              })}
             </div>
 
-            <div className="flex justify-between mt-8 text-[10px] uppercase tracking-[0.2em] text-white/20 font-bold px-2">
-              <span>Mon</span>
-              <span>Tue</span>
-              <span>Wed</span>
-              <span>Thu</span>
-              <span>Fri</span>
-              <span>Sat</span>
-              <span>Sun</span>
+            <div className="flex justify-between mt-4 px-4">
+              {weeklyBarData.map((d, i) => {
+                const isToday = i === weeklyBarData.length - 1;
+                return (
+                  <div key={`label-${d.date}`} className={`flex-1 text-center text-[11px] font-semibold tracking-wide ${isToday ? 'text-sage-200/60' : 'text-white/30'}`}>
+                    {d.day}
+                  </div>
+                );
+              })}
             </div>
           </GlassCard>
         </div>
@@ -137,14 +147,14 @@ const FlowAnalytics: React.FC = () => {
           <GlassCard className="p-8 h-full flex flex-col">
             <div className="mb-8">
               <h3 className="text-xl font-display font-light text-white/80">Focus Garden</h3>
-              <p className="text-xs text-white/30 tracking-widest uppercase mt-1">Annual consistency</p>
+              <p className="text-xs text-white/30 tracking-widest uppercase mt-1">Last 7 weeks</p>
             </div>
             
             <div className="grid grid-cols-7 gap-2 flex-1">
               {gardenData.map((day) => (
                 <div
                   key={day.dateStr}
-                  className={`aspect-square rounded-sm transition-colors duration-500 hover:bg-white relative group/day ${day.active ? 'bg-sage-200' : 'bg-white/10'}`}
+                  className={`aspect-square rounded-sm transition-colors duration-500 hover:ring-1 hover:ring-white/20 relative group/day ${day.active ? 'bg-sage-200' : 'bg-white/10'}`}
                   style={{ opacity: day.opacity }}
                 >
                   <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900 text-[8px] text-white rounded opacity-0 group-hover/day:opacity-100 whitespace-nowrap pointer-events-none z-50">
@@ -199,7 +209,7 @@ const StatCard = ({ icon: Icon, label, value, subValue, trend, color }: StatCard
         <div className="text-3xl font-display font-light text-white mb-2">{value}</div>
         <div className="flex items-center justify-between">
           <span className="text-[10px] text-white/20 uppercase tracking-widest">{subValue}</span>
-          <span className={`text-[10px] font-bold ${trend.startsWith('+') ? 'text-sage-200/60' : 'text-white/40'}`}>
+          <span className={`text-[10px] font-bold ${trend.includes('🔥') || trend.includes('today') ? 'text-sage-200/60' : 'text-white/40'}`}>
             {trend}
           </span>
         </div>
