@@ -10,7 +10,65 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=Manrope:wght@200;300;400;500&display=swap" rel="stylesheet">
   </head>
   <body class="bg-slate-950">
-    <div id="root"></div>
+    <div id="root">
+      <style>
+        .zen-initial-loader {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          min-height: 100vh;
+          background-color: #020617;
+          margin: 0;
+          font-family: system-ui, -apple-system, sans-serif;
+        }
+        .zen-core-pulse {
+          position: relative;
+          width: 16px;
+          height: 16px;
+          background-color: #E2E8F0;
+          border-radius: 50%;
+          box-shadow: 0 0 20px rgba(183, 201, 176, 0.4);
+          animation: pulse-core 2s ease-in-out infinite;
+        }
+        .zen-soft-glow {
+          position: absolute;
+          width: 60px;
+          height: 60px;
+          background-color: rgba(183, 201, 176, 0.2);
+          filter: blur(24px);
+          border-radius: 50%;
+          animation: pulse-glow 4s ease-in-out infinite;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+        }
+        @keyframes pulse-core {
+          0%, 100% { transform: scale(0.8); opacity: 0.3; }
+          50% { transform: scale(1.2); opacity: 0.6; }
+        }
+        @keyframes pulse-glow {
+          0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.1; }
+          50% { transform: translate(-50%, -50%) scale(1.5); opacity: 0.3; }
+        }
+        .zen-text {
+          margin-top: 32px;
+          font-size: 10px;
+          text-transform: uppercase;
+          letter-spacing: 0.5em;
+          color: rgba(255, 255, 255, 0.2);
+          font-weight: 300;
+          margin-left: 0.5em;
+        }
+      </style>
+      <div class="zen-initial-loader">
+        <div style="position: relative; display: flex; align-items: center; justify-content: center;">
+          <div class="zen-soft-glow"></div>
+          <div class="zen-core-pulse"></div>
+        </div>
+        <div class="zen-text">ENTERING THE SANCTUARY...</div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

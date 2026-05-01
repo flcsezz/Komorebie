@@ -38,16 +38,19 @@ const GlassCard: React.FC<GlassCardProps> = ({
   ...props
 }) => {
   const variantClasses = {
-    default: 'glass transform-gpu',
-    hero: 'glass-hero transform-gpu',
-    minimalist: 'glass transform-gpu',
-    icy: 'glass-icy transform-gpu',
-    frosted: 'glass-frosted transform-gpu'
+    default: 'bg-black/20 backdrop-blur-[12px] border border-white/5 transform-gpu',
+    hero: 'bg-black/20 backdrop-blur-[12px] border border-white/5 transform-gpu',
+    minimalist: 'bg-black/20 backdrop-blur-[12px] border border-white/5 transform-gpu',
+    icy: 'bg-black/20 backdrop-blur-[12px] border border-white/5 transform-gpu',
+    frosted: 'bg-black/20 backdrop-blur-[12px] border border-white/5 transform-gpu'
   };
 
   return (
     <motion.div 
       variants={animateCard ? cardVariants : undefined}
+      initial={animateCard ? "hidden" : undefined}
+      whileInView={animateCard ? "show" : undefined}
+      viewport={{ once: true, margin: "-20px" }}
       className={cn(
         variantClasses[variant],
         "rounded-3xl",
