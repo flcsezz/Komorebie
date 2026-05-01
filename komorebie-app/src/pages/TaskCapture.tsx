@@ -5,11 +5,15 @@ import {
 import { motion, type Variants } from 'framer-motion';
 import GlassCard from '../components/ui/GlassCard';
 import DashboardStats from '../components/dashboard/DashboardStats';
+import StreakWidget from '../components/dashboard/StreakWidget';
 import SoundscapeSelector from '../components/dashboard/SoundscapeSelector';
 import ThePathWidget from '../components/dashboard/ThePathWidget';
 import ZenClock from '../components/dashboard/ZenClock';
+import { useAnalytics } from '../hooks/useAnalytics';
 
 const TaskCapture: React.FC = () => {
+  const { stats, streaks } = useAnalytics();
+  
   const containerVariants: Variants = {
     hidden: { opacity: 0, y: 15 },
     show: {
@@ -45,6 +49,7 @@ const TaskCapture: React.FC = () => {
         {/* Left Column: Sanctuary Status (3 cols) */}
         <motion.div layout variants={itemVariants} className="lg:col-span-3 flex flex-col gap-6">
           <DashboardStats />
+          <StreakWidget streak={stats.currentStreak} bestStreak={streaks.length > 0 ? streaks.length : 0} />
         </motion.div>
  
         {/* Center Column: The Altar (6 cols) */}

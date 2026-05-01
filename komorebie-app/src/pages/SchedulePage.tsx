@@ -5,6 +5,9 @@ import { ChevronLeft, ChevronRight, Plus, Clock, X, Trash2 } from 'lucide-react'
 import GlassCard from '../components/ui/GlassCard';
 import ZenSelect from '../components/ui/ZenSelect';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../context/AuthContext';
+import { Loader2 } from 'lucide-react';
 
 // --- Types ---
 type EventColor = 'blue' | 'sage' | 'rose' | 'amber' | 'slate';
@@ -19,12 +22,7 @@ interface ScheduleEvent {
   color: EventColor;
 }
 
-// --- Mock Data ---
-const initialEvents: ScheduleEvent[] = [
-  { id: '1', title: 'Deep Work Session', date: format(new Date(), 'yyyy-MM-dd'), startTime: '09:00', endTime: '11:00', color: 'sage' },
-  { id: '2', title: 'Review PRs', date: format(new Date(), 'yyyy-MM-dd'), startTime: '13:00', endTime: '14:30', color: 'blue' },
-  { id: '3', title: 'Planning', date: format(addDays(new Date(), 1), 'yyyy-MM-dd'), startTime: '10:00', endTime: '11:30', color: 'amber' },
-];
+// No hardcoded events
 
 const COLORS: Record<EventColor, { bg: string, border: string, text: string }> = {
   blue: { bg: 'bg-blue-500/20', border: 'border-blue-500/30', text: 'text-blue-200' },
@@ -108,9 +106,42 @@ const eventVariants: Variants = {
 };
 
 export default function SchedulePage() {
+  const { user } = useAuth();
   const [view, setView] = useState<'week' | 'day'>('week');
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [events, setEvents] = useState<ScheduleEvent[]>(initialEvents);
+  const [events, setEvents] = useState<ScheduleEvent[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  
+  // Fetch events from Supabase
+  const fetchEvents = React.useCallback(async () => {
+    if (!user) return;
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('events')
+      .select('*')
+      .eq('user_id', user.id);
+
+    if (error) {
+      console.error('Error fetching events:', error);
+    } else if (data) {
+      const mapped: ScheduleEvent[] = data.map(e => ({
+        id: e.id,
+        title: e.title,
+        notes: e.notes,
+        date: e.date,
+        startTime: e.start_time,
+        endTime: e.end_time,
+        color: e.color as EventColor
+      }));
+      setEvents(mapped);
+    }
+    setLoading(false);
+  }, [user]);
+
+  useEffect(() => {
+    fetchEvents();
+  }, [fetchEvents]);
   
   // Modals and Drawers
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -147,18 +178,61 @@ export default function SchedulePage() {
   const handleNext = () => setCurrentDate(prev => addDays(prev, view === 'week' ? 7 : 1));
   const handleToday = () => setCurrentDate(new Date());
 
-  const handleSaveEvent = (event: ScheduleEvent) => {
-    if (events.find(e => e.id === event.id)) {
-      setEvents(events.map(e => e.id === event.id ? event : e));
+  const handleSaveEvent = async (event: ScheduleEvent) => {
+    if (!user) return;
+    setSyncing(true);
+
+    const eventData = {
+      user_id: user.id,
+      title: event.title,
+      notes: event.notes,
+      date: event.date,
+      start_time: event.startTime,
+      end_time: event.endTime,
+      color: event.color
+    };
+
+    const isExisting = events.some(e => e.id === event.id);
+    
+    if (isExisting) {
+      // Update
+      const { error } = await supabase
+        .from('events')
+        .update(eventData)
+        .eq('id', event.id);
+      
+      if (!error) {
+        setEvents(events.map(e => e.id === event.id ? event : e));
+      }
     } else {
-      setEvents([...events, event]);
+      // Insert
+      const { data, error } = await supabase
+        .from('events')
+        .insert([eventData])
+        .select()
+        .single();
+      
+      if (data && !error) {
+        setEvents([...events, { ...event, id: data.id }]);
+      }
     }
+
+    setSyncing(false);
     setIsModalOpen(false);
     setEditingEvent(null);
   };
 
-  const handleDeleteEvent = (id: string) => {
-    setEvents(events.filter(e => e.id !== id));
+  const handleDeleteEvent = async (id: string) => {
+    setSyncing(true);
+    const { error } = await supabase
+      .from('events')
+      .delete()
+      .eq('id', id);
+
+    if (!error) {
+      setEvents(events.filter(e => e.id !== id));
+    }
+    setSyncing(false);
     setIsModalOpen(false);
     setEditingEvent(null);
   };
@@ -217,9 +291,24 @@ export default function SchedulePage() {
     }));
   };
 
-  const handlePointerUp = (e: React.PointerEvent) => {
+  const handlePointerUp = async (e: React.PointerEvent) => {
     if (dragState) {
       e.currentTarget.releasePointerCapture(e.pointerId);
+      
+      // Sync the changed event to Supabase
+      const changedEvent = events.find(ev => ev.id === dragState.id);
+      if (changedEvent && user) {
+        setSyncing(true);
+        await supabase
+          .from('events')
+          .update({
+            start_time: changedEvent.startTime,
+            end_time: changedEvent.endTime
+          })
+          .eq('id', changedEvent.id);
+        setSyncing(false);
+      }
+      
       setDragState(null);
     }
   };
@@ -262,7 +351,8 @@ export default function SchedulePage() {
         </div>
 
         <div className="flex items-center gap-4">
-          <div className="flex bg-white/5 p-1 rounded-xl backdrop-blur-md border border-white/10">
+          <div className="flex bg-white/5 p-1 rounded-xl backdrop-blur-md border border-white/10 items-center gap-2">
+            {syncing && <Loader2 className="w-3.5 h-3.5 text-sage-200 animate-spin ml-2" />}
             <button 
               onClick={() => setView('day')}
               className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-colors ${view === 'day' ? 'bg-white/20 text-white shadow-sm' : 'text-white/60 hover:text-white'}`}

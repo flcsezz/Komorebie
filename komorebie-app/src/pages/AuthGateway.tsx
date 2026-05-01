@@ -30,8 +30,9 @@ const AuthGateway: React.FC = () => {
         return;
       }
       navigate('/app');
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      const error = err as Error;
+      setError(error.message);
     } finally {
       setLoading(false);
     }
@@ -46,8 +47,9 @@ const AuthGateway: React.FC = () => {
         }
       });
       if (error) throw error;
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      const error = err as Error;
+      setError(error.message);
     }
   };
 

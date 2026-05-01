@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { type LucideIcon, Flame, Zap, Target, TrendingUp } from 'lucide-react';
 import GlassCard from '../ui/GlassCard';
+import { useAnalytics } from '../../hooks/useAnalytics';
 
 interface StatItemProps {
   icon: LucideIcon;
@@ -30,6 +31,26 @@ const itemVariants = {
 };
 
 const DashboardStats: React.FC = () => {
+  const { stats, streaks } = useAnalytics();
+
+  // Last 7 days focus rhythm data
+  const rhythmData = React.useMemo(() => {
+    return Array.from({ length: 7 }).map((_, i) => {
+      const date = new Date();
+      date.setDate(date.getDate() - (6 - i));
+      const dateStr = date.toISOString().split('T')[0];
+      const entry = streaks.find((s: any) => s.focus_date === dateStr);
+      // Scale: 4 hours (14400s) = 100%
+      return entry ? Math.min((entry.total_focus_seconds / 14400) * 100, 100) : 5;
+    });
+  }, [streaks]);
+
+  const todayFocusSeconds = streaks.length > 0 && streaks[0].focus_date === new Date().toISOString().split('T')[0] 
+    ? streaks[0].total_focus_seconds 
+    : 0;
+  
+  const todayFocusFormatted = `${Math.floor(todayFocusSeconds / 3600)}h ${Math.floor((todayFocusSeconds % 3600) / 60)}m`;
+
   return (
     <motion.div variants={itemVariants} className="flex flex-col gap-5">
       {/* Streak & Mana Quick View */}
@@ -40,7 +61,7 @@ const DashboardStats: React.FC = () => {
           <StatItem 
             icon={Flame} 
             label="Current Streak" 
-            value={12} 
+            value={stats.currentStreak} 
             subValue="Days" 
             color="text-orange-400/60" 
           />
@@ -48,7 +69,7 @@ const DashboardStats: React.FC = () => {
           <StatItem 
             icon={Zap} 
             label="Sanctuary Mana" 
-            value={1420} 
+            value={stats.mana} 
             subValue="Available" 
             color="text-sage-200" 
           />
@@ -70,20 +91,20 @@ const DashboardStats: React.FC = () => {
             <div className="space-y-4">
               <div className="flex justify-between items-end">
                 <span className="text-[10px] text-white/40 font-light">Today's Focus</span>
-                <span className="text-lg font-display font-light">4h 20m</span>
+                <span className="text-lg font-display font-light">{todayFocusFormatted}</span>
               </div>
               <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
                 <motion.div 
                   initial={{ width: 0 }}
-                  animate={{ width: '75%' }}
+                  animate={{ width: `${Math.min((todayFocusSeconds / 14400) * 100, 100)}%` }}
                   transition={{ duration: 1.5, ease: [0.16, 1, 0.3, 1] as const }}
                   className="h-full bg-sage-200/40 rounded-full shadow-[0_0_10px_rgba(183,201,176,0.3)]"
                 />
               </div>
             </div>
-
+ 
             <div className="grid grid-cols-7 gap-1 items-end h-16 mt-8">
-              {[30, 45, 20, 80, 60, 40, 90].map((h, i) => (
+              {rhythmData.map((h, i) => (
                 <motion.div
                   key={i}
                   initial={{ height: 0 }}

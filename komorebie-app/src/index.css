@@ -14,6 +14,20 @@
   --animate-slow-spin: slow-spin 30s linear infinite;
   --animate-slow-spin-reverse: slow-spin-reverse 40s linear infinite;
   --animate-shimmer: shimmer 2s linear infinite;
+  --animate-pulse-glow: pulse-glow 3s ease-in-out infinite;
+
+  @keyframes pulse-glow {
+    0%, 100% { 
+      filter: drop-shadow(0 0 10px var(--glow-color, rgba(183, 201, 176, 0.5))) 
+              drop-shadow(0 0 20px var(--glow-color, rgba(183, 201, 176, 0.2)));
+      opacity: 0.8;
+    }
+    50% { 
+      filter: drop-shadow(0 0 25px var(--glow-color, rgba(183, 201, 176, 0.8))) 
+              drop-shadow(0 0 45px var(--glow-color, rgba(183, 201, 176, 0.4)));
+      opacity: 1;
+    }
+  }
 
   @keyframes breath {
     0%, 100% { opacity: 0.4; transform: scale(1); }

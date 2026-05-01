@@ -21,9 +21,11 @@ import {
   sortableKeyboardCoordinates, 
   verticalListSortingStrategy 
 } from '@dnd-kit/sortable';
-import { Plus, BookOpen, ChevronDown } from 'lucide-react';
+import { Plus, BookOpen, ChevronDown, Loader2 } from 'lucide-react';
 import GlassCard from '../ui/GlassCard';
 import TaskItem, { type Task, type TaskStatus } from './TaskItem';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../context/AuthContext';
 
 const DroppableArea: React.FC<{ id: string; children: React.ReactNode; className?: string; isOver?: boolean }> = ({ id, children, className, isOver }) => {
   const { setNodeRef, isOver: droppableIsOver } = useDroppable({ id });
@@ -40,19 +42,44 @@ const DroppableArea: React.FC<{ id: string; children: React.ReactNode; className
 };
 
 const ThePathWidget: React.FC = () => {
-  const [tasks, setTasks] = useState<Task[]>(() => {
-    const saved = localStorage.getItem('zen-tasks');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const { user } = useAuth();
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [overContainerId, setOverContainerId] = useState<string | null>(null);
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [isAdding, setIsAdding] = useState(false);
 
-  // Persistence
+  // Fetch tasks from Supabase
+  const fetchTasks = useCallback(async () => {
+    if (!user) return;
+    
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('tasks')
+      .select('*')
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching tasks:', error);
+    } else if (data) {
+      // Map Supabase fields to our local Task type
+      const mappedTasks: Task[] = data.map(t => ({
+        id: t.id,
+        title: t.title,
+        category: t.category || 'General',
+        status: t.status as TaskStatus,
+        isCompleted: t.is_completed
+      }));
+      setTasks(mappedTasks);
+    }
+    setLoading(false);
+  }, [user]);
+
   React.useEffect(() => {
-    localStorage.setItem('zen-tasks', JSON.stringify(tasks));
-  }, [tasks]);
+    fetchTasks();
+  }, [fetchTasks]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -72,43 +99,114 @@ const ThePathWidget: React.FC = () => {
     return task?.status ?? null;
   }, [tasks]);
 
-  const handleAddTask = (e: React.FormEvent) => {
+  const handleAddTask = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newTaskTitle.trim()) {
+    if (!newTaskTitle.trim() || !user) {
       setIsAdding(false);
       return;
     }
-    const newTask: Task = {
-      id: Date.now().toString(),
-      title: newTaskTitle.trim(),
-      category: 'General',
-      status: 'todo',
-      isCompleted: false
-    };
-    setTasks([newTask, ...tasks]);
+
+    const title = newTaskTitle.trim();
     setNewTaskTitle('');
     setIsAdding(false);
+
+    const { data, error } = await supabase
+      .from('tasks')
+      .insert([
+        { 
+          user_id: user.id,
+          title, 
+          status: 'todo',
+          category: 'General',
+          sort_order: 0 // New tasks go to top
+        }
+      ])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error adding task:', error);
+    } else if (data) {
+      const newTask: Task = {
+        id: data.id,
+        title: data.title,
+        category: data.category || 'General',
+        status: data.status as TaskStatus,
+        isCompleted: data.is_completed
+      };
+      setTasks([newTask, ...tasks]);
+    }
   };
 
-  const handleToggle = (id: string) => {
-    setTasks(tasks.map(t => t.id === id ? { ...t, isCompleted: !t.isCompleted } : t));
+  const handleToggle = async (id: string) => {
+    const task = tasks.find(t => t.id === id);
+    if (!task) return;
+
+    const nextState = !task.isCompleted;
+    
+    // Optimistic update
+    setTasks(tasks.map(t => t.id === id ? { ...t, isCompleted: nextState } : t));
+
+    const { error } = await supabase
+      .from('tasks')
+      .update({ is_completed: nextState })
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error toggling task:', error);
+      // Rollback on error
+      setTasks(tasks.map(t => t.id === id ? { ...t, isCompleted: !nextState } : t));
+    }
   };
 
-  const handleEdit = (id: string, newTitle: string) => {
+  const handleEdit = async (id: string, newTitle: string) => {
+    // Optimistic update
     setTasks(tasks.map(t => t.id === id ? { ...t, title: newTitle } : t));
+
+    const { error } = await supabase
+      .from('tasks')
+      .update({ title: newTitle })
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error updating task:', error);
+      fetchTasks(); // Refresh on error
+    }
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
+    // Optimistic update
     setTasks(tasks.filter(t => t.id !== id));
+
+    const { error } = await supabase
+      .from('tasks')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error deleting task:', error);
+      fetchTasks();
+    }
   };
 
-  const handleMove = (id: string) => {
-    setTasks(tasks.map(t => {
-      if (t.id === id) {
-        return { ...t, status: t.status === 'todo' ? 'in-progress' : 'todo' };
-      }
-      return t;
-    }));
+  const handleMove = async (id: string) => {
+    const task = tasks.find(t => t.id === id);
+    if (!task) return;
+
+    const nextStatus: TaskStatus = task.status === 'todo' ? 'in-progress' : 'todo';
+    
+    // Optimistic update
+    setTasks(tasks.map(t => t.id === id ? { ...t, status: nextStatus } : t));
+
+    const { error } = await supabase
+      .from('tasks')
+      .update({ status: nextStatus })
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error moving task:', error);
+      fetchTasks();
+    }
   };
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -183,7 +281,7 @@ const ThePathWidget: React.FC = () => {
     });
   };
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveId(null);
     setOverContainerId(null);
@@ -195,28 +293,50 @@ const ThePathWidget: React.FC = () => {
 
     if (!activeContainer || !overContainer) return;
 
+    let newTasks = [...tasks];
+
     // Same container reorder
     if (activeContainer === overContainer) {
-      setTasks((prev) => {
-        const containerItems = prev.filter(t => t.status === activeContainer);
+      const containerItems = tasks.filter(t => t.status === activeContainer);
+      const oldIndex = containerItems.findIndex(t => t.id === active.id);
+      const newIndex = containerItems.findIndex(t => t.id === over.id);
 
-        const oldIndex = containerItems.findIndex(t => t.id === active.id);
-        const newIndex = containerItems.findIndex(t => t.id === over.id);
-
-        if (oldIndex === -1 || newIndex === -1) return prev;
-        if (oldIndex === newIndex) return prev;
-
+      if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
         const reordered = arrayMove(containerItems, oldIndex, newIndex);
-
-        // Rebuild preserving section order
-        const inProgressItems = activeContainer === 'in-progress' ? reordered : prev.filter(t => t.status === 'in-progress');
-        const todoItems = activeContainer === 'todo' ? reordered : prev.filter(t => t.status === 'todo');
-        const rest = prev.filter(t => t.status !== 'in-progress' && t.status !== 'todo');
-        
-        return [...inProgressItems, ...todoItems, ...rest];
-      });
+        const inProgressItems = activeContainer === 'in-progress' ? reordered : tasks.filter(t => t.status === 'in-progress');
+        const todoItems = activeContainer === 'todo' ? reordered : tasks.filter(t => t.status === 'todo');
+        const rest = tasks.filter(t => t.status !== 'in-progress' && t.status !== 'todo');
+        newTasks = [...inProgressItems, ...todoItems, ...rest];
+        setTasks(newTasks);
+      }
+    } else {
+      // Cross-container move is already visually handled in DragOver state
+      // but let's ensure the final state is captured
+      const movedTask = tasks.find(t => t.id === active.id);
+      if (movedTask) {
+        newTasks = tasks.map(t => t.id === active.id ? { ...t, status: overContainer } : t);
+        setTasks(newTasks);
+      }
     }
-    // Cross-container move is already handled in handleDragOver
+
+    // Sync all affected tasks with their new sort order/status
+    // In a production app, we'd use a single 'upsert' or a stored procedure for efficiency
+    const updates = newTasks.map((t, index) => ({
+      id: t.id,
+      user_id: user?.id,
+      title: t.title,
+      status: t.status,
+      sort_order: index,
+      is_completed: t.isCompleted
+    }));
+
+    const { error } = await supabase
+      .from('tasks')
+      .upsert(updates);
+
+    if (error) {
+      console.error('Error syncing task order:', error);
+    }
   };
 
   // Custom collision detection: prefer droppable containers when not directly over a task
@@ -237,6 +357,7 @@ const ThePathWidget: React.FC = () => {
       <div className="flex justify-between items-center mb-6">
         <div className="px-4 py-1.5 bg-white/5 border border-white/10 rounded-full text-[10px] font-bold uppercase tracking-widest text-white/40">TASKS</div>
         <div className="flex items-center gap-3">
+          {loading && <Loader2 className="w-3.5 h-3.5 text-sage-200 animate-spin" />}
           <button 
             onClick={() => setIsAdding(true)}
             className="w-6 h-6 flex items-center justify-center rounded-full bg-sage-200/10 text-sage-200 hover:bg-sage-200/20 transition-all cursor-pointer"

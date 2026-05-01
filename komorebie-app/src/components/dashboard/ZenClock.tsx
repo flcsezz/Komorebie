@@ -1,6 +1,15 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform, animate } from 'framer-motion';
+import { Music, Check, Volume2 } from 'lucide-react';
 import { useZenClock } from '../../context/ZenClockContext';
+
+const ALARM_PRESETS = [
+  { id: 'none', name: 'No Alarm', url: 'none' },
+  { id: 'zen-bell', name: 'Zen Bell', url: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3' },
+  { id: 'digital', name: 'Digital', url: 'https://assets.mixkit.co/active_storage/sfx/1003/1003-preview.mp3' },
+  { id: 'birds', name: 'Birds', url: 'https://assets.mixkit.co/active_storage/sfx/134/134-preview.mp3' },
+  { id: 'bowl', name: 'Tibetan Bowl', url: 'https://assets.mixkit.co/active_storage/sfx/2865/2865-preview.mp3' },
+];
 
 const ZenClock: React.FC = () => {
   const {
@@ -10,10 +19,34 @@ const ZenClock: React.FC = () => {
     isPomodoroMode,
     pomodoroState,
     pomodoroCycle,
+    selectedAlarm,
+    isSessionComplete,
     toggleTimer,
     setDuration,
-    setIsPomodoroMode
+    setIsPomodoroMode,
+    setSelectedAlarm,
+    completeSession,
+    skipBreak
   } = useZenClock();
+
+  const [showAlarms, setShowAlarms] = useState(false);
+  const alarmMenuRef = useRef<HTMLDivElement>(null);
+
+  // Click outside listener
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (alarmMenuRef.current && !alarmMenuRef.current.contains(event.target as Node)) {
+        setShowAlarms(false);
+      }
+    };
+
+    if (showAlarms) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showAlarms]);
 
   // Motion values for smooth counting
   const displayDuration = useMotionValue(duration);
@@ -29,14 +62,22 @@ const ZenClock: React.FC = () => {
   }, [duration, displayDuration]);
 
   const handleIncrement = () => {
-    if (!isActive && !isPomodoroMode) {
-      setDuration(Math.min(duration + 5, 240));
+    if (!isActive && !isPomodoroMode && !isSessionComplete) {
+      if (duration < 5) {
+        setDuration(5);
+      } else {
+        setDuration(Math.min(duration + 5, 240));
+      }
     }
   };
 
   const handleDecrement = () => {
-    if (!isActive && !isPomodoroMode) {
-      setDuration(Math.max(duration - 5, 5));
+    if (!isActive && !isPomodoroMode && !isSessionComplete) {
+      if (duration > 5) {
+        setDuration(duration - 5);
+      } else if (duration > 0.2) { // approx 5 mins
+        setDuration(10 / 60);
+      }
     }
   };
 
@@ -46,12 +87,14 @@ const ZenClock: React.FC = () => {
   const dotsToLight = Math.floor(progress * 60);
 
   const formatTime = () => {
-    const mins = Math.floor(timeLeft / 60);
-    const secs = timeLeft % 60;
+    const absSeconds = Math.abs(timeLeft);
+    const mins = Math.floor(absSeconds / 60);
+    const secs = absSeconds % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
   const getThemeColor = () => {
+    if (isSessionComplete) return '#4ade80'; // Green
     if (!isPomodoroMode) return '#B7C9B0'; // sage-200
     if (pomodoroState === 'work') return '#ef4444'; // red-500
     return '#60a5fa'; // blue-400
@@ -64,8 +107,8 @@ const ZenClock: React.FC = () => {
    */
   const dots = Array.from({ length: 60 });
   const radius = 190; 
-  const centerX = 225; 
-  const centerY = 225;
+  const centerX = 250; 
+  const centerY = 250;
   const circumference = 2 * Math.PI * (radius + 15);
 
   return (
@@ -73,11 +116,11 @@ const ZenClock: React.FC = () => {
       layout
       className={`relative flex flex-col items-center justify-center w-full transition-all duration-700 ease-in-out ${
         isActive ? 'min-h-[580px]' : 'min-h-[480px]'
-      } group/clock overflow-hidden`}
+      } group/clock`}
     >
       {/* Pomodoro Top Tag */}
       <AnimatePresence mode="wait">
-        {isPomodoroMode && (
+        {isPomodoroMode && !isSessionComplete && (
           <motion.div
             key={pomodoroState}
             initial={{ opacity: 0, y: -10 }}
@@ -96,14 +139,14 @@ const ZenClock: React.FC = () => {
       <motion.div 
         layout
         className={`relative flex items-center justify-center transition-all duration-700 ${
-          isActive ? 'scale-110' : 'scale-100'
+          isActive || isSessionComplete ? 'scale-110' : 'scale-100'
         }`}
-        style={{ width: '450px', height: '450px' }}
+        style={{ width: '500px', height: '500px' }}
       >
         
         {/* Subtle Tomato Background in Pomodoro Mode */}
         <AnimatePresence>
-          {isPomodoroMode && (
+          {isPomodoroMode && !isSessionComplete && (
             <motion.div
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 0.04, scale: 1 }}
@@ -121,8 +164,8 @@ const ZenClock: React.FC = () => {
 
         {/* Progress Ring Configuration */}
         <svg 
-          viewBox="0 0 450 450" 
-          className="absolute inset-0 w-full h-full z-10"
+          viewBox="0 0 500 500" 
+          className="absolute inset-0 w-full h-full z-10 overflow-visible"
           style={{ transform: 'rotate(90deg) scaleX(-1)' }}
         >
           {/* Background Track */}
@@ -146,11 +189,16 @@ const ZenClock: React.FC = () => {
             strokeLinecap="round"
             strokeDasharray={circumference}
             initial={{ strokeDashoffset: circumference }}
-            animate={{ strokeDashoffset: circumference - (progress * circumference) }}
-            transition={{ duration: isActive ? 1.05 : 0.4, ease: isActive ? "linear" : "easeOut" }}
-            style={{
-              filter: `drop-shadow(0 0 8px ${themeColor}66)`
+            animate={{ 
+              strokeDashoffset: isSessionComplete ? 0 : circumference - (progress * circumference),
             }}
+            transition={{ 
+              strokeDashoffset: { duration: isActive && !isSessionComplete ? 1.05 : 0.4, ease: isActive ? "linear" : "easeOut" },
+            }}
+            className={isSessionComplete ? "animate-pulse-glow" : ""}
+            style={{
+              '--glow-color': isSessionComplete ? 'rgba(74, 222, 128, 0.6)' : (themeColor === '#B7C9B0' ? 'rgba(183, 201, 176, 0.6)' : `${themeColor}66`)
+            } as React.CSSProperties}
           />
 
           {/* Dot Matrix Ring */}
@@ -158,7 +206,7 @@ const ZenClock: React.FC = () => {
             const angle = (i * 6) * (Math.PI / 180);
             const x = centerX + radius * Math.cos(angle);
             const y = centerY + radius * Math.sin(angle);
-            const isLit = i < dotsToLight;
+            const isLit = i < dotsToLight || isSessionComplete;
             const isQuarter = i % 15 === 0;
             
             return (
@@ -188,7 +236,7 @@ const ZenClock: React.FC = () => {
               {/* Minus Button */}
               <div className="w-12 flex justify-end">
                 <AnimatePresence>
-                  {!isActive && !isPomodoroMode && (
+                  {!isActive && !isPomodoroMode && !isSessionComplete && duration > 0.2 && (
                     <motion.div 
                       initial={{ opacity: 0, x: 10 }}
                       animate={{ opacity: 1, x: 0 }}
@@ -209,21 +257,21 @@ const ZenClock: React.FC = () => {
               {/* Time Display */}
               <AnimatePresence mode="wait">
                 <motion.div 
-                  key={isActive ? 'active' : 'setup'}
+                  key={isActive || isSessionComplete || duration < 1 ? 'active' : 'setup'}
                   initial={{ opacity: 0, scale: 0.9, filter: 'blur(4px)' }}
                   animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
                   exit={{ opacity: 0, scale: 1.1, filter: 'blur(4px)' }}
                   transition={{ duration: 0.4, ease: "easeOut" }}
-                  className="text-7xl md:text-8xl font-bold tracking-tight text-white tabular-nums flex-shrink-0 min-w-[200px] md:min-w-[260px] text-center"
+                  className={`text-7xl md:text-8xl font-bold tracking-tight tabular-nums flex-shrink-0 min-w-[200px] md:min-w-[260px] text-center ${isSessionComplete ? 'text-green-400' : 'text-white'}`}
                 >
-                  {isActive ? formatTime() : <motion.span>{roundedDuration}</motion.span>}
+                  {isActive || isSessionComplete || duration < 1 ? formatTime() : <motion.span>{roundedDuration}</motion.span>}
                 </motion.div>
               </AnimatePresence>
 
               {/* Plus Button */}
               <div className="w-12 flex justify-start">
                 <AnimatePresence>
-                  {!isActive && !isPomodoroMode && (
+                  {!isActive && !isPomodoroMode && !isSessionComplete && duration < 240 && (
                     <motion.div 
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
@@ -245,42 +293,129 @@ const ZenClock: React.FC = () => {
             
             <motion.div 
               layout
-              className="text-[10px] font-mono uppercase tracking-[0.4em] text-white/30 mt-4"
+              className="text-[10px] font-mono uppercase tracking-[0.4em] text-white/30 mt-4 h-3 flex items-center justify-center"
             >
-              {isActive ? 'Remaining' : 'Minutes'}
+              {!isSessionComplete && (isActive ? 'Remaining' : 'Minutes')}
             </motion.div>
             
             {/* Start / Stop Toggle */}
-            <motion.button
-              layout
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={toggleTimer}
-              className={`mt-6 px-12 py-3.5 rounded-full border transition-all duration-500 cursor-pointer font-display font-bold text-[12px] uppercase tracking-[0.25em] ${
-                isActive 
-                  ? 'bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20 shadow-[0_0_30px_rgba(239,68,68,0.15)]' 
-                  : isPomodoroMode 
-                    ? pomodoroState === 'work' 
-                      ? 'bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20 shadow-[0_0_30px_rgba(239,68,68,0.15)]'
-                      : 'bg-blue-500/10 border-blue-500/20 text-blue-400 hover:bg-blue-500/20 shadow-[0_0_30px_rgba(59,130,246,0.15)]'
-                    : 'bg-sage-200/10 border-sage-200/20 text-sage-200 hover:bg-sage-200/20 shadow-[0_0_30px_rgba(183,201,176,0.15)]'
-              }`}
-            >
-              {isActive ? 'STOP' : 'START'}
-            </motion.button>
+            <div className="flex flex-col items-center gap-4 mt-6">
+              <motion.button
+                layout
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={isSessionComplete ? completeSession : toggleTimer}
+                className={`px-12 py-3.5 rounded-full border transition-all duration-500 cursor-pointer font-display font-bold text-[12px] uppercase tracking-[0.25em] ${
+                  isSessionComplete
+                    ? 'bg-green-500/20 border-green-500/40 text-green-400 animate-pulse-glow'
+                    : isActive 
+                      ? 'bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20 shadow-[0_0_30px_rgba(239,68,68,0.15)]' 
+                      : isPomodoroMode 
+                        ? pomodoroState === 'work' 
+                          ? 'bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20 shadow-[0_0_30px_rgba(239,68,68,0.15)]'
+                          : 'bg-blue-500/10 border-blue-500/20 text-blue-400 hover:bg-blue-500/20 shadow-[0_0_30px_rgba(59,130,246,0.15)]'
+                        : 'bg-sage-200/10 border-sage-200/20 text-sage-200 hover:bg-sage-200/20 shadow-[0_0_30px_rgba(183,201,176,0.15)]'
+                }`}
+                style={isSessionComplete ? {
+                  '--glow-color': 'rgba(74, 222, 128, 0.4)'
+                } as React.CSSProperties : {}}
+              >
+                {isSessionComplete ? 'COMPLETE SESSION' : isActive ? 'STOP' : 'START'}
+              </motion.button>
+
+              <AnimatePresence>
+                {isPomodoroMode && isActive && !isSessionComplete && (pomodoroState === 'shortBreak' || pomodoroState === 'longBreak') && (
+                  <motion.button
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 10 }}
+                    onClick={skipBreak}
+                    className="px-6 py-2 rounded-full border border-white/10 bg-white/5 text-[9px] font-bold uppercase tracking-[0.2em] text-white/40 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
+                  >
+                    Skip Break
+                  </motion.button>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         </div>
       </motion.div>
 
-      {/* Pomodoro Toggle */}
+      {/* Alarms and Pomodoro Toggle Section */}
       <AnimatePresence>
         {!isActive && (
           <motion.div 
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
-            className="absolute bottom-0 right-0 z-30"
+            className="absolute bottom-0 right-0 z-40 flex flex-col items-end gap-3"
+            ref={alarmMenuRef}
           >
+            {/* Alarm Selector Menu */}
+            <AnimatePresence>
+              {showAlarms && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9, y: 10 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.9, y: 10 }}
+                  className="glass rounded-2xl p-4 shadow-2xl min-w-[200px] mb-2 border-white/10"
+                >
+                  <div className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-3 px-1 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Volume2 className="w-3 h-3" />
+                      Alarm Sound
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    {ALARM_PRESETS.map((alarm) => (
+                      <button
+                        key={alarm.id}
+                        onClick={() => {
+                          setSelectedAlarm(alarm.url);
+                          // Play preview only if not 'none'
+                          if (alarm.url !== 'none') {
+                            const preview = new Audio(alarm.url);
+                            preview.volume = 0.4;
+                            preview.play().catch(() => {});
+                            setTimeout(() => {
+                              preview.pause();
+                              preview.currentTime = 0;
+                            }, 2000);
+                          }
+                        }}
+                        className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-xs transition-all duration-300 cursor-pointer ${
+                          selectedAlarm === alarm.url 
+                            ? 'bg-sage-200/20 text-sage-200 border border-sage-200/20' 
+                            : 'text-white/50 hover:bg-white/5 hover:text-white border border-transparent'
+                        }`}
+                      >
+                        <span className="font-medium">{alarm.name}</span>
+                        {selectedAlarm === alarm.url && (
+                          <motion.div
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                          </motion.div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Music Icon Button */}
+            <button 
+              onClick={() => setShowAlarms(!showAlarms)}
+              className={`w-10 h-10 rounded-full flex items-center justify-center border transition-all duration-300 cursor-pointer ${
+                showAlarms ? 'bg-sage-200/20 border-sage-200/40 text-sage-200' : 'bg-slate-950/40 border-white/5 text-white/40 hover:text-white hover:bg-white/10'
+              } opacity-0 group-hover/clock:opacity-100`}
+            >
+              <Music className="w-4 h-4" />
+            </button>
+
+            {/* Pomodoro Toggle */}
             <div className="flex items-center gap-3 bg-slate-950/40 backdrop-blur-md border border-white/5 pl-4 pr-1.5 py-1.5 rounded-full shadow-xl opacity-0 group-hover/clock:opacity-100 transition-all duration-500 ease-in-out">
               <span className="text-[9px] uppercase tracking-widest text-white/40 font-bold">Pomodoro</span>
               <button 
@@ -309,8 +444,8 @@ const ZenClock: React.FC = () => {
       {/* Breathing Indicator - Atmospheric Glow */}
       <motion.div
         animate={{
-          scale: isActive ? [1, 1.2, 1] : 1,
-          opacity: isActive ? [0.4, 0.7, 0.4] : 0.15,
+          scale: isActive || isSessionComplete ? [1, 1.2, 1] : 1,
+          opacity: isActive || isSessionComplete ? [0.4, 0.7, 0.4] : 0.15,
         }}
         transition={{
           duration: isActive ? 3 : 8,
@@ -318,9 +453,11 @@ const ZenClock: React.FC = () => {
           ease: "easeInOut"
         }}
         className={`absolute w-[450px] h-[450px] rounded-full blur-[90px] -z-10 pointer-events-none transition-colors duration-1000 ${
-          isPomodoroMode 
-            ? pomodoroState === 'work' ? 'bg-red-500/10' : 'bg-blue-500/10'
-            : 'bg-sage-200/5'
+          isSessionComplete 
+            ? 'bg-green-500/20'
+            : isPomodoroMode 
+              ? pomodoroState === 'work' ? 'bg-red-500/10' : 'bg-blue-500/10'
+              : 'bg-sage-200/5'
         }`}
       />
     </motion.div>
