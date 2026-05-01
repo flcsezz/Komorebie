@@ -38,6 +38,7 @@
 | GAME-01   | done   | Codex      | Define companion progression and reward economy                              | UX-02        | progression spec                |
 | UI-03     | done   | Codex      | Redesign Dashboard (TaskCapture) as a Zen Sanctuary                          | none         | immersive dashboard page        |
 | SOCIAL-01 | todo   | unassigned | Define ambient presence and leaderboard behavior                             | IA-02        | social spec                     |
+| FE-04     | done   | Codex      | Cloudflare Pages deployment and Scroll Video Landing Page                   | FE-02        | pass build + live site          |
 
 ## Claim Rules
 

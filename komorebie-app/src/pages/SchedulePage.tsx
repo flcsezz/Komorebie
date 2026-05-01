@@ -82,7 +82,7 @@ const containerVariants: Variants = {
       duration: 0.4,
       staggerChildren: 0.05,
       delayChildren: 0.1,
-      ease: [0.16, 1, 0.3, 1]
+      ease: [0.16, 1, 0.3, 1] as any
     }
   }
 };
@@ -100,7 +100,7 @@ const eventVariants: Variants = {
     transition: { 
       delay: 0.6, // Wait for calendar widget to finish
       duration: 0.5,
-      ease: [0.16, 1, 0.3, 1]
+      ease: [0.16, 1, 0.3, 1] as any
     } 
   }
 };
@@ -110,7 +110,7 @@ export default function SchedulePage() {
   const [view, setView] = useState<'week' | 'day'>('week');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [events, setEvents] = useState<ScheduleEvent[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   
   // Fetch events from Supabase

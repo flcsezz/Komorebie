@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { supabase } from './supabase';
+import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 
 export const useAnalytics = () => {
@@ -59,6 +59,14 @@ export const useAnalytics = () => {
 
     const tasksDone = sessions.filter(s => s.status === 'completed' && s.task_id).length;
 
+    // Calculate week hours
+    const lastWeek = new Date();
+    lastWeek.setDate(lastWeek.getDate() - 7);
+    const weekSeconds = sessions
+      .filter(s => new Date(s.started_at) > lastWeek)
+      .reduce((acc, s) => acc + (s.elapsed_seconds || 0), 0);
+    const weekHours = Math.round(weekSeconds / 3600);
+
     // Basic streak calc
     let currentStreak = 0;
     if (streaks.length > 0) {
@@ -74,6 +82,7 @@ export const useAnalytics = () => {
 
     return {
       totalHours,
+      weekHours,
       totalSessions: sessions.length,
       sessionsToday,
       tasksDone,

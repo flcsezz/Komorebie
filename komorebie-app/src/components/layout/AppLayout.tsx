@@ -72,7 +72,7 @@ const Branding = ({ isCollapsed }: { isCollapsed?: boolean }) => (
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const SidebarLink = ({ to, icon: Icon, label, active, isCollapsed }: { 
   to: string, 
-  icon: React.ElementType, 
+  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>, 
   label: string, 
   active: boolean, 
   isCollapsed: boolean 
@@ -438,7 +438,7 @@ const AppLayout: React.FC = () => {
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ 
                   duration: 0.4, 
-                  ease: [0.16, 1, 0.3, 1] 
+                  ease: [0.16, 1, 0.3, 1] as any
                 }}
                 className="min-h-full"
               >

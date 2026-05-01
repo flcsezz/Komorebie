@@ -1,22 +1,17 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { supabase } from '../lib/supabase';
-import { useAuth } from '../context/AuthContext';
+import React, { useState, useMemo } from 'react';
+import { motion, type Variants } from 'framer-motion';
 import { useAnalytics } from '../hooks/useAnalytics';
 import GlassCard from '../components/ui/GlassCard';
 import { 
-  BarChart3, 
-  Calendar, 
-  Clock, 
   Flame, 
   CheckCircle2, 
-  ChevronRight, 
   Trophy,
   TrendingUp,
-  Activity
+  Activity,
+  Clock
 } from 'lucide-react';
 
-const containerVariants = {
+const containerVariants: Variants = {
   hidden: { opacity: 0 },
   show: {
     opacity: 1,
@@ -27,14 +22,21 @@ const containerVariants = {
   }
 };
 
-const itemVariants = {
+const itemVariants: Variants = {
   hidden: { opacity: 0, y: 20 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] } }
+  show: { 
+    opacity: 1, 
+    y: 0, 
+    transition: { 
+      duration: 0.6, 
+      ease: [0.16, 1, 0.3, 1] as any
+    } 
+  }
 };
 
 const FlowAnalytics: React.FC = () => {
   const [timeRange, setTimeRange] = useState<'day' | 'week' | 'month' | 'year'>('week');
-  const { stats, streaks, loading } = useAnalytics();
+  const { stats, streaks } = useAnalytics();
 
   // Map streaks to garden grid (49 cells = 7 weeks)
   const gardenData = useMemo(() => {
@@ -203,7 +205,7 @@ const FlowAnalytics: React.FC = () => {
 };
 
 interface StatCardProps {
-  icon: React.ElementType;
+  icon: React.ComponentType<{ className?: string }>;
   label: string;
   value: string;
   subValue: string;
