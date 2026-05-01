@@ -17,16 +17,21 @@ const TaskCapture: React.FC = () => {
 
   return (
     <div className="min-h-full w-full max-w-[1600px] mx-auto pt-2">
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start transition-all duration-700 ease-in-out">
+      <div 
+        className="grid grid-cols-1 lg:grid gap-6 items-start transition-all duration-700 ease-in-out"
+        style={{ 
+          gridTemplateColumns: isActive ? 'minmax(0, 2.7fr) minmax(0, 6.3fr) minmax(0, 3fr)' : 'minmax(0, 3fr) minmax(0, 6fr) minmax(0, 3fr)' 
+        }}
+      >
         
-        {/* Left Column: Sanctuary Status (3 cols -> 2 when active) */}
-        <div className={`flex flex-col gap-6 transition-all duration-700 ease-in-out ${isActive ? 'lg:col-span-2 opacity-50 blur-[2px]' : 'lg:col-span-3'}`}>
+        {/* Left Column: Sanctuary Status */}
+        <div className="flex flex-col gap-6 transition-all duration-700 ease-in-out">
           <DashboardStats />
           <StreakWidget streak={stats.currentStreak} bestStreak={streaks.length > 0 ? streaks.length : 0} />
         </div>
  
-        {/* Center Column: The Altar (6 cols -> 7 when active) */}
-        <div className={`flex flex-col gap-6 transition-all duration-700 ease-in-out ${isActive ? 'lg:col-span-7' : 'lg:col-span-6'}`}>
+        {/* Center Column: The Altar */}
+        <div className="flex flex-col gap-6 transition-all duration-700 ease-in-out">
           <GlassCard variant="icy" className="p-8 flex items-center justify-center min-h-[400px]">
             <ZenClock />
           </GlassCard>

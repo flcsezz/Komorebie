@@ -114,7 +114,7 @@ const ZenClock: React.FC = () => {
   return (
     <motion.div 
       className={`relative flex flex-col items-center justify-center w-full transition-all duration-700 ease-in-out ${
-        isActive ? 'min-h-[580px] -translate-x-8' : 'min-h-[480px]'
+        isActive ? 'min-h-[580px]' : 'min-h-[480px]'
       } group/clock`}
     >
       {/* Pomodoro Top Tag */}
