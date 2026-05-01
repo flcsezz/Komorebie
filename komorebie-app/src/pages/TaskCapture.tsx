@@ -17,21 +17,22 @@ const TaskCapture: React.FC = () => {
 
   return (
     <div className="min-h-full w-full max-w-[1600px] mx-auto pt-2">
-      <div 
-        className="grid grid-cols-1 lg:grid gap-6 items-start transition-all duration-700 ease-in-out"
-        style={{ 
-          gridTemplateColumns: isActive ? 'minmax(0, 2.7fr) minmax(0, 6.3fr) minmax(0, 3fr)' : 'minmax(0, 3fr) minmax(0, 6fr) minmax(0, 3fr)' 
-        }}
-      >
+      <div className="flex flex-col lg:flex-row gap-6 items-start">
         
         {/* Left Column: Sanctuary Status */}
-        <div className="flex flex-col gap-6 transition-all duration-700 ease-in-out">
+        <div 
+          className="w-full lg:w-auto flex flex-col gap-6 transition-all duration-700 ease-in-out"
+          style={{ flex: isActive ? '2.7 1 0%' : '3 1 0%' }}
+        >
           <DashboardStats />
           <StreakWidget streak={stats.currentStreak} bestStreak={streaks.length > 0 ? streaks.length : 0} />
         </div>
  
         {/* Center Column: The Altar */}
-        <div className="flex flex-col gap-6 transition-all duration-700 ease-in-out">
+        <div 
+          className="w-full lg:w-auto flex flex-col gap-6 transition-all duration-700 ease-in-out"
+          style={{ flex: isActive ? '6.3 1 0%' : '6 1 0%' }}
+        >
           <GlassCard variant="icy" className="p-8 flex items-center justify-center min-h-[400px]">
             <ZenClock />
           </GlassCard>
@@ -41,8 +42,11 @@ const TaskCapture: React.FC = () => {
           </GlassCard>
         </div>
 
-        {/* Right Column: The Path (3 cols) */}
-        <div className="lg:col-span-3 flex flex-col gap-6 h-full">
+        {/* Right Column: The Path */}
+        <div 
+          className="w-full lg:w-auto flex flex-col gap-6 h-full transition-all duration-700 ease-in-out"
+          style={{ flex: '3 1 0%' }}
+        >
           <GlassCard variant="icy" className="flex-none p-5 flex flex-col gap-5 relative group">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-[9px] uppercase tracking-[0.2em] font-bold text-white/30">
