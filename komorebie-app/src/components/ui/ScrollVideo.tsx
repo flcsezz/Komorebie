@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { motion, useScroll, useTransform } from 'framer-motion';
+import { useScroll } from 'framer-motion';
 
 interface ScrollVideoProps {
   src: string;
