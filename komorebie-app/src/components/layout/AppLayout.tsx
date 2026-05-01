@@ -151,26 +151,30 @@ const AppLayout: React.FC = () => {
   const { user, loading: authLoading, signOut } = useAuth();
   const location = useLocation();
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(true);
   const lastPath = React.useRef(location.pathname);
   
-  // Instant Render-phase path change detection to prevent "flashing"
-  if (location.pathname !== lastPath.current) {
-    lastPath.current = location.pathname;
-    if (!isTransitioning) {
-      setIsTransitioning(true);
-    }
-  }
-
-  // Effect to handle the timeout for the transition
+  // Mount effect to show initial loader
   useEffect(() => {
-    if (isTransitioning) {
+    setIsTransitioning(true);
+    const timer = setTimeout(() => {
+      setIsTransitioning(false);
+    }, 1300);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Stable route change detection
+  useEffect(() => {
+    if (location.pathname !== lastPath.current) {
+      lastPath.current = location.pathname;
+      setIsTransitioning(true);
+      
       const timer = setTimeout(() => {
         setIsTransitioning(false);
-      }, 1300); // Reduced to 1.3s
+      }, 1300);
       return () => clearTimeout(timer);
     }
-  }, [isTransitioning]);
+  }, [location.pathname]);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -236,24 +240,8 @@ const AppLayout: React.FC = () => {
           className="fixed inset-0 z-0 bg-cover bg-center transition-all duration-1000 ease-in-out pointer-events-none opacity-40"
           style={{ backgroundImage: `url(${bgImage})`, transform: 'scale(1.1)' }}
         />
-        {/* Dark Overlay */}
+        {/* Background Overlay */}
         <div className="fixed inset-0 z-[1] bg-slate-950/20 pointer-events-none" />
-        
-        {/* Ambient Gradient Orbs */}
-        <div className="fixed inset-0 z-[2] pointer-events-none overflow-hidden">
-          <div 
-            className="ambient-orb ambient-orb-sage w-[500px] h-[500px] -top-20 -right-20" 
-            style={{ animationDelay: '0s' }}
-          />
-          <div 
-            className="ambient-orb ambient-orb-indigo w-[400px] h-[400px] bottom-10 left-1/4" 
-            style={{ animationDelay: '-7s' }}
-          />
-          <div 
-            className="ambient-orb ambient-orb-warm w-[350px] h-[350px] top-1/3 left-10" 
-            style={{ animationDelay: '-13s' }}
-          />
-        </div>
         
         {/* Sidebar - Hover Peek Behavior */}
         <motion.aside 

@@ -89,7 +89,7 @@ function App() {
                 <Route path="background" element={<PlaceholderPage title="Background" description="Choose your sanctuary's atmospheric backdrop." />} />
                 <Route path="leaderboard" element={<PlaceholderPage title="Leaderboard" description="See how your focus rhythm compares to the community." />} />
                 <Route path="friends" element={<PlaceholderPage title="Friends" description="Connect with other explorers in their focus sanctuaries." />} />
-                <Route path="contact" element={<PlaceholderPage title="Contact Us" description="Get in touch with the C&C support team." />} />
+                <Route path="contact" element={<PlaceholderPage title="Contact Us" description="Get in touch with the Komorebie support team." />} />
                 <Route path="settings" element={<PlaceholderPage title="Settings" description="Manage your account, focus defaults, and sanctuary preferences." />} />
               </Route>
               
