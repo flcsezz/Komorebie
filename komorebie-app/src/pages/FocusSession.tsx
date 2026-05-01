@@ -1,27 +1,8 @@
 import React from 'react';
-import { motion, type Variants } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Play, Pause, Square } from 'lucide-react';
 import { useZenClock } from '../context/ZenClockContext';
-
-const containerVariants: Variants = {
-  hidden: { opacity: 0, y: 15 },
-  show: {
-    opacity: 1,
-    y: 0,
-    transition: {
-      staggerChildren: 0.05,
-      delayChildren: 0.1,
-      duration: 0.4,
-      ease: [0.16, 1, 0.3, 1]
-    }
-  }
-};
-
-const itemVariants: Variants = {
-  hidden: { opacity: 0, y: 10 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.3 } }
-};
 
 const FocusSession: React.FC = () => {
   const {
@@ -56,13 +37,8 @@ const FocusSession: React.FC = () => {
   const progress = (timeLeft / (duration * 60)) * 100;
 
   return (
-    <motion.div 
-      variants={containerVariants}
-      initial="hidden"
-      animate="show"
-      className="min-h-screen flex flex-col items-center justify-center relative"
-    >
-      <motion.div variants={itemVariants} className="relative w-80 h-80 flex items-center justify-center">
+    <div className="min-h-screen flex flex-col items-center justify-center relative">
+      <div className="relative w-80 h-80 flex items-center justify-center">
         {/* Progress Circle */}
         <svg className="absolute inset-0 w-full h-full -rotate-90">
           <circle
@@ -94,9 +70,9 @@ const FocusSession: React.FC = () => {
             {task}
           </div>
         </div>
-      </motion.div>
+      </div>
 
-      <motion.div variants={itemVariants} className="mt-20 flex gap-12 items-center">
+      <div className="mt-20 flex gap-12 items-center">
         <button
           onClick={() => toggleTimer()}
           className="text-white/30 hover:text-white transition-colors cursor-pointer"
@@ -109,17 +85,16 @@ const FocusSession: React.FC = () => {
         >
           <Square className="w-6 h-6" />
         </button>
-      </motion.div>
+      </div>
 
-      <motion.div
-        variants={itemVariants}
+      <div
         className="absolute bottom-20 text-center"
       >
         <h3 className="text-xl font-display font-light text-white/60 italic">
           "Focus like sunlight through trees."
         </h3>
-      </motion.div>
-    </motion.div>
+      </div>
+    </div>
   );
 };
 

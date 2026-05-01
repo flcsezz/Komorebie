@@ -1,13 +1,7 @@
-import { motion } from 'framer-motion';
 import GlassCard from '../components/ui/GlassCard';
 
 export const PlaceholderPage: React.FC<{ title: string, description: string }> = ({ title, description }) => (
-  <motion.div 
-    initial={{ opacity: 0, y: 15 }}
-    animate={{ opacity: 1, y: 0 }}
-    transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-    className="max-w-4xl mx-auto pt-12"
-  >
+  <div className="max-w-4xl mx-auto pt-12">
     <GlassCard variant="frosted" className="p-12 text-center flex flex-col items-center gap-6">
       <div className="w-16 h-16 rounded-full bg-sage-200/10 flex items-center justify-center border border-sage-200/20">
         <div className="w-2 h-2 rounded-full bg-sage-200 animate-pulse" />
@@ -20,7 +14,7 @@ export const PlaceholderPage: React.FC<{ title: string, description: string }> =
         Phase 1: Backbone Under Construction
       </div>
     </GlassCard>
-  </motion.div>
+  </div>
 );
 
 export const TasksPage = () => <PlaceholderPage title="Task Sanctuary" description="Define what you're working on now, next, and later. Your focused task library is coming soon." />;

@@ -48,6 +48,13 @@
     from { transform: translateX(-100%); }
     to { transform: translateX(100%); }
   }
+
+  @keyframes ambient-drift {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    25% { transform: translate(30px, -20px) scale(1.05); }
+    50% { transform: translate(-20px, 15px) scale(0.95); }
+    75% { transform: translate(15px, 25px) scale(1.02); }
+  }
 }
 
 /* Custom Scrollbar */
@@ -138,42 +145,75 @@ body {
   overflow-x: hidden;
 }
 
-/* Glassmorphism Classes (Minimalist & High Performance) */
+/* ─── Glassmorphism ─────────────────────────────────────────────────────
+ * Fixed: Removed `transform: translateZ(0)` which was creating a new
+ * compositing layer and breaking `backdrop-filter` in some browsers
+ * (especially on Cloudflare Pages production builds). The translateZ(0)
+ * hack made the backdrop-filter only see the layer directly beneath in 
+ * the compositing tree, which was often empty/transparent.
+ *
+ * Also removed `will-change: transform, backdrop-filter` since overusing
+ * will-change promotes too many elements to GPU layers, causing flicker
+ * and increased memory usage. Only apply will-change on interactive states.
+ * ──────────────────────────────────────────────────────────────────────── */
+
 .glass, .glass-hero, .glass-icy, .glass-frosted {
-  background: rgba(0, 0, 0, 0.2);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  will-change: transform, backdrop-filter;
-  transform: translateZ(0);
+  background: rgba(18, 18, 18, 0.12);
+  backdrop-filter: blur(16px) saturate(1.4);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .glass-deep {
-  background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(40px);
-  -webkit-backdrop-filter: blur(40px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  will-change: transform, backdrop-filter;
-  transform: translateZ(0);
+  background: rgba(12, 12, 12, 0.25);
+  backdrop-filter: blur(16px) saturate(1.5);
+  -webkit-backdrop-filter: blur(16px) saturate(1.5);
+  border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 .glass-interactive {
-  background: rgba(0, 0, 0, 0.2);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  transition: all 0.4s ease;
-  will-change: transform, backdrop-filter;
+  background: rgba(18, 18, 18, 0.1);
+  backdrop-filter: blur(16px) saturate(1.4);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: background 0.4s ease, border-color 0.4s ease;
 }
 
 .glass-interactive:hover {
-  background: rgba(0, 0, 0, 0.3);
-  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(18, 18, 18, 0.2);
+  border-color: rgba(255, 255, 255, 0.15);
+  will-change: transform;
   transform: translateY(-2px);
 }
 
 .zen-gradient {
   background: radial-gradient(circle at center, rgba(183, 201, 176, 0.1) 0%, rgba(18, 18, 18, 0) 70%);
+}
+
+/* ─── Ambient Orbs ─────────────────────────────────────────────────────
+ * Decorative gradient orbs that sit behind glass surfaces to give 
+ * backdrop-filter something colorful to blur, making the glass effect
+ * actually visible. Without these, blur on a solid dark bg is invisible.
+ * ──────────────────────────────────────────────────────────────────────── */
+
+.ambient-orb {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  filter: blur(80px);
+  animation: ambient-drift 20s ease-in-out infinite;
+}
+
+.ambient-orb-sage {
+  background: radial-gradient(circle, rgba(183, 201, 176, 0.45) 0%, transparent 70%);
+}
+
+.ambient-orb-indigo {
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.35) 0%, transparent 70%);
+}
+
+.ambient-orb-warm {
+  background: radial-gradient(circle, rgba(251, 191, 36, 0.3) 0%, transparent 70%);
 }
 
 /* Hide dnd-kit screen reader announcements */

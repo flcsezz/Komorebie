@@ -2,7 +2,6 @@ import React from 'react';
 import { 
   Plus, Calendar as CalendarIcon, ChevronRight
 } from 'lucide-react';
-import { motion, type Variants } from 'framer-motion';
 import GlassCard from '../components/ui/GlassCard';
 import DashboardStats from '../components/dashboard/DashboardStats';
 import StreakWidget from '../components/dashboard/StreakWidget';
@@ -13,59 +12,31 @@ import { useAnalytics } from '../hooks/useAnalytics';
 
 const TaskCapture: React.FC = () => {
   const { stats, streaks } = useAnalytics();
-  
-  const containerVariants: Variants = {
-    hidden: { opacity: 0, y: 15 },
-    show: {
-      opacity: 1,
-      y: 0,
-      transition: {
-        staggerChildren: 0.05,
-        delayChildren: 0.1,
-        duration: 0.4,
-        ease: [0.16, 1, 0.3, 1]
-      }
-    }
-  };
-
-  const itemVariants: Variants = {
-    hidden: { opacity: 0, y: 10 },
-    show: { opacity: 1, y: 0, transition: { duration: 0.3 } }
-  };
 
   return (
-    <motion.div 
-      variants={containerVariants}
-      initial="hidden"
-      animate="show"
-      className="min-h-full w-full max-w-[1600px] mx-auto pt-2"
-    >
-
-      <motion.div 
-        layout
-        className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start"
-      >
+    <div className="min-h-full w-full max-w-[1600px] mx-auto pt-2">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
         {/* Left Column: Sanctuary Status (3 cols) */}
-        <motion.div layout variants={itemVariants} className="lg:col-span-3 flex flex-col gap-6">
+        <div className="lg:col-span-3 flex flex-col gap-6">
           <DashboardStats />
           <StreakWidget streak={stats.currentStreak} bestStreak={streaks.length > 0 ? streaks.length : 0} />
-        </motion.div>
+        </div>
  
         {/* Center Column: The Altar (6 cols) */}
-        <motion.div layout variants={itemVariants} className="lg:col-span-6 flex flex-col gap-6">
-          <GlassCard layout variant="icy" className="p-8 flex items-center justify-center min-h-[400px]">
+        <div className="lg:col-span-6 flex flex-col gap-6">
+          <GlassCard variant="icy" className="p-8 flex items-center justify-center min-h-[400px]">
             <ZenClock />
           </GlassCard>
  
-          <GlassCard layout variant="icy" className="p-4">
+          <GlassCard variant="icy" className="p-4">
             <SoundscapeSelector />
           </GlassCard>
-        </motion.div>
+        </div>
 
         {/* Right Column: The Path (3 cols) */}
-        <motion.div layout variants={itemVariants} className="lg:col-span-3 flex flex-col gap-6 h-full">
-          <GlassCard layout variant="icy" className="flex-none p-5 flex flex-col gap-5 relative group">
+        <div className="lg:col-span-3 flex flex-col gap-6 h-full">
+          <GlassCard variant="icy" className="flex-none p-5 flex flex-col gap-5 relative group">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-[9px] uppercase tracking-[0.2em] font-bold text-white/30">
                 <CalendarIcon className="w-3.5 h-3.5" />
@@ -89,10 +60,10 @@ const TaskCapture: React.FC = () => {
           </GlassCard>
 
           <ThePathWidget />
-        </motion.div>
+        </div>
 
-      </motion.div>
-    </motion.div>
+      </div>
+    </div>
   );
 };
 

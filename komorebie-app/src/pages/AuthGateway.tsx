@@ -58,23 +58,18 @@ const AuthGateway: React.FC = () => {
       {/* Background Decorative Elements */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] border border-white/5 rounded-full animate-slow-spin pointer-events-none" />
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[100%] h-[100%] border border-white/[0.03] rounded-full animate-slow-spin-reverse pointer-events-none" />
+      
+      {/* Ambient gradient orbs — give backdrop-filter something to blur */}
+      <div className="ambient-orb ambient-orb-sage w-[400px] h-[400px] absolute top-1/4 right-1/4" style={{ animationDelay: '-3s' }} />
+      <div className="ambient-orb ambient-orb-indigo w-[350px] h-[350px] absolute bottom-1/4 left-1/3" style={{ animationDelay: '-10s' }} />
+      <div className="ambient-orb ambient-orb-warm w-[250px] h-[250px] absolute top-1/3 left-1/4" style={{ animationDelay: '-6s' }} />
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-        className="w-full max-w-md relative z-10"
-      >
+      <div className="w-full max-w-md relative z-10">
         <GlassCard variant="frosted" className="p-8 md:p-10 shadow-2xl border-white/10">
           <div className="text-center mb-8">
-            <motion.div 
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ delay: 0.2 }}
-              className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-sage-200/10 border border-sage-200/20 mb-6"
-            >
+            <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-sage-200/10 border border-sage-200/20 mb-6">
               <Sparkles className="w-6 h-6 text-sage-200" />
-            </motion.div>
+            </div>
             <h1 className="text-2xl font-display font-light tracking-[0.2em] text-white mb-2 uppercase">
               {isLogin ? 'Welcome Back' : 'Create Sanctuary'}
             </h1>
@@ -174,7 +169,7 @@ const AuthGateway: React.FC = () => {
             </button>
           </div>
         </GlassCard>
-      </motion.div>
+      </div>
     </div>
   );
 };
