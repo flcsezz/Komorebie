@@ -48,9 +48,6 @@ const GlassCard: React.FC<GlassCardProps> = ({
   return (
     <motion.div 
       variants={animateCard ? cardVariants : undefined}
-      initial={animateCard ? "hidden" : undefined}
-      whileInView={animateCard ? "show" : undefined}
-      viewport={{ once: true, margin: "-20px" }}
       className={cn(
         variantClasses[variant],
         "rounded-3xl",

@@ -12,61 +12,120 @@
   <body class="bg-slate-950">
     <div id="root">
       <style>
-        .zen-initial-loader {
+        body, html {
+          margin: 0;
+          padding: 0;
+          height: 100%;
+          background-color: #020617; /* slate-950 */
+          overflow: hidden;
+        }
+        .zen-skeleton-layout {
+          display: flex;
+          height: 100vh;
+          width: 100vw;
+          opacity: 0;
+          animation: skeleton-fade-in 0.3s ease-out 0.1s forwards;
+        }
+        .zen-skeleton-sidebar {
+          width: 260px;
+          height: 100%;
+          border-right: 1px solid rgba(255, 255, 255, 0.1);
+          background: rgba(0, 0, 0, 0.2);
           display: flex;
           flex-direction: column;
+          padding: 24px;
+          box-sizing: border-box;
+          flex-shrink: 0;
+        }
+        @media (max-width: 768px) {
+          .zen-skeleton-sidebar {
+            display: none;
+          }
+        }
+        .zen-skeleton-logo {
+          width: 140px;
+          height: 28px;
+          background: rgba(255, 255, 255, 0.05);
+          border-radius: 8px;
+          margin-top: 8px;
+          margin-bottom: 48px;
+        }
+        .zen-skeleton-nav-item {
+          width: 100%;
+          height: 40px;
+          background: rgba(255, 255, 255, 0.03);
+          border-radius: 12px;
+          margin-bottom: 8px;
+        }
+        .zen-skeleton-main {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+        }
+        .zen-skeleton-header {
+          height: 80px;
+          width: 100%;
+          display: flex;
           align-items: center;
-          justify-content: center;
-          min-height: 100vh;
-          background-color: #020617;
-          margin: 0;
-          font-family: system-ui, -apple-system, sans-serif;
+          justify-content: flex-end;
+          padding: 0 32px;
+          box-sizing: border-box;
         }
-        .zen-core-pulse {
-          position: relative;
-          width: 16px;
-          height: 16px;
-          background-color: #E2E8F0;
+        .zen-skeleton-avatar {
+          width: 32px;
+          height: 32px;
           border-radius: 50%;
-          box-shadow: 0 0 20px rgba(183, 201, 176, 0.4);
-          animation: pulse-core 2s ease-in-out infinite;
+          background: rgba(255, 255, 255, 0.05);
         }
-        .zen-soft-glow {
-          position: absolute;
-          width: 60px;
-          height: 60px;
-          background-color: rgba(183, 201, 176, 0.2);
-          filter: blur(24px);
-          border-radius: 50%;
-          animation: pulse-glow 4s ease-in-out infinite;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
+        .zen-skeleton-content {
+          padding: 24px;
+          flex: 1;
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+          gap: 24px;
+          align-content: start;
         }
-        @keyframes pulse-core {
-          0%, 100% { transform: scale(0.8); opacity: 0.3; }
-          50% { transform: scale(1.2); opacity: 0.6; }
+        .zen-skeleton-card {
+          height: 220px;
+          background: rgba(0, 0, 0, 0.2);
+          border: 1px solid rgba(255, 255, 255, 0.05);
+          border-radius: 24px;
         }
-        @keyframes pulse-glow {
-          0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.1; }
-          50% { transform: translate(-50%, -50%) scale(1.5); opacity: 0.3; }
+        .zen-skeleton-card.large {
+          height: 340px;
+          grid-column: 1 / -1;
         }
-        .zen-text {
-          margin-top: 32px;
-          font-size: 10px;
-          text-transform: uppercase;
-          letter-spacing: 0.5em;
-          color: rgba(255, 255, 255, 0.2);
-          font-weight: 300;
-          margin-left: 0.5em;
+        @keyframes skeleton-fade-in {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes subtle-pulse {
+          0%, 100% { opacity: 0.6; }
+          50% { opacity: 0.3; }
+        }
+        .zen-skeleton-pulse {
+          animation: subtle-pulse 3s ease-in-out infinite;
         }
       </style>
-      <div class="zen-initial-loader">
-        <div style="position: relative; display: flex; align-items: center; justify-content: center;">
-          <div class="zen-soft-glow"></div>
-          <div class="zen-core-pulse"></div>
+      <div class="zen-skeleton-layout">
+        <div class="zen-skeleton-sidebar">
+          <div class="zen-skeleton-logo zen-skeleton-pulse"></div>
+          <div class="zen-skeleton-nav-item zen-skeleton-pulse" style="margin-bottom: 32px; height: 48px;"></div>
+          <div class="zen-skeleton-nav-item zen-skeleton-pulse"></div>
+          <div class="zen-skeleton-nav-item zen-skeleton-pulse"></div>
+          <div class="zen-skeleton-nav-item zen-skeleton-pulse"></div>
         </div>
-        <div class="zen-text">ENTERING THE SANCTUARY...</div>
+        <div class="zen-skeleton-main">
+          <div class="zen-skeleton-header">
+             <div class="zen-skeleton-avatar zen-skeleton-pulse"></div>
+          </div>
+          <div class="zen-skeleton-content">
+             <div class="zen-skeleton-card large zen-skeleton-pulse"></div>
+             <div class="zen-skeleton-card zen-skeleton-pulse"></div>
+             <div class="zen-skeleton-card zen-skeleton-pulse"></div>
+             <div class="zen-skeleton-card zen-skeleton-pulse"></div>
+          </div>
+        </div>
       </div>
     </div>
     <script type="module" src="/src/main.tsx"></script>
