@@ -80,3 +80,5 @@ next-env.d.ts
 *.log
 logs/
 scripts/
+.gemini/
+komorebie-app/deploy_output.txt
