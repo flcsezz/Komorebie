@@ -1,102 +1,118 @@
-import { useState, useEffect, useMemo } from 'react';
-import { supabase } from '../lib/supabase';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
+import {
+  analyticsCache,
+  computeStats,
+  buildStreakDates,
+  type CachedAnalytics,
+} from '../lib/analyticsCache';
+
+export interface DeadlineItem {
+  id: string;
+  user_id: string;
+  title: string;
+  deadline_date: string;
+  description?: string;
+  color?: string;
+  is_completed: boolean;
+  calendar_event_id?: string;
+  created_at: string;
+}
 
 export const useAnalytics = () => {
   const { user } = useAuth();
-  const [sessions, setSessions] = useState<any[]>([]);
-  const [streaks, setStreaks] = useState<any[]>([]);
-  const [profile, setProfile] = useState<any>(null);
+  const [data, setData] = useState<CachedAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
+  const mountedRef = useRef(true);
 
-  const fetchData = async () => {
+  // Fetch data through the cache layer
+  const fetchData = useCallback(async (force = false) => {
     if (!user) return;
+
     setLoading(true);
     try {
-      // Fetch profile
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
+      const result = force
+        ? await analyticsCache.invalidate(user.id)
+        : await analyticsCache.fetch(user.id);
 
-      // Fetch sessions
-      const { data: sessionsData } = await supabase
-        .from('focus_sessions')
-        .select('*')
-        .eq('profile_id', user.id)
-        .order('started_at', { ascending: false });
-
-      // Fetch streaks
-      const { data: streaksData } = await supabase
-        .from('streaks')
-        .select('*')
-        .eq('profile_id', user.id)
-        .order('focus_date', { ascending: false });
-
-      if (profileData) setProfile(profileData);
-      if (sessionsData) setSessions(sessionsData);
-      if (streaksData) setStreaks(streaksData);
+      if (mountedRef.current && result) {
+        setData(result);
+      }
     } catch (err) {
-      console.error("Error fetching analytics hook:", err);
+      console.error('useAnalytics: fetch error', err);
     } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchData();
-  }, [user]);
-
-  const stats = useMemo(() => {
-    const totalSeconds = sessions.reduce((acc, s) => acc + (s.elapsed_seconds || 0), 0);
-    const totalHours = Math.round(totalSeconds / 3600);
-    
-    const today = new Date().toISOString().split('T')[0];
-    const sessionsToday = sessions.filter(s => 
-      new Date(s.started_at).toISOString().split('T')[0] === today
-    ).length;
-
-    const tasksDone = sessions.filter(s => s.status === 'completed' && s.task_id).length;
-
-    // Calculate week hours
-    const lastWeek = new Date();
-    lastWeek.setDate(lastWeek.getDate() - 7);
-    const weekSeconds = sessions
-      .filter(s => new Date(s.started_at) > lastWeek)
-      .reduce((acc, s) => acc + (s.elapsed_seconds || 0), 0);
-    const weekHours = Math.round(weekSeconds / 3600);
-
-    // Basic streak calc
-    let currentStreak = 0;
-    if (streaks.length > 0) {
-      // Check if latest is today or yesterday
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      const yesterdayStr = yesterday.toISOString().split('T')[0];
-      
-      if (streaks[0].focus_date === today || streaks[0].focus_date === yesterdayStr) {
-        currentStreak = streaks.length; // Simplified
+      if (mountedRef.current) {
+        setLoading(false);
       }
     }
+  }, [user]);
 
-    return {
-      totalHours,
-      weekHours,
-      totalSessions: sessions.length,
-      sessionsToday,
-      tasksDone,
-      currentStreak,
-      mana: profile?.mana_points || 0
+  // Initial fetch + subscribe to cache invalidation
+  useEffect(() => {
+    mountedRef.current = true;
+    fetchData();
+
+    // Subscribe to cache updates (e.g. from other components calling invalidate)
+    const unsub = analyticsCache.subscribe(() => {
+      if (user) {
+        const cached = analyticsCache.get(user.id);
+        if (cached) {
+          setData(cached);
+        }
+      }
+    });
+
+    return () => {
+      mountedRef.current = false;
+      unsub();
     };
-  }, [sessions, streaks, profile]);
+  }, [fetchData, user]);
+
+  // Compute derived statistics
+  const stats = useMemo(() => {
+    if (!data) {
+      return {
+        totalHours: 0,
+        totalSessions: 0,
+        sessionsToday: 0,
+        completedToday: 0,
+        tasksDone: 0,
+        tasksDoneToday: 0,
+        currentStreak: 0,
+        bestStreak: 0,
+        mana: 0,
+        todayFocusSeconds: 0,
+        weeklyData: [] as { date: string; day: string; focusSeconds: number; sessionsCount: number; tasksDone: number }[],
+        weekHours: 0,
+      };
+    }
+    return computeStats(data);
+  }, [data]);
+
+  // Build streak calendar map
+  const streakDates = useMemo(() => {
+    if (!data) return new Map();
+    return buildStreakDates(data.streaks);
+  }, [data]);
+
+  // Deadlines (from cached data)
+  const deadlines = useMemo<DeadlineItem[]>(() => {
+    return (data?.deadlines || []) as DeadlineItem[];
+  }, [data]);
+
+  // Force refresh - invalidates cache and refetches
+  const refresh = useCallback(() => {
+    return fetchData(true);
+  }, [fetchData]);
 
   return {
-    profile,
-    sessions,
-    streaks,
+    profile: data?.profile || null,
+    sessions: data?.sessions || [],
+    streaks: data?.streaks || [],
+    streakDates,
+    deadlines,
     stats,
     loading,
-    refresh: fetchData
+    refresh,
   };
 };

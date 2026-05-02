@@ -39,6 +39,7 @@
 | UI-03     | done   | Codex      | Redesign Dashboard (TaskCapture) as a Zen Sanctuary                          | none         | immersive dashboard page        |
 | SOCIAL-01 | todo   | unassigned | Define ambient presence and leaderboard behavior                             | IA-02        | social spec                     |
 | FE-04     | done   | Codex      | Cloudflare Pages deployment and Scroll Video Landing Page                   | FE-02        | pass build + live site          |
+| FE-05     | done   | Antigravity | Profile Picture (Avatar) system with resizing and Storage RLS               | BE-01        | pfp upload + persistent display |
 
 ## Claim Rules
 

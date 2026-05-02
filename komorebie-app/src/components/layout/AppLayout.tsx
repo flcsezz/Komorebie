@@ -10,7 +10,9 @@ import {
   Trophy, MessageSquare, Share2, LifeBuoy, Clock, BarChart3, Loader2
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useAnalytics } from '../../hooks/useAnalytics';
 import InitialLoader from '../ui/InitialLoader';
+import OnboardingOverlay from '../profile/OnboardingOverlay';
 
 const BACKGROUNDS = [
   { id: 'forest', name: 'Forest Sanctuary', url: 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?q=80&w=2560&auto=format&fit=crop' },
@@ -149,6 +151,7 @@ const SidebarSection = ({ label, isCollapsed, children }: { label: string, isCol
 
 const AppLayout: React.FC = () => {
   const { user, loading: authLoading, signOut } = useAuth();
+  const { profile, refresh } = useAnalytics();
   const location = useLocation();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isTransitioning, setIsTransitioning] = useState(true);
@@ -235,6 +238,16 @@ const AppLayout: React.FC = () => {
         {/* Premium Route Transition Loader */}
         <InitialLoader show={isTransitioning} />
 
+        {/* First-time Onboarding Overlay */}
+        <AnimatePresence>
+          {user && profile && !profile.has_completed_onboarding && !profile.username && (
+            <OnboardingOverlay 
+              userId={user.id} 
+              onComplete={() => refresh()} 
+            />
+          )}
+        </AnimatePresence>
+
         {/* Dynamic Background Image */}
         <div 
           className="fixed inset-0 z-0 bg-cover bg-center transition-all duration-1000 ease-in-out pointer-events-none opacity-40"
@@ -265,7 +278,17 @@ const AppLayout: React.FC = () => {
               to="/app/profile"
               className={`flex items-center gap-3 p-2 rounded-2xl bg-white/5 border border-white/5 transition-colors hover:bg-white/10 group/profile ${isCollapsed ? 'w-12 h-12 justify-center mx-auto' : 'w-full'}`}
             >
-              <div className="w-8 h-8 rounded-lg bg-cover bg-center flex-shrink-0 border border-white/10 group-hover/profile:border-sage-200/30 transition-colors" style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=100&auto=format&fit=crop)' }} />
+              {profile?.avatar_url ? (
+                <img 
+                  src={profile.avatar_url} 
+                  alt="Avatar" 
+                  className="w-8 h-8 rounded-lg object-cover flex-shrink-0 border border-white/10 group-hover/profile:border-sage-200/30 transition-colors" 
+                />
+              ) : (
+                <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center flex-shrink-0 border border-white/10 group-hover/profile:border-sage-200/30 transition-colors">
+                  <span className="text-xs font-bold text-white/40">{(profile?.display_name || user?.email || 'E').charAt(0).toUpperCase()}</span>
+                </div>
+              )}
               <AnimatePresence initial={false}>
                 {!isCollapsed && (
                   <motion.div
@@ -276,7 +299,7 @@ const AppLayout: React.FC = () => {
                     className="flex flex-col"
                   >
                     <span className="text-sm font-medium text-white/80 group-hover/profile:text-white transition-colors">
-                      {user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Explorer'}
+                      {profile?.display_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Explorer'}
                     </span>
                     <span className="text-[10px] text-white/30">View Profile</span>
                   </motion.div>
@@ -441,14 +464,20 @@ const AppLayout: React.FC = () => {
             </div>
             
             <div className="flex items-center gap-3">
-              <button className="flex items-center gap-2 pl-1 pr-3 py-0.5 bg-white/5 border border-white/10 rounded-full transition-colors duration-300 cursor-pointer group">
-                <div className="w-7 h-7 rounded-full bg-sage-200/20 flex items-center justify-center border border-white/5 overflow-hidden relative">
-                  <span className="text-sage-200 text-[10px] font-bold relative z-10">M</span>
-                </div>
+              <Link to="/app/profile" className="flex items-center gap-3 pl-1 pr-3 py-0.5 bg-white/5 border border-white/10 rounded-full transition-colors duration-300 cursor-pointer group">
+                {profile?.avatar_url ? (
+                  <img src={profile.avatar_url} alt="PFP" className="w-7 h-7 rounded-full object-cover border border-white/5" />
+                ) : (
+                  <div className="w-7 h-7 rounded-full bg-sage-200/20 flex items-center justify-center border border-white/5 overflow-hidden relative">
+                    <span className="text-sage-200 text-[10px] font-bold relative z-10">
+                      {(profile?.display_name || user?.email || 'E').charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                )}
                 <span className="text-xs font-light text-white/50 group-hover:text-white transition-colors">
-                  {user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Explorer'}
+                  {profile?.display_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Explorer'}
                 </span>
-              </button>
+              </Link>
               
               <button className="p-2 bg-white/5 border border-white/10 rounded-full transition-colors hover:bg-white/10 text-white/30 hover:text-white cursor-pointer relative">
                 <Bell className="w-3.5 h-3.5" strokeWidth={1.5} />

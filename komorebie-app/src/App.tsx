@@ -13,6 +13,7 @@ const FocusSession = lazy(() => import('./pages/FocusSession'));
 const FlowAnalytics = lazy(() => import('./pages/FlowAnalytics'));
 const ZenEnvironment = lazy(() => import('./components/three/ZenEnvironment'));
 const SchedulePage = lazy(() => import('./pages/SchedulePage'));
+const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 
 // Placeholders
 import { TasksPage, NotesPage, RoomPage, SocialPage, PlaceholderPage } from './pages/Placeholders';
@@ -84,6 +85,7 @@ function App() {
                 <Route path="room" element={<RoomPage />} />
                 <Route path="social" element={<SocialPage />} />
                 <Route path="calendar" element={<SchedulePage />} />
+                <Route path="profile" element={<ProfilePage />} />
                 <Route path="customize" element={<PlaceholderPage title="Customize" description="Personalize your sanctuary's visual and interactive experience." />} />
                 <Route path="music" element={<PlaceholderPage title="Music" description="Manage your lo-fi beats and ambient soundscapes." />} />
                 <Route path="background" element={<PlaceholderPage title="Background" description="Choose your sanctuary's atmospheric backdrop." />} />
