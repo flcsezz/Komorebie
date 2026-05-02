@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Check, Loader2, Sparkles, User, AtSign, ArrowRight, ShieldCheck, Zap } from 'lucide-react';
 import GlassCard from '../ui/GlassCard';
 import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../context/AuthContext';
 
 interface OnboardingOverlayProps {
   onComplete: () => void;
@@ -15,6 +16,7 @@ const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({ onComplete, userI
   const [displayName, setDisplayName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
 
   const containerVariants: any = {
     hidden: { opacity: 0, scale: 0.9, y: 20 },
@@ -84,6 +86,59 @@ const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({ onComplete, userI
     }
   };
 
+  const handleSkip = async () => {
+    if (!user) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const emailName = user.email ? user.email.split('@')[0] : 'user';
+      const defaultName = user.user_metadata?.full_name || user.user_metadata?.name || emailName;
+      let baseUsername = emailName.toLowerCase().replace(/[^a-z0-9_]/g, '');
+      
+      if (baseUsername.length < 3) baseUsername = baseUsername + '123';
+
+      let finalUsername = baseUsername;
+      let isUnique = false;
+      let counter = 0;
+      
+      while (!isUnique) {
+        const { data: existing } = await supabase
+          .from('profiles')
+          .select('username')
+          .eq('username', finalUsername)
+          .maybeSingle();
+          
+        if (!existing) {
+          isUnique = true;
+        } else {
+          counter++;
+          finalUsername = `${baseUsername}${counter}`;
+        }
+      }
+
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({
+          username: finalUsername,
+          display_name: defaultName,
+          full_name: defaultName,
+          has_completed_onboarding: true,
+          display_name_updated_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', userId);
+
+      if (updateError) throw updateError;
+      
+      onComplete();
+    } catch (err: any) {
+      console.error('Onboarding skip error:', err);
+      setError('Failed to skip onboarding. Please try manually configuring identity.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
       <motion.div 
@@ -138,13 +193,25 @@ const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({ onComplete, userI
                   ))}
                 </div>
 
-                <button
-                  onClick={() => setStep(2)}
-                  className="w-full bg-white/10 hover:bg-white/20 text-white font-medium py-4 rounded-2xl border border-white/10 transition-all flex items-center justify-center gap-3 group"
-                >
-                  Configure Identity
-                  <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-                </button>
+                <div className="space-y-3">
+                  <button
+                    onClick={() => setStep(2)}
+                    disabled={loading}
+                    className="w-full bg-white/10 hover:bg-white/20 text-white font-medium py-4 rounded-2xl border border-white/10 transition-all flex items-center justify-center gap-3 group disabled:opacity-50"
+                  >
+                    Configure Identity
+                    <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                  </button>
+
+                  <button
+                    onClick={handleSkip}
+                    disabled={loading}
+                    className="w-full text-white/40 hover:text-white/80 font-medium py-3 text-[10px] uppercase tracking-widest transition-colors flex items-center justify-center disabled:opacity-50"
+                  >
+                    {loading && <Loader2 className="w-3 h-3 animate-spin mr-2" />}
+                    Skip & Auto-Generate
+                  </button>
+                </div>
               </motion.div>
             ) : (
               <motion.div 

@@ -240,7 +240,7 @@ const AppLayout: React.FC = () => {
 
         {/* First-time Onboarding Overlay */}
         <AnimatePresence>
-          {user && profile && !profile.has_completed_onboarding && (
+          {user && profile && !profile.has_completed_onboarding && !profile.username && (
             <OnboardingOverlay 
               userId={user.id} 
               onComplete={() => refresh()} 

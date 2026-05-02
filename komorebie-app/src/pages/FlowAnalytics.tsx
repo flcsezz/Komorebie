@@ -33,12 +33,12 @@ const FlowAnalytics: React.FC = () => {
   const weeklyBarData = useMemo(() => {
     return stats.weeklyData.map(d => ({
       ...d,
-      hours: Math.round((d.seconds / 3600) * 10) / 10,
-      percent: Math.max(d.seconds > 0 ? 8 : 3, (d.seconds / Math.max(...stats.weeklyData.map(w => w.seconds), 1)) * 100),
+      hours: Math.round((d.focusSeconds / 3600) * 10) / 10,
+      percent: Math.max(d.focusSeconds > 0 ? 8 : 3, (d.focusSeconds / Math.max(...stats.weeklyData.map(w => w.focusSeconds), 1)) * 100),
     }));
   }, [stats.weeklyData]);
 
-  const totalHoursFormatted = stats.totalHours >= 1 ? `${stats.totalHours}h` : `${stats.totalMinutes}m`;
+  const totalHoursFormatted = stats.totalHours >= 1 ? `${stats.totalHours}h` : `${Math.floor(stats.totalHours * 60)}m`;
 
   return (
     <div className="min-h-screen pt-12 pb-20 px-6 max-w-7xl mx-auto">
@@ -121,7 +121,7 @@ const FlowAnalytics: React.FC = () => {
                       transition={{ duration: 0.8, delay: 0.3 + i * 0.08, ease: [0.16, 1, 0.3, 1] }}
                       className={`w-full max-w-[60px] rounded-t-lg transition-colors ${
                         isToday ? 'bg-sage-200/50 shadow-[0_0_12px_rgba(183,201,176,0.2)]' 
-                        : d.seconds > 0 ? 'bg-white/15 hover:bg-white/25' : 'bg-white/5'
+                        : d.focusSeconds > 0 ? 'bg-white/15 hover:bg-white/25' : 'bg-white/5'
                       }`}
                     />
                   </div>

@@ -172,7 +172,7 @@ const ProfilePage: React.FC = () => {
     return labels;
   }, [heatmapWeeks]);
 
-  const totalHoursFormatted = stats.totalHours >= 1 ? `${stats.totalHours}h` : `${stats.totalMinutes}m`;
+  const totalHoursFormatted = stats.totalHours >= 1 ? `${stats.totalHours}h` : `${Math.floor(stats.totalHours * 60)}m`;
 
   return (
     <>

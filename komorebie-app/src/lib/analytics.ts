@@ -13,6 +13,7 @@ const STREAK_THRESHOLD_SECONDS = 300; // 5 minutes minimum to qualify for streak
 
 export const logFocusSession = async (session: FocusSessionData) => {
   try {
+    console.log('[Analytics] Inserting focus session:', JSON.stringify(session));
     const { data, error } = await supabase
       .from('focus_sessions')
       .insert([
@@ -28,7 +29,12 @@ export const logFocusSession = async (session: FocusSessionData) => {
       ])
       .select();
 
-    if (error) throw error;
+    if (error) {
+      console.error('[Analytics] Supabase insert error:', error.message, error.details, error.hint, error.code);
+      throw error;
+    }
+
+    console.log('[Analytics] Session inserted successfully:', data);
 
     // Update streaks if the session was completed
     if (session.status === 'completed') {
@@ -38,7 +44,7 @@ export const logFocusSession = async (session: FocusSessionData) => {
 
     return data;
   } catch (error) {
-    console.error('Error logging focus session:', error);
+    console.error('[Analytics] Error logging focus session:', error);
     return null;
   }
 };

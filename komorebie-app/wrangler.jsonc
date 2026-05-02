@@ -1,0 +1,10 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "komorebie",
+  "compatibility_date": "2026-05-02",
+  "assets": {
+    "directory": "./dist",
+    // SPA routing: serve index.html for all unmatched paths
+    "not_found_handling": "single-page-application"
+  }
+}
