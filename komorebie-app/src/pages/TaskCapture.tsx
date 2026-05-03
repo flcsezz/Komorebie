@@ -79,13 +79,13 @@ const TaskCapture: React.FC = () => {
 
   return (
     <>
-    <div className="min-h-full w-full max-w-[1800px] mx-auto pt-0">
-      <div className="flex flex-col lg:flex-row gap-4 items-start">
+    <div className="min-h-full w-full max-w-[1800px] mx-auto pt-0 px-8">
+      <div className="flex flex-col lg:flex-row gap-6 items-start">
         
         {/* Left Column: Streak + Analytics */}
         <div 
           className="w-full lg:w-auto flex flex-col gap-4 transition-all duration-700 ease-in-out"
-          style={{ flex: isActive ? '2.7 1 0%' : '3 1 0%' }}
+          style={{ flex: isActive ? '2.43 1 0%' : '2.67 1 0%' }}
         >
           <StreakWidget 
             currentStreak={stats.currentStreak} 
@@ -98,7 +98,7 @@ const TaskCapture: React.FC = () => {
         {/* Center Column: The Altar */}
         <div 
           className="w-full lg:w-auto flex flex-col gap-4 transition-all duration-700 ease-in-out"
-          style={{ flex: isActive ? '6.8 1 0%' : '6.5 1 0%' }}
+          style={{ flex: isActive ? '6.78 1 0%' : '6.55 1 0%' }}
         >
           <GlassCard variant="icy" className="p-6 flex items-center justify-center min-h-[380px]">
             <ZenClock />
@@ -112,7 +112,7 @@ const TaskCapture: React.FC = () => {
         {/* Right Column: Deadlines + The Path */}
         <div 
           className="w-full lg:w-auto flex flex-col gap-4 h-full transition-all duration-700 ease-in-out"
-          style={{ flex: isActive ? '2.5 1 0%' : '2.5 1 0%' }}
+          style={{ flex: isActive ? '2.79 1 0%' : '2.78 1 0%' }}
         >
           {/* Deadlines Widget */}
           <GlassCard variant="icy" className="flex-none p-4 flex flex-col gap-3 relative group">

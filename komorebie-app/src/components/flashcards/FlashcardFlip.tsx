@@ -7,8 +7,6 @@ interface FlashcardFlipProps {
   isFlipped: boolean;
   onFlip: () => void;
   color: { bg: string; border: string; text: string; glow: string };
-  index?: number;
-  total?: number;
   onSwipeLeft?: () => void;
   onSwipeRight?: () => void;
 }
@@ -19,8 +17,6 @@ const FlashcardFlip: React.FC<FlashcardFlipProps> = ({
   isFlipped,
   onFlip,
   color,
-  index = 0,
-  total = 1,
   onSwipeLeft,
   onSwipeRight,
 }) => {
@@ -59,28 +55,21 @@ const FlashcardFlip: React.FC<FlashcardFlipProps> = ({
   };
 
   return (
-    <div className="relative w-full max-w-md mx-auto" style={{ perspective: 1200 }}>
-      {/* Card counter */}
-      <div className="text-center mb-4">
-        <span className="text-[10px] uppercase tracking-[0.2em] text-white/20 font-bold">
-          {index + 1} / {total}
-        </span>
-      </div>
-
+    <div className="relative w-full max-w-sm mx-auto" style={{ perspective: 1500 }}>
       {/* Swipe Labels */}
       <motion.div 
-        className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-16 z-10 pointer-events-none"
+        className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-20 z-10 pointer-events-none"
         style={{ opacity: leftLabelOpacity, scale: leftLabelScale }}
       >
-        <div className="px-3 py-1.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] uppercase tracking-wider font-bold whitespace-nowrap">
+        <div className="px-4 py-2 rounded-2xl bg-red-500/15 border border-red-500/20 text-red-400 text-xs uppercase tracking-widest font-black whitespace-nowrap shadow-2xl">
           Again
         </div>
       </motion.div>
       <motion.div 
-        className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-16 z-10 pointer-events-none"
+        className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-20 z-10 pointer-events-none"
         style={{ opacity: rightLabelOpacity, scale: rightLabelScale }}
       >
-        <div className="px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] uppercase tracking-wider font-bold whitespace-nowrap">
+        <div className="px-4 py-2 rounded-2xl bg-emerald-500/15 border border-emerald-500/20 text-emerald-400 text-xs uppercase tracking-widest font-black whitespace-nowrap shadow-2xl">
           Good
         </div>
       </motion.div>
@@ -103,74 +92,82 @@ const FlashcardFlip: React.FC<FlashcardFlipProps> = ({
           }
         }}
       >
-        <div className="relative w-full" style={{ transformStyle: 'preserve-3d' }}>
+        <div className="relative w-full aspect-[2.5/3.5]" style={{ transformStyle: 'preserve-3d' }}>
           {/* The card that flips */}
           <motion.div
             animate={{ rotateY: isFlipped ? 180 : 0 }}
             transition={{ 
-              duration: 0.6, 
+              duration: 0.7, 
               ease: [0.23, 1, 0.32, 1],
             }}
-            style={{ transformStyle: 'preserve-3d' }}
+            style={{ transformStyle: 'preserve-3d', height: '100%' }}
             className="relative"
           >
             {/* Front */}
             <div
-              className="rounded-3xl p-8 min-h-[320px] flex flex-col items-center justify-center text-center select-none"
+              className="absolute inset-0 rounded-[2.5rem] p-10 flex flex-col items-center justify-center text-center select-none overflow-hidden"
               style={{ 
                 backfaceVisibility: 'hidden',
-                background: `linear-gradient(145deg, rgba(30,30,30,0.9), rgba(18,18,18,0.95))`,
-                border: `1px solid ${color.border}`,
-                boxShadow: `0 0 40px ${color.glow}, inset 0 1px 0 rgba(255,255,255,0.05)`,
+                background: `linear-gradient(145deg, rgba(30,30,30,0.95), rgba(12,12,12,0.98))`,
+                border: `1px solid rgba(255,255,255,0.1)`,
+                boxShadow: `0 20px 60px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)`,
               }}
             >
               {/* Decorative corner accents */}
-              <div className="absolute top-4 left-4 w-8 h-8 border-t border-l rounded-tl-lg" style={{ borderColor: color.border }} />
-              <div className="absolute bottom-4 right-4 w-8 h-8 border-b border-r rounded-br-lg" style={{ borderColor: color.border }} />
+              <div className="absolute top-6 left-6 w-8 h-8 border-t border-l rounded-tl-xl opacity-20" style={{ borderColor: color.text }} />
+              <div className="absolute top-6 right-6 w-8 h-8 border-t border-r rounded-tr-xl opacity-20" style={{ borderColor: color.text }} />
+              <div className="absolute bottom-6 left-6 w-8 h-8 border-b border-l rounded-bl-xl opacity-20" style={{ borderColor: color.text }} />
+              <div className="absolute bottom-6 right-6 w-8 h-8 border-b border-r rounded-br-xl opacity-20" style={{ borderColor: color.text }} />
               
-              <div className="text-[9px] uppercase tracking-[0.3em] font-bold mb-6" style={{ color: color.text + '80' }}>
+              <div className="text-[10px] uppercase tracking-[0.4em] font-black mb-8 text-white/20">
                 Question
               </div>
-              <p className="text-lg font-display font-light text-white/90 leading-relaxed max-w-sm">
+              <p className="text-xl font-display font-light text-white leading-relaxed max-w-sm">
                 {front}
               </p>
-              <div className="mt-8 text-[10px] text-white/15 flex items-center gap-2">
-                <span>Tap to reveal</span>
+              <div className="mt-12 text-[11px] font-bold uppercase tracking-[0.2em] text-sage-200 flex flex-col items-center gap-2">
+                <span className="opacity-80">Tap to reveal</span>
                 <motion.span
-                  animate={{ y: [0, 3, 0] }}
+                  animate={{ y: [0, 4, 0], opacity: [0.4, 1, 0.4] }}
                   transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
                 >
                   ↓
                 </motion.span>
               </div>
+
+              {/* Ambient Glow */}
+              <div className="absolute top-0 right-0 w-32 h-32 blur-[60px] opacity-10 pointer-events-none rounded-full" style={{ background: color.text }} />
             </div>
 
             {/* Back */}
             <div
-              className="absolute inset-0 rounded-3xl p-8 min-h-[320px] flex flex-col items-center justify-center text-center select-none"
+              className="absolute inset-0 rounded-[2.5rem] p-10 flex flex-col items-center justify-center text-center select-none overflow-hidden"
               style={{ 
                 backfaceVisibility: 'hidden',
                 transform: 'rotateY(180deg)',
-                background: `linear-gradient(145deg, rgba(30,30,30,0.95), ${color.bg})`,
+                background: `linear-gradient(145deg, rgba(18,18,18,0.98), ${color.bg})`,
                 border: `1px solid ${color.border}`,
-                boxShadow: `0 0 60px ${color.glow}, inset 0 1px 0 rgba(255,255,255,0.08)`,
+                boxShadow: `0 20px 80px ${color.glow}, inset 0 1px 0 rgba(255,255,255,0.08)`,
               }}
             >
               {/* Decorative corner accents */}
-              <div className="absolute top-4 left-4 w-8 h-8 border-t border-l rounded-tl-lg" style={{ borderColor: color.text + '40' }} />
-              <div className="absolute top-4 right-4 w-8 h-8 border-t border-r rounded-tr-lg" style={{ borderColor: color.text + '40' }} />
-              <div className="absolute bottom-4 left-4 w-8 h-8 border-b border-l rounded-bl-lg" style={{ borderColor: color.text + '40' }} />
-              <div className="absolute bottom-4 right-4 w-8 h-8 border-b border-r rounded-br-lg" style={{ borderColor: color.text + '40' }} />
+              <div className="absolute top-6 left-6 w-8 h-8 border-t border-l rounded-tl-xl opacity-30" style={{ borderColor: color.text }} />
+              <div className="absolute top-6 right-6 w-8 h-8 border-t border-r rounded-tr-xl opacity-30" style={{ borderColor: color.text }} />
+              <div className="absolute bottom-6 left-6 w-8 h-8 border-b border-l rounded-bl-xl opacity-30" style={{ borderColor: color.text }} />
+              <div className="absolute bottom-6 right-6 w-8 h-8 border-b border-r rounded-br-xl opacity-30" style={{ borderColor: color.text }} />
               
-              <div className="text-[9px] uppercase tracking-[0.3em] font-bold mb-6" style={{ color: color.text }}>
+              <div className="text-[10px] uppercase tracking-[0.4em] font-black mb-8 text-white/30" style={{ color: color.text }}>
                 Answer
               </div>
-              <p className="text-lg font-display font-light text-white leading-relaxed max-w-sm">
+              <p className="text-xl font-display font-light text-white leading-relaxed max-w-sm">
                 {back}
               </p>
-              <div className="mt-8 text-[10px] text-white/20">
+              <div className="mt-12 text-[11px] uppercase tracking-widest text-white/20 font-bold">
                 Swipe or rate below
               </div>
+
+              {/* Ambient Glow */}
+              <div className="absolute inset-0 blur-[100px] opacity-20 pointer-events-none rounded-full" style={{ background: color.text }} />
             </div>
           </motion.div>
         </div>

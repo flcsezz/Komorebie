@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useLayoutEffect, useRef, Suspense } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -7,20 +7,16 @@ import {
   Settings, LogOut, Users,
   Crown, Bell, Palette, Menu, ChevronDown, Maximize, Minimize,
   Calendar, SlidersHorizontal, Music, Eye, Image as ImageIcon,
-  Trophy, MessageSquare, Share2, LifeBuoy, Clock, BarChart3, Loader2
+  Trophy, MessageSquare, Share2, LifeBuoy, Clock, BarChart3, Loader2, Flame, Sparkles
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useAnalytics } from '../../hooks/useAnalytics';
 import InitialLoader from '../ui/InitialLoader';
 import OnboardingOverlay from '../profile/OnboardingOverlay';
-
-const BACKGROUNDS = [
-  { id: 'forest', name: 'Forest Sanctuary', url: 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?q=80&w=2560&auto=format&fit=crop' },
-  { id: 'rain', name: 'Rainy Window', url: 'https://images.unsplash.com/photo-1428592953211-077101b2021b?q=80&w=2560&auto=format&fit=crop' },
-  { id: 'mountain', name: 'Mountain Lake', url: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=2560&auto=format&fit=crop' },
-  { id: 'anime', name: 'Anime Style Zen', url: 'https://images.unsplash.com/photo-1518173946687-a4c8892bbd9f?q=80&w=2560&auto=format&fit=crop' },
-  { id: 'city', name: 'Night City', url: 'https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?q=80&w=2560&auto=format&fit=crop' }
-];
+import { getRequestCount } from '../../lib/friends';
+import { supabase } from '../../lib/supabase';
+import { useBackground } from '../../context/BackgroundContext';
+import { getVisibleBackgrounds, ALL_BACKGROUNDS } from '../../lib/backgrounds';
 
 // Spring configuration for animations
 const springConfig = { type: "spring" as const, stiffness: 300, damping: 35 };
@@ -73,12 +69,13 @@ const Branding = ({ isCollapsed }: { isCollapsed?: boolean }) => (
 );
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const SidebarLink = ({ to, icon: Icon, label, active, isCollapsed }: { 
+const SidebarLink = ({ to, icon: Icon, label, active, isCollapsed, badge }: { 
   to: string, 
   icon: React.ComponentType<{ className?: string; strokeWidth?: number }>, 
   label: string, 
   active: boolean, 
-  isCollapsed: boolean 
+  isCollapsed: boolean,
+  badge?: number 
 }) => (
   <Link
     to={to}
@@ -88,10 +85,17 @@ const SidebarLink = ({ to, icon: Icon, label, active, isCollapsed }: {
         : 'text-white/40 hover:text-white hover:bg-white/5'
     }`}
   >
-    <Icon 
-      className={`w-5 h-5 relative z-10 transition-transform duration-300 group-hover:scale-110 ${active ? 'text-white' : ''}`} 
-      strokeWidth={active ? 2 : 1.5} 
-    />
+    <div className="relative">
+      <Icon 
+        className={`w-5 h-5 relative z-10 transition-transform duration-300 group-hover:scale-110 ${active ? 'text-white' : ''}`} 
+        strokeWidth={active ? 2 : 1.5} 
+      />
+      {!!badge && badge > 0 && (
+        <div className="absolute -top-1 -right-1.5 w-3.5 h-3.5 rounded-full bg-sage-200 text-slate-950 text-[7px] font-black flex items-center justify-center z-20">
+          {badge > 9 ? '9+' : badge}
+        </div>
+      )}
+    </div>
     <AnimatePresence initial={false}>
       {!isCollapsed && (
         <motion.span 
@@ -105,6 +109,11 @@ const SidebarLink = ({ to, icon: Icon, label, active, isCollapsed }: {
         </motion.span>
       )}
     </AnimatePresence>
+    {!!badge && badge > 0 && !isCollapsed && (
+      <span className="ml-auto text-[9px] font-bold bg-sage-200/15 text-sage-200 px-1.5 py-0.5 rounded-full">
+        {badge}
+      </span>
+    )}
     {isCollapsed && (
       <div className="absolute left-full ml-4 px-2 py-1 bg-slate-900 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-[100] border border-white/10">
         {label}
@@ -151,30 +160,24 @@ const SidebarSection = ({ label, isCollapsed, children }: { label: string, isCol
 
 const AppLayout: React.FC = () => {
   const { user, loading: authLoading, signOut } = useAuth();
-  const { profile, refresh } = useAnalytics();
+  const { profile, stats, refresh } = useAnalytics();
   const location = useLocation();
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [isTransitioning, setIsTransitioning] = useState(true);
-  const lastPath = React.useRef(location.pathname);
-  
-  // Mount effect to show initial loader
-  useEffect(() => {
-    setIsTransitioning(true);
-    const timer = setTimeout(() => {
-      setIsTransitioning(false);
-    }, 1300);
-    return () => clearTimeout(timer);
-  }, []);
+  const [prevPath, setPrevPath] = useState(location.pathname);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const lastPathRef = useRef(location.pathname);
 
-  // Stable route change detection
-  useEffect(() => {
-    if (location.pathname !== lastPath.current) {
-      lastPath.current = location.pathname;
+  // Instant transition trigger on path change
+  useLayoutEffect(() => {
+    if (location.pathname !== lastPathRef.current) {
       setIsTransitioning(true);
+      setPrevPath(lastPathRef.current); // Store old path
+      lastPathRef.current = location.pathname;
       
       const timer = setTimeout(() => {
         setIsTransitioning(false);
-      }, 1300);
+      }, 1500);
+      
       return () => clearTimeout(timer);
     }
   }, [location.pathname]);
@@ -188,12 +191,58 @@ const AppLayout: React.FC = () => {
     await signOut();
   };
 
-  const [bgImage, setBgImage] = useState(() => localStorage.getItem('komorebie-bg') || BACKGROUNDS[0].url);
+  const [bgImage, setBgImage] = useState(() => {
+    return localStorage.getItem('komorebie-bg') || ALL_BACKGROUNDS[0].url;
+  });
+
+  // Sync background state with profile when it loads
+  useEffect(() => {
+    if (profile?.preferred_bg && profile.preferred_bg !== bgImage) {
+      setBgImage(profile.preferred_bg);
+      localStorage.setItem('komorebie-bg', profile.preferred_bg);
+    }
+  }, [profile?.preferred_bg, bgImage]);
   const [showBgPicker, setShowBgPicker] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(true);
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
 
-  // Sidebar is now handled by hover-peek logic
+  // Close menus when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
+        setShowProfileMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+const [isFullscreen, setIsFullscreen] = useState(false);
+  const [friendRequestBadge, setFriendRequestBadge] = useState(0);
+  const { background: backgroundOverride } = useBackground();
+  
+  // Fetch friend request count for badge
+  const fetchFriendBadge = useCallback(async () => {
+    if (!user) return;
+    try {
+      const count = await getRequestCount(user.id);
+      setFriendRequestBadge(count);
+    } catch { /* silent */ }
+  }, [user]);
+
+  useEffect(() => {
+    fetchFriendBadge();
+    const interval = setInterval(fetchFriendBadge, 30000); // Poll every 30s
+    return () => clearInterval(interval);
+  }, [fetchFriendBadge]);
+
+  useEffect(() => {
+    const isLeavingFocus = prevPath === '/app/focus/session' && location.pathname !== '/app/focus/session';
+    
+    if (isLeavingFocus && document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    }
+  }, [location.pathname, prevPath]);
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -222,8 +271,13 @@ const AppLayout: React.FC = () => {
   };
 
   useEffect(() => {
-    localStorage.setItem('komorebie-bg', bgImage);
-  }, [bgImage]);
+    // Only sync if we have a user and the bgImage is different from what's in the profile
+    // to avoid redundant updates on mount
+    if (user && profile && bgImage !== profile.preferred_bg) {
+      localStorage.setItem('komorebie-bg', bgImage);
+      supabase.from('profiles').update({ preferred_bg: bgImage }).eq('id', user.id).then(() => {});
+    }
+  }, [bgImage, user, profile]);
 
   if (authLoading) {
     return (
@@ -250,8 +304,8 @@ const AppLayout: React.FC = () => {
 
         {/* Dynamic Background Image */}
         <div 
-          className="fixed inset-0 z-0 bg-cover bg-center transition-all duration-1000 ease-in-out pointer-events-none opacity-40"
-          style={{ backgroundImage: `url(${bgImage})`, transform: 'scale(1.1)' }}
+          className="fixed inset-0 z-0 bg-cover bg-center transition-all duration-700 ease-in-out pointer-events-none opacity-40"
+          style={{ backgroundImage: `url(${backgroundOverride || bgImage})`, transform: 'scale(1.05)' }}
         />
         {/* Background Overlay */}
         <div className="fixed inset-0 z-[1] bg-slate-950/20 pointer-events-none" />
@@ -326,7 +380,7 @@ const AppLayout: React.FC = () => {
             {/* Community */}
             <SidebarSection label="Community" isCollapsed={isCollapsed}>
               <SidebarLink to="/app/leaderboard" icon={Trophy} label="Leaderboard" active={location.pathname === '/app/leaderboard'} isCollapsed={isCollapsed} />
-              <SidebarLink to="/app/friends" icon={Users} label="Friends" active={location.pathname === '/app/friends'} isCollapsed={isCollapsed} />
+              <SidebarLink to="/app/friends" icon={Users} label="Friends" active={location.pathname === '/app/friends'} isCollapsed={isCollapsed} badge={friendRequestBadge} />
             </SidebarSection>
 
             {/* Join Our Gang */}
@@ -400,16 +454,9 @@ const AppLayout: React.FC = () => {
                       <BrandingText />
                     </motion.div>
                   )}
-                </AnimatePresence>
+</AnimatePresence>
               </div>
               
-              <div className="flex items-center gap-3 px-4 py-1.5 bg-white/5 border border-white/10 rounded-full group">
-                <Clock className="w-3.5 h-3.5 text-sage-200" />
-                <span className="text-[11px] font-mono font-semibold text-white/80 tabular-nums">
-                  {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </span>
-              </div>
-
               <button className="flex items-center gap-2 px-4 py-1.5 bg-sage-200/10 text-sage-200 border border-sage-200/20 rounded-full text-[9px] uppercase tracking-[0.2em] transition-colors hover:bg-sage-200/20 font-bold cursor-pointer">
                 <Crown className="w-3 h-3" strokeWidth={3} />
                 Go Premium
@@ -417,10 +464,10 @@ const AppLayout: React.FC = () => {
 
               <button 
                 onClick={toggleFullscreen}
-                className="p-2 bg-white/5 border border-white/10 rounded-full transition-colors hover:bg-white/10 text-white/40 hover:text-white cursor-pointer ml-2"
-                title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+                className="flex items-center gap-2 px-4 py-1.5 bg-white/5 border border-white/10 rounded-full transition-colors hover:bg-white/10 text-white/40 hover:text-white cursor-pointer"
               >
                 {isFullscreen ? <Minimize className="w-3.5 h-3.5" strokeWidth={1.5} /> : <Maximize className="w-3.5 h-3.5" strokeWidth={1.5} />}
+                <span className="text-[10px] font-medium">{isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}</span>
               </button>
               
               <div className="relative flex items-center ml-2">
@@ -441,7 +488,7 @@ const AppLayout: React.FC = () => {
                     >
                       <h5 className="px-3 py-2 text-[9px] uppercase tracking-widest text-white/30 font-bold">Backgrounds</h5>
                       <div className="space-y-1">
-                        {BACKGROUNDS.map((bg) => (
+                        {getVisibleBackgrounds(user?.email).map((bg) => (
                           <button
                             key={bg.id}
                             onClick={() => {
@@ -452,7 +499,7 @@ const AppLayout: React.FC = () => {
                               bgImage === bg.url ? 'bg-sage-200/10 text-sage-200' : 'text-white/40 hover:bg-white/5 hover:text-white'
                             }`}
                           >
-                            <div className="w-6 h-4 rounded bg-cover bg-center" style={{ backgroundImage: `url(${bg.url})` }} />
+                            <div className="w-6 h-4 rounded bg-cover bg-center border border-white/10" style={{ backgroundImage: `url(${bg.url})` }} />
                             {bg.name}
                           </button>
                         ))}
@@ -463,21 +510,86 @@ const AppLayout: React.FC = () => {
               </div>
             </div>
             
-            <div className="flex items-center gap-3">
-              <Link to="/app/profile" className="flex items-center gap-3 pl-1 pr-3 py-0.5 bg-white/5 border border-white/10 rounded-full transition-colors duration-300 cursor-pointer group">
-                {profile?.avatar_url ? (
-                  <img src={profile.avatar_url} alt="PFP" className="w-7 h-7 rounded-full object-cover border border-white/5" />
-                ) : (
-                  <div className="w-7 h-7 rounded-full bg-sage-200/20 flex items-center justify-center border border-white/5 overflow-hidden relative">
-                    <span className="text-sage-200 text-[10px] font-bold relative z-10">
-                      {(profile?.display_name || user?.email || 'E').charAt(0).toUpperCase()}
-                    </span>
-                  </div>
-                )}
-                <span className="text-xs font-light text-white/50 group-hover:text-white transition-colors">
-                  {profile?.display_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Explorer'}
-                </span>
-              </Link>
+            <div className="flex items-center gap-3" ref={profileMenuRef}>
+              <div className="relative">
+                <button 
+                  onClick={() => setShowProfileMenu(!showProfileMenu)}
+                  className={`flex items-center gap-3 pl-1 pr-3 py-0.5 rounded-full transition-all duration-300 cursor-pointer group border ${
+                    showProfileMenu ? 'bg-white/10 border-white/20' : 'bg-white/5 border-white/10'
+                  }`}
+                >
+                  {profile?.avatar_url ? (
+                    <img src={profile.avatar_url} alt="PFP" className="w-7 h-7 rounded-full object-cover border border-white/5" />
+                  ) : (
+                    <div className="w-7 h-7 rounded-full bg-sage-200/20 flex items-center justify-center border border-white/5 overflow-hidden relative">
+                      <span className="text-sage-200 text-[10px] font-bold relative z-10">
+                        {(profile?.display_name || user?.email || 'E').charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                  )}
+                  <span className="text-xs font-light text-white/50 group-hover:text-white transition-colors flex items-center gap-2">
+                    {profile?.display_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Explorer'}
+                    <ChevronDown className={`w-3 h-3 transition-transform duration-300 ${showProfileMenu ? 'rotate-180' : ''}`} />
+                  </span>
+                </button>
+
+                <AnimatePresence>
+                  {showProfileMenu && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                      className="absolute top-12 right-0 w-48 bg-slate-950/80 backdrop-blur-3xl border border-white/10 rounded-2xl p-2 z-[100] shadow-2xl"
+                    >
+                      <div className="px-3 py-2 mb-1 border-b border-white/5">
+                        <p className="text-[10px] font-bold text-white/80 truncate">{profile?.display_name || 'Explorer'}</p>
+                        <p className="text-[9px] text-white/30 truncate">@{profile?.username || 'explorer'}</p>
+                        
+                        <div className="flex items-center gap-3 mt-2">
+                          <div className="flex items-center gap-1 text-[9px] text-amber-400 font-bold">
+                            <Flame className="w-2.5 h-2.5" />
+                            {stats.currentStreak}d
+                          </div>
+                          <div className="flex items-center gap-1 text-[9px] text-sage-200 font-bold">
+                            <Sparkles className="w-2.5 h-2.5" />
+                            {stats.mana}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-0.5">
+                        <Link 
+                          to="/app/profile" 
+                          onClick={() => setShowProfileMenu(false)}
+                          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[11px] text-white/50 hover:bg-white/5 hover:text-white transition-all group"
+                        >
+                          <Users className="w-3.5 h-3.5 opacity-40 group-hover:opacity-100" />
+                          My Sanctuary
+                        </Link>
+                        <Link 
+                          to="/app/settings" 
+                          onClick={() => setShowProfileMenu(false)}
+                          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[11px] text-white/50 hover:bg-white/5 hover:text-white transition-all group"
+                        >
+                          <Settings className="w-3.5 h-3.5 opacity-40 group-hover:opacity-100" />
+                          Settings
+                        </Link>
+                        <div className="h-px bg-white/5 my-1 mx-2" />
+                        <button 
+                          onClick={() => {
+                            setShowProfileMenu(false);
+                            handleSignOut();
+                          }}
+                          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[11px] text-red-400/60 hover:bg-red-400/5 hover:text-red-400 transition-all group cursor-pointer"
+                        >
+                          <LogOut className="w-3.5 h-3.5 opacity-40 group-hover:opacity-100" />
+                          Log Out
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
               
               <button className="p-2 bg-white/5 border border-white/10 rounded-full transition-colors hover:bg-white/10 text-white/30 hover:text-white cursor-pointer relative">
                 <Bell className="w-3.5 h-3.5" strokeWidth={1.5} />
@@ -489,9 +601,19 @@ const AppLayout: React.FC = () => {
           {/* Page Content */}
           <main className="flex-1 overflow-y-auto px-6 py-4 custom-scrollbar relative">
             <div className="min-h-full">
-              <Outlet />
+              <Suspense fallback={<InitialLoader show={true} />}>
+                <Outlet />
+              </Suspense>
             </div>
           </main>
+          
+          {/* Bottom Right Time */}
+          <div className="absolute bottom-6 right-6 flex items-center gap-2 px-4 py-1.5 bg-white/5 border border-white/10 rounded-full z-20">
+            <Clock className="w-3.5 h-3.5 text-sage-200" />
+            <span className="text-[11px] font-mono font-semibold text-white/80 tabular-nums">
+              {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </span>
+          </div>
         </div>
     </div>
   );

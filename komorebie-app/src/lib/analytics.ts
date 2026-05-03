@@ -57,8 +57,15 @@ export const logFocusSession = async (session: FocusSessionData) => {
   }
 };
 
+const toLocalISO = (date: Date) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
 const updateStreak = async (userId: string, seconds: number) => {
-  const today = new Date().toISOString().split('T')[0];
+  const today = toLocalISO(new Date());
 
   try {
     // Attempt to get existing streak for today
@@ -310,5 +317,26 @@ export const fetchDeadlines = async (userId: string) => {
   } catch (error) {
     console.error('Error fetching deadlines:', error);
     return [];
+  }
+};
+export const fetchTodayFocusForUsers = async (userIds: string[]) => {
+  if (!userIds || userIds.length === 0) return {};
+  const today = toLocalISO(new Date());
+  try {
+    const { data, error } = await supabase
+      .from('streaks')
+      .select('user_id, total_focus_seconds')
+      .in('user_id', userIds)
+      .eq('focus_date', today);
+    
+    if (error) throw error;
+    
+    return (data || []).reduce((acc: Record<string, number>, curr) => {
+      acc[curr.user_id] = curr.total_focus_seconds;
+      return acc;
+    }, {});
+  } catch (err) {
+    console.error('Error fetching today focus for users:', err);
+    return {};
   }
 };

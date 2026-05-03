@@ -8,7 +8,6 @@ interface StudyCompleteProps {
     correctCards: number;
     durationSeconds: number;
   };
-  deckTitle: string;
   deckEmoji: string;
   color: { text: string; bg: string; border: string; glow: string };
   onClose: () => void;
@@ -17,7 +16,6 @@ interface StudyCompleteProps {
 
 const StudyComplete: React.FC<StudyCompleteProps> = ({
   stats,
-  deckTitle,
   deckEmoji,
   color,
   onClose,
@@ -26,6 +24,13 @@ const StudyComplete: React.FC<StudyCompleteProps> = ({
   const accuracy = stats.totalCards > 0 
     ? Math.round((stats.correctCards / stats.totalCards) * 100) 
     : 0;
+  
+  const [particles] = React.useState(() => 
+    [...Array(6)].map(() => ({
+      x: Math.random() * 400,
+      y: Math.random() * 400,
+    }))
+  );
   
   const minutes = Math.floor(stats.durationSeconds / 60);
   const seconds = stats.durationSeconds % 60;
@@ -56,14 +61,14 @@ const StudyComplete: React.FC<StudyCompleteProps> = ({
       >
         {/* Animated background particles */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          {[...Array(6)].map((_, i) => (
+          {particles.map((p, i) => (
             <motion.div
               key={i}
               className="absolute w-1 h-1 rounded-full"
               style={{ backgroundColor: color.text + '30' }}
               initial={{
-                x: Math.random() * 400,
-                y: Math.random() * 400,
+                x: p.x,
+                y: p.y,
                 scale: 0,
               }}
               animate={{

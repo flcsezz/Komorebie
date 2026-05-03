@@ -62,18 +62,18 @@ const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({ onComplete, userI
         return;
       }
 
-      // Update profile
+      // Upsert profile (ensure it exists and update it)
       const { error: updateError } = await supabase
         .from('profiles')
-        .update({
+        .upsert({
+          id: userId,
           username,
           display_name: displayName || username,
           full_name: displayName || username,
           has_completed_onboarding: true,
           display_name_updated_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
-        })
-        .eq('id', userId);
+        });
 
       if (updateError) throw updateError;
       
@@ -118,15 +118,15 @@ const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({ onComplete, userI
 
       const { error: updateError } = await supabase
         .from('profiles')
-        .update({
+        .upsert({
+          id: userId,
           username: finalUsername,
           display_name: defaultName,
           full_name: defaultName,
           has_completed_onboarding: true,
           display_name_updated_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
-        })
-        .eq('id', userId);
+        });
 
       if (updateError) throw updateError;
       
@@ -147,10 +147,16 @@ const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({ onComplete, userI
         className="absolute inset-0 bg-slate-950/90 backdrop-blur-2xl" 
       />
       
-      {/* Background elements */}
+      {/* Background Decorative Elements - Matching Login Screen */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-sage-200/5 rounded-full blur-[120px] animate-pulse" />
-        <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-sage-200/5 rounded-full blur-[100px] animate-pulse" style={{ animationDelay: '1s' }} />
+        {/* Concentric Rings */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[150%] h-[150%] border border-white/5 rounded-full animate-slow-spin opacity-20" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] border border-white/[0.03] rounded-full animate-slow-spin-reverse opacity-20" />
+        
+        {/* Ambient Gradient Orbs - Synchronized with AuthGateway */}
+        <div className="ambient-orb ambient-orb-sage w-[600px] h-[600px] absolute top-1/4 right-[-10%] opacity-40" style={{ animationDelay: '-3s' }} />
+        <div className="ambient-orb ambient-orb-indigo w-[500px] h-[500px] absolute bottom-[-10%] left-[-10%] opacity-30" style={{ animationDelay: '-10s' }} />
+        <div className="ambient-orb ambient-orb-warm w-[400px] h-[400px] absolute top-1/3 left-1/4 opacity-20" style={{ animationDelay: '-6s' }} />
       </div>
 
       <motion.div
@@ -247,7 +253,7 @@ const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({ onComplete, userI
                         className="w-full bg-white/5 border border-white/10 rounded-2xl pl-11 pr-4 py-4 text-white placeholder-white/20 focus:outline-none focus:border-sage-200/40 transition-all text-sm"
                       />
                     </div>
-                    <p className="text-[9px] text-white/15 ml-1">Visible to others. Can be changed every 7 days.</p>
+                    <p className="text-[11px] text-white/40 ml-1">Visible to others. Can be changed every 7 days.</p>
                   </div>
 
                   <div className="space-y-2">
@@ -266,8 +272,8 @@ const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({ onComplete, userI
                       />
                     </div>
                     <div className="flex items-start gap-2 ml-1">
-                      <ShieldCheck className="w-3 h-3 text-amber-500/50 mt-0.5" />
-                      <p className="text-[9px] text-amber-500/50 italic leading-tight">Attention: Your username is permanent and cannot be changed later.</p>
+                      <ShieldCheck className="w-3 h-3 text-amber-200/60 mt-0.5" />
+                      <p className="text-[11px] text-amber-200/60 italic leading-tight">Attention: Your username is permanent and cannot be changed later.</p>
                     </div>
                   </div>
 

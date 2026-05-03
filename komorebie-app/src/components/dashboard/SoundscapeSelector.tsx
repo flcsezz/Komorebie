@@ -1,16 +1,25 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CloudRain, Trees, Wind, Waves, Volume2, VolumeX, Music4, Flame } from 'lucide-react';
+import { useSoundscape, SOUNDSCAPES } from '../../context/SoundscapeContext';
 
-// Reliable Google Actions sounds (Royalty Free & Fast CDN)
-const SOUNDSCAPES = [
-  { id: 'rain', icon: CloudRain, label: 'Rain', color: 'text-blue-300', url: 'https://actions.google.com/sounds/v1/weather/rain_heavy_loud.ogg' },
-  { id: 'forest', icon: Trees, label: 'Forest', color: 'text-green-300', url: 'https://actions.google.com/sounds/v1/ambiences/summer_forest.ogg' },
-  { id: 'wind', icon: Wind, label: 'Wind', color: 'text-cyan-100', url: 'https://actions.google.com/sounds/v1/weather/strong_wind.ogg' },
-  { id: 'waves', icon: Waves, label: 'Ocean', color: 'text-blue-200', url: 'https://actions.google.com/sounds/v1/water/waves_crashing_on_rock_beach.ogg' },
-  { id: 'fire', icon: Flame, label: 'Campfire', color: 'text-orange-400', url: 'https://actions.google.com/sounds/v1/ambiences/fire.ogg' },
-  { id: 'lofi', icon: Music4, label: 'Cafe', color: 'text-purple-300', url: 'https://actions.google.com/sounds/v1/ambiences/coffee_shop.ogg' },
-];
+const SOUNDSCAPE_ICONS: Record<string, any> = {
+  rain: CloudRain,
+  forest: Trees,
+  wind: Wind,
+  waves: Waves,
+  fire: Flame,
+  lofi: Music4,
+};
+
+const SOUNDSCAPE_COLORS: Record<string, string> = {
+  rain: 'text-blue-300',
+  forest: 'text-green-300',
+  wind: 'text-cyan-100',
+  waves: 'text-blue-200',
+  fire: 'text-orange-400',
+  lofi: 'text-purple-300',
+};
 
 const Visualizer = ({ isActive, color }: { isActive: boolean, color: string }) => {
   return (
@@ -33,51 +42,8 @@ const Visualizer = ({ isActive, color }: { isActive: boolean, color: string }) =
   );
 };
 
-const AudioPlayer = ({ url, volume, isPlaying, isMuted }: { url: string, volume: number, isPlaying: boolean, isMuted: boolean }) => {
-  const audioRef = useRef<HTMLAudioElement>(null);
-
-  useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.volume = isMuted ? 0 : volume / 100;
-    }
-  }, [volume, isMuted]);
-
-  useEffect(() => {
-    if (audioRef.current) {
-      if (isPlaying) {
-        // Handle potential autoplay blocking
-        const playPromise = audioRef.current.play();
-        if (playPromise !== undefined) {
-          playPromise.catch(error => {
-            console.warn("Autoplay prevented:", error);
-          });
-        }
-      } else {
-        audioRef.current.pause();
-      }
-    }
-  }, [isPlaying, url]);
-
-  // Using preload="none" is critical to prevent the browser from downloading 6 audio streams simultaneously on load
-  return <audio ref={audioRef} src={url} loop preload="none" />;
-};
-
 const SoundscapeSelector: React.FC = () => {
-  const [volumes, setVolumes] = useState<Record<string, number>>(
-    SOUNDSCAPES.reduce((acc, s) => ({ ...acc, [s.id]: 0 }), {})
-  );
-  const [isMuted, setIsMuted] = useState(false);
-
-  const handleVolumeChange = (id: string, value: number) => {
-    setVolumes(prev => ({ ...prev, [id]: value }));
-  };
-
-  const toggleSound = (id: string) => {
-    setVolumes(prev => ({
-      ...prev,
-      [id]: prev[id] > 0 ? 0 : 50 // Default to 50% when toggled on
-    }));
-  };
+  const { volumes, isMuted, setVolume, toggleMute, toggleSound } = useSoundscape();
 
   return (
     <div className="w-full flex flex-col gap-3">
@@ -88,7 +54,7 @@ const SoundscapeSelector: React.FC = () => {
             <Visualizer isActive={true} color="text-sage-200" />
           )}
           <button 
-            onClick={() => setIsMuted(!isMuted)}
+            onClick={toggleMute}
             className={`p-1.5 rounded-full border transition-colors cursor-pointer flex items-center justify-center ${
               isMuted 
                 ? 'bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20' 
@@ -103,7 +69,8 @@ const SoundscapeSelector: React.FC = () => {
 
       <div className="flex overflow-x-auto custom-scrollbar pb-1.5 gap-2 px-1 snap-x snap-mandatory">
         {SOUNDSCAPES.map((sound) => {
-          const Icon = sound.icon;
+          const Icon = SOUNDSCAPE_ICONS[sound.id];
+          const color = SOUNDSCAPE_COLORS[sound.id];
           const vol = volumes[sound.id];
           const isActive = vol > 0;
           
@@ -112,11 +79,9 @@ const SoundscapeSelector: React.FC = () => {
               key={sound.id}
               onWheel={(e) => {
                 if (isActive) {
-                  // Adjust volume via wheel (scroll up = +5%, scroll down = -5%)
-                  // prevent default scrolling when adjusting volume
                   e.stopPropagation();
                   const delta = e.deltaY < 0 ? 5 : -5;
-                  handleVolumeChange(sound.id, Math.max(0, Math.min(100, vol + delta)));
+                  setVolume(sound.id, Math.max(0, Math.min(100, vol + delta)));
                 }
               }}
               className={`snap-start min-w-[80px] flex-1 p-2.5 rounded-2xl border transition-all duration-500 flex flex-col gap-2 relative group ${
@@ -125,18 +90,15 @@ const SoundscapeSelector: React.FC = () => {
                   : 'bg-white/5 border-transparent hover:border-white/10 cursor-pointer overflow-hidden'
               }`}
             >
-              <AudioPlayer url={sound.url} volume={vol} isPlaying={isActive} isMuted={isMuted} />
-
               <div 
                 className="flex flex-col items-center justify-center gap-2 z-10 cursor-pointer"
                 onClick={(e) => {
-                  // Only toggle if they click the icon/label area, not the slider
                   if ((e.target as HTMLElement).tagName !== 'INPUT') {
                     toggleSound(sound.id);
                   }
                 }}
               >
-                <div className={`p-2 rounded-xl ${isActive ? 'bg-white/10 ' + sound.color : 'bg-white/5 text-white/20 group-hover:text-white/40'} transition-all`}>
+                <div className={`p-2 rounded-xl ${isActive ? 'bg-white/10 ' + color : 'bg-white/5 text-white/20 group-hover:text-white/40'} transition-all`}>
                   <Icon className="w-4 h-4" />
                 </div>
                 <div className="flex flex-col items-center gap-0.5">
@@ -146,10 +108,10 @@ const SoundscapeSelector: React.FC = () => {
                   <AnimatePresence>
                     {isActive && (
                       <motion.span 
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className={`text-[7px] font-bold tracking-wider ${sound.color}`}
+                         initial={{ opacity: 0, height: 0 }}
+                         animate={{ opacity: 1, height: 'auto' }}
+                         exit={{ opacity: 0, height: 0 }}
+                         className={`text-[7px] font-bold tracking-wider ${color}`}
                       >
                         {vol}%
                       </motion.span>
@@ -166,40 +128,36 @@ const SoundscapeSelector: React.FC = () => {
                     exit={{ opacity: 0, y: 5 }}
                     className="relative h-1 w-full bg-white/10 rounded-full z-20 mt-0.5 flex items-center"
                   >
-                    {/* Active Track */}
                     <motion.div 
                       initial={false}
                       animate={{ width: `${vol}%` }}
                       transition={{ ease: "easeOut", duration: 0.1 }}
-                      className={`absolute inset-y-0 left-0 rounded-full ${sound.color.replace('text', 'bg')}`}
+                      className={`absolute inset-y-0 left-0 rounded-full ${color.replace('text', 'bg')}`}
                     />
-                    {/* Slider Thumb (Dot) */}
                     <motion.div
                       initial={false}
                       animate={{ left: `${vol}%` }}
                       transition={{ ease: "easeOut", duration: 0.1 }}
                       className="absolute w-2 h-2 bg-white rounded-full shadow-[0_0_5px_rgba(255,255,255,0.8)]"
-                      style={{ marginLeft: '-4px' }} // Center the dot on the exact percentage
+                      style={{ marginLeft: '-4px' }}
                     />
-                    {/* Invisible Range Input */}
                     <input 
                       type="range" 
                       min="0" 
                       max="100" 
                       value={vol}
-                      onChange={(e) => handleVolumeChange(sound.id, parseInt(e.target.value))}
+                      onChange={(e) => setVolume(sound.id, parseInt(e.target.value))}
                       className="absolute inset-0 w-full h-full opacity-0 cursor-ew-resize z-30"
                     />
                   </motion.div>
                 )}
               </AnimatePresence>
 
-              {/* Dynamic Background Pulse for active sounds */}
               {isActive && (
                 <motion.div 
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 0.1 }}
-                  className={`absolute inset-0 ${sound.color.replace('text', 'bg')} blur-2xl -z-0 pointer-events-none rounded-2xl`}
+                  className={`absolute inset-0 ${color.replace('text', 'bg')} blur-2xl -z-0 pointer-events-none rounded-2xl`}
                 />
               )}
             </div>

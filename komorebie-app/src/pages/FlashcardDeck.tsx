@@ -2,9 +2,9 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft, Plus, Play, Layers, Star, Clock, Settings,
-  Trash2, Pencil, ChevronRight, Shuffle, RotateCcw, X,
-  BookOpen, GripVertical
+  ArrowLeft, Plus, Play, Layers, Star, Clock,
+  Trash2, Pencil, ChevronRight, Shuffle, X,
+  BookOpen
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -35,7 +35,7 @@ const FlashcardDeckPage: React.FC = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [studySessionId, setStudySessionId] = useState<string | null>(null);
-  const [studyStats, setStudyStats] = useState({ totalCards: 0, correctCards: 0 });
+  const [studyStats, setStudyStats] = useState({ totalCards: 0, correctCards: 0, durationSeconds: 0 });
   const studyStartTime = useRef<number>(0);
 
   // Modals
@@ -80,7 +80,10 @@ const FlashcardDeckPage: React.FC = () => {
     }
   }, [deckId]);
 
-  useEffect(() => { loadDeck(); }, [loadDeck]);
+  useEffect(() => {
+    const init = async () => { await loadDeck(); };
+    init();
+  }, [loadDeck]);
 
   // ─── Study Flow ─────────────────────────────────────────────────
   const startStudy = async (mode: 'all' | 'due' | 'shuffle') => {
@@ -104,7 +107,7 @@ const FlashcardDeckPage: React.FC = () => {
     setStudyCards(studySet);
     setCurrentIndex(0);
     setIsFlipped(false);
-    setStudyStats({ totalCards: 0, correctCards: 0 });
+    setStudyStats({ totalCards: 0, correctCards: 0, durationSeconds: 0 });
     studyStartTime.current = Date.now();
     setViewMode('study');
   };
@@ -115,6 +118,7 @@ const FlashcardDeckPage: React.FC = () => {
     try {
       await reviewCard(card.id, rating, card);
       setStudyStats(prev => ({
+        ...prev,
         totalCards: prev.totalCards + 1,
         correctCards: prev.correctCards + (rating >= 3 ? 1 : 0),
       }));
@@ -128,14 +132,25 @@ const FlashcardDeckPage: React.FC = () => {
   };
 
   const finishStudy = async () => {
+    let duration = 0;
+    if (studyStartTime.current > 0) {
+      duration = Math.round((Date.now() - studyStartTime.current) / 1000);
+    }
+    
     if (studySessionId) {
-      const duration = Math.round((Date.now() - studyStartTime.current) / 1000);
       await endStudySession(studySessionId, {
         cards_studied: studyStats.totalCards + 1,
         cards_correct: studyStats.correctCards,
         duration_seconds: duration,
       });
     }
+    
+    setStudyStats(prev => ({
+      ...prev,
+      totalCards: prev.totalCards + 1,
+      durationSeconds: duration
+    }));
+    
     setViewMode('complete');
     loadDeck();
   };
@@ -207,22 +222,28 @@ const FlashcardDeckPage: React.FC = () => {
     return (
       <div className="max-w-4xl mx-auto py-8">
         {/* Study Header */}
-        <div className="flex items-center justify-between mb-12">
+        <div className="flex items-center justify-between mb-16 px-4">
           <button onClick={() => { setViewMode('overview'); loadDeck(); }}
-            className="flex items-center gap-2 text-sm text-white/30 hover:text-white transition-colors cursor-pointer">
-            <X className="w-4 h-4" /> Exit
+            className="flex items-center gap-3 px-5 py-2.5 rounded-2xl bg-white/5 border border-white/10 text-white/30 hover:text-white hover:bg-white/10 transition-all cursor-pointer group">
+            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+            <span className="text-[10px] uppercase tracking-[0.2em] font-black">Back to Deck</span>
           </button>
-          <div className="flex items-center gap-2">
-            <span className="text-3xl">{deck.emoji}</span>
-            <span className="text-sm font-display text-white/50">{deck.title}</span>
-          </div>
-          {/* Progress dots */}
-          <div className="flex gap-1">
-            {studyCards.slice(0, Math.min(studyCards.length, 20)).map((_, i) => (
-              <div key={i} className="w-1.5 h-1.5 rounded-full transition-colors duration-300"
-                style={{ backgroundColor: i < currentIndex ? color.text : i === currentIndex ? color.text + '80' : 'rgba(255,255,255,0.1)' }} />
-            ))}
-            {studyCards.length > 20 && <span className="text-[9px] text-white/15 ml-1">+{studyCards.length - 20}</span>}
+
+          {/* Progress indicators */}
+          <div className="flex items-center gap-4">
+            <div className="flex gap-1.5">
+              {studyCards.slice(0, Math.min(studyCards.length, 20)).map((_, i) => (
+                <div key={i} className="w-2 h-2 rounded-full transition-all duration-500"
+                  style={{ 
+                    backgroundColor: i < currentIndex ? color.text : i === currentIndex ? color.text : 'rgba(255,255,255,0.05)',
+                    boxShadow: i === currentIndex ? `0 0 10px ${color.glow}` : 'none',
+                    transform: i === currentIndex ? 'scale(1.2)' : 'scale(1)'
+                  }} />
+              ))}
+            </div>
+            <span className="text-[11px] font-mono text-white/20 font-bold">
+              {currentIndex + 1} <span className="text-white/5">/</span> {studyCards.length}
+            </span>
           </div>
         </div>
 
@@ -230,7 +251,7 @@ const FlashcardDeckPage: React.FC = () => {
         <FlashcardFlip
           front={currentCard.front} back={currentCard.back}
           isFlipped={isFlipped} onFlip={() => setIsFlipped(!isFlipped)}
-          color={color} index={currentIndex} total={studyCards.length}
+          color={color}
           onSwipeLeft={() => handleRate(0)} onSwipeRight={() => handleRate(3)}
         />
 
@@ -238,26 +259,17 @@ const FlashcardDeckPage: React.FC = () => {
         <AnimatePresence>
           {isFlipped && <DifficultyButtons onRate={handleRate} visible={isFlipped} />}
         </AnimatePresence>
-
-        {!isFlipped && (
-          <div className="text-center mt-8">
-            <p className="text-[11px] text-white/15">
-              Click card to reveal · Swipe left/right to rate · or use keyboard (1-6)
-            </p>
-          </div>
-        )}
       </div>
     );
   }
 
   // ─── Complete View ──────────────────────────────────────────────
   if (viewMode === 'complete') {
-    const duration = Math.round((Date.now() - studyStartTime.current) / 1000);
     return (
       <div className="max-w-4xl mx-auto py-16">
         <StudyComplete
-          stats={{ ...studyStats, totalCards: studyStats.totalCards + 1, durationSeconds: duration }}
-          deckTitle={deck.title} deckEmoji={deck.emoji} color={color}
+          stats={studyStats}
+          deckEmoji={deck.emoji} color={color}
           onClose={() => setViewMode('overview')}
           onStudyAgain={() => startStudy('all')}
         />
@@ -271,7 +283,7 @@ const FlashcardDeckPage: React.FC = () => {
   const dueCount = safeCards.filter(c => {
     try {
       return c.next_review_at && new Date(c.next_review_at) <= new Date();
-    } catch (e) {
+    } catch {
       return false;
     }
   }).length;
@@ -287,50 +299,56 @@ const FlashcardDeckPage: React.FC = () => {
 
       {/* Deck Header */}
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-        className="flex items-start justify-between mb-10">
-        <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl"
-            style={{ background: color.bg, border: `1px solid ${color.border}`, boxShadow: `0 4px 30px ${color.glow}` }}>
-            {deck.emoji}
-          </div>
-          <div>
-            {isEditingTitle ? (
-              <div className="flex items-center gap-2">
-                <input value={editTitle} onChange={e => setEditTitle(e.target.value)} autoFocus
-                  onKeyDown={e => { if (e.key === 'Enter') handleSaveTitle(); if (e.key === 'Escape') setIsEditingTitle(false); }}
-                  className="text-2xl font-display font-light bg-transparent border-b border-white/20 focus:border-sage-200/40 outline-none text-white px-1" />
-                <button onClick={handleSaveTitle} className="text-sage-200 text-xs cursor-pointer">Save</button>
+        className="glass rounded-[2.5rem] p-8 border border-white/10 mb-10 relative overflow-hidden">
+        {/* Subtle background glow based on deck color */}
+        <div className="absolute top-0 right-0 w-64 h-64 blur-[100px] pointer-events-none opacity-20"
+          style={{ background: color.text }} />
+
+        <div className="relative flex items-start justify-between">
+          <div className="flex items-center gap-6">
+            <div className="w-20 h-20 rounded-3xl flex items-center justify-center text-4xl shadow-2xl transition-transform duration-500 hover:scale-110 hover:rotate-3"
+              style={{ background: color.bg, border: `1px solid ${color.border}`, boxShadow: `0 8px 32px ${color.glow}` }}>
+              {deck.emoji}
+            </div>
+            <div>
+              {isEditingTitle ? (
+                <div className="flex items-center gap-2">
+                  <input value={editTitle} onChange={e => setEditTitle(e.target.value)} autoFocus
+                    onKeyDown={e => { if (e.key === 'Enter') handleSaveTitle(); if (e.key === 'Escape') setIsEditingTitle(false); }}
+                    className="text-3xl font-display font-light bg-transparent border-b border-white/20 focus:border-sage-200/40 outline-none text-white px-1" />
+                  <button onClick={handleSaveTitle} className="text-sage-200 text-xs cursor-pointer px-3 py-1 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">Save</button>
+                </div>
+              ) : (
+                <h1 className="text-3xl font-display font-light text-white tracking-tight group cursor-pointer flex items-center gap-3"
+                  onClick={() => { setEditTitle(deck.title); setIsEditingTitle(true); }}>
+                  {deck.title}
+                  <Pencil className="w-4 h-4 opacity-0 group-hover:opacity-40 transition-opacity" />
+                </h1>
+              )}
+              {deck.description && <p className="text-base text-white/40 mt-2 font-light max-w-lg">{deck.description}</p>}
+              <div className="flex items-center gap-6 mt-4">
+                <span className="text-[11px] uppercase tracking-widest text-white/30 flex items-center gap-2 font-bold"><Layers className="w-3.5 h-3.5" /> {deck.card_count} cards</span>
+                <span className="text-[11px] uppercase tracking-widest text-white/30 flex items-center gap-2 font-bold"><Star className="w-3.5 h-3.5" /> {deck.mastered_count} mastered</span>
+                {dueCount > 0 && <span className="text-[11px] uppercase tracking-widest flex items-center gap-2 font-bold" style={{ color: color.text }}>
+                  <Clock className="w-3.5 h-3.5" /> {dueCount} due today
+                </span>}
               </div>
-            ) : (
-              <h1 className="text-2xl font-display font-light text-white tracking-tight group cursor-pointer"
-                onClick={() => { setEditTitle(deck.title); setIsEditingTitle(true); }}>
-                {deck.title}
-                <Pencil className="w-3.5 h-3.5 inline-block ml-2 opacity-0 group-hover:opacity-40 transition-opacity" />
-              </h1>
-            )}
-            {deck.description && <p className="text-sm text-white/25 mt-1">{deck.description}</p>}
-            <div className="flex items-center gap-4 mt-2">
-              <span className="text-[11px] text-white/30 flex items-center gap-1"><Layers className="w-3 h-3" /> {deck.card_count} cards</span>
-              <span className="text-[11px] text-white/30 flex items-center gap-1"><Star className="w-3 h-3" /> {deck.mastered_count} mastered</span>
-              {dueCount > 0 && <span className="text-[11px] flex items-center gap-1" style={{ color: color.text }}>
-                <Clock className="w-3 h-3" /> {dueCount} due
-              </span>}
             </div>
           </div>
-        </div>
 
-        <div className="flex items-center gap-2">
-          <button onClick={() => setShowAddCards(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm bg-white/5 border border-white/10 text-white/40 hover:text-white hover:bg-white/10 transition-colors cursor-pointer">
-            <Plus className="w-4 h-4" /> Add Cards
-          </button>
-          {cards.length > 0 && (
-            <button onClick={() => startStudy(dueCount > 0 ? 'due' : 'all')}
-              className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-medium transition-all cursor-pointer"
-              style={{ background: color.bg, color: color.text, border: `1px solid ${color.border}` }}>
-              <Play className="w-4 h-4" /> {dueCount > 0 ? `Study ${dueCount} Due` : 'Study All'}
+          <div className="flex items-center gap-3">
+            <button onClick={() => setShowAddCards(true)}
+              className="flex items-center gap-2 px-6 py-3 rounded-2xl text-sm font-medium bg-white/5 border border-white/10 text-white/60 hover:text-white hover:bg-white/10 transition-all cursor-pointer">
+              <Plus className="w-4 h-4" /> Add Cards
             </button>
-          )}
+            {cards.length > 0 && (
+              <button onClick={() => startStudy(dueCount > 0 ? 'due' : 'all')}
+                className="flex items-center gap-2 px-8 py-3 rounded-2xl text-sm font-bold shadow-xl transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+                style={{ background: color.bg, color: color.text, border: `1px solid ${color.border}`, boxShadow: `0 10px 20px ${color.glow}` }}>
+                <Play className="w-4 h-4" /> {dueCount > 0 ? `Study ${dueCount} Due` : 'Study All'}
+              </button>
+            )}
+          </div>
         </div>
       </motion.div>
 
@@ -371,16 +389,18 @@ const FlashcardDeckPage: React.FC = () => {
         </div>
       )}
 
-      {/* Cards List */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between mb-4">
+      {/* Cards Grid */}
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
           <h3 className="text-[10px] uppercase tracking-[0.2em] text-white/20 font-bold">All Cards</h3>
           <span className="text-[10px] text-white/15">{safeCards.length} total</span>
         </div>
 
         {safeCards.length === 0 ? (
           <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-            className="py-20 text-center rounded-[2.5rem] border border-white/5 bg-white/[0.02] backdrop-blur-sm flex flex-col items-center">
+            className="py-20 text-center rounded-[3rem] border border-white/10 bg-white/[0.03] backdrop-blur-2xl flex flex-col items-center relative overflow-hidden shadow-2xl">
+            {/* Ambient background glow */}
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-1/2 bg-sage-200/5 blur-[100px] pointer-events-none" />
             <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center mb-6">
               <Layers className="w-8 h-8 text-white/10" />
             </div>
@@ -395,51 +415,64 @@ const FlashcardDeckPage: React.FC = () => {
             </button>
           </motion.div>
         ) : (
-          <AnimatePresence initial={false}>
-            {safeCards.map((card, i) => (
-              <motion.div key={card.id}
-                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, x: -50 }}
-                transition={{ delay: i * 0.03 }}
-                className="group flex items-center gap-5 p-6 rounded-2xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.04] hover:border-white/10 transition-all">
-                <div className="flex flex-col items-center gap-1 opacity-20 group-hover:opacity-40 transition-opacity">
-                  <GripVertical className="w-4 h-4" />
-                  <span className="text-[9px] font-mono font-bold">{i + 1}</span>
-                </div>
-                <div className="flex-1 min-w-0 grid grid-cols-2 gap-8">
-                  <div>
-                    <div className="text-[9px] uppercase tracking-[0.2em] text-white/15 mb-2 font-bold">Front Content</div>
-                    <p className="text-sm text-white/80 line-clamp-3 leading-relaxed">{card.front}</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            <AnimatePresence initial={false}>
+              {safeCards.map((card, i) => (
+                <motion.div key={card.id}
+                  initial={{ opacity: 0, y: 20 }} 
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ delay: i * 0.03 }}
+                  className="group relative aspect-[2.5/3.5] flex flex-col p-5 rounded-[2rem] bg-white/[0.02] border border-white/5 hover:bg-white/[0.04] hover:border-white/10 hover:-translate-y-2 transition-all duration-500 overflow-hidden shadow-2xl shadow-black/20">
+                  
+                  {/* Card ID Indicator */}
+                  <div className="absolute top-4 left-5 text-[9px] font-mono font-bold text-white/10 group-hover:text-white/30 transition-colors">
+                    #{i + 1}
                   </div>
-                  <div className="border-l border-white/5 pl-8">
-                    <div className="text-[9px] uppercase tracking-[0.2em] text-white/15 mb-2 font-bold">Back Content</div>
-                    <p className="text-sm text-white/50 line-clamp-3 leading-relaxed italic">{card.back}</p>
+
+                  {/* Difficulty Corner Tag */}
+                  <div className="absolute top-0 right-0 p-4 opacity-40 group-hover:opacity-100 transition-opacity">
+                    <div className="flex gap-0.5">
+                      {[...Array(5)].map((_, j) => (
+                        <div key={j} className="w-0.5 h-0.5 rounded-full"
+                          style={{ backgroundColor: j < card.difficulty ? color.text : 'rgba(255,255,255,0.05)' }} />
+                      ))}
+                    </div>
                   </div>
-                </div>
-                {/* Difficulty indicator */}
-                <div className="flex flex-col items-center gap-2 flex-shrink-0 px-2">
-                  <div className="flex items-center gap-1">
-                    {[...Array(5)].map((_, j) => (
-                      <div key={j} className="w-1 h-1 rounded-full"
-                        style={{ backgroundColor: j < card.difficulty ? color.text : 'rgba(255,255,255,0.05)' }} />
-                    ))}
+
+                  {/* Actions (Absolute Hover) */}
+                  <div className="absolute inset-0 flex items-center justify-center gap-2 bg-slate-950/40 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-all duration-300 z-10">
+                    <button onClick={() => { setEditingCard(card); setEditFront(card.front); setEditBack(card.back); }}
+                      className="p-2.5 rounded-xl bg-white/10 text-white hover:bg-white/20 transition-all hover:scale-110 shadow-lg cursor-pointer">
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => handleDeleteCard(card.id)}
+                      className="p-2.5 rounded-xl bg-red-500/20 text-red-300 hover:bg-red-500/40 transition-all hover:scale-110 shadow-lg cursor-pointer">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
-                  <span className="text-[8px] uppercase tracking-widest text-white/10 font-bold">Level {card.difficulty}</span>
-                </div>
-                {/* Actions */}
-                <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                  <button onClick={() => { setEditingCard(card); setEditFront(card.front); setEditBack(card.back); }}
-                    className="p-2 rounded-xl text-white/20 hover:text-white hover:bg-white/5 transition-colors cursor-pointer">
-                    <Pencil className="w-4 h-4" />
-                  </button>
-                  <button onClick={() => handleDeleteCard(card.id)}
-                    className="p-2 rounded-xl text-white/20 hover:text-red-400 hover:bg-red-400/5 transition-colors cursor-pointer">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </motion.div>
-            ))}
-          </AnimatePresence>
+
+                  {/* Content */}
+                  <div className="flex-1 flex flex-col gap-4 mt-3">
+                    <div className="flex-1 min-h-0">
+                      <div className="text-[7px] uppercase tracking-[0.25em] text-white/20 mb-2 font-black">Front</div>
+                      <p className="text-sm text-white/90 leading-relaxed line-clamp-4 font-display font-light">{card.front}</p>
+                    </div>
+                    
+                    <div className="h-px w-full bg-white/5" />
+                    
+                    <div className="flex-1 min-h-0">
+                      <div className="text-[7px] uppercase tracking-[0.25em] text-white/20 mb-2 font-black">Back</div>
+                      <p className="text-[12px] text-white/40 leading-relaxed italic line-clamp-4 font-light">{card.back}</p>
+                    </div>
+                  </div>
+
+                  {/* Card-like aesthetic (Corner decoration) */}
+                  <div className="absolute -bottom-2 -right-2 w-12 h-12 bg-white/[0.01] rounded-full blur-2xl group-hover:bg-white/[0.03] transition-colors" />
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
         )}
       </div>
 

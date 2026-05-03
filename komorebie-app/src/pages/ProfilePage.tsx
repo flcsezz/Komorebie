@@ -19,6 +19,7 @@ const ProfilePage: React.FC = () => {
   const [deleting, setDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [now] = useState(() => Date.now());
 
   // Heatmap calendar state
   const [heatmapYear, setHeatmapYear] = useState(new Date().getFullYear());
@@ -37,10 +38,18 @@ const ProfilePage: React.FC = () => {
     if (!user) return;
     setSaving(true);
     try {
-      const updates: any = { updated_at: new Date().toISOString() };
+      const updates: { 
+        updated_at: string; 
+        username?: string; 
+        display_name?: string; 
+        full_name?: string; 
+        display_name_updated_at?: string;
+      } = { updated_at: new Date().toISOString() };
       if (settingsUsername.length >= 3) updates.username = settingsUsername;
-      if (settingsFullName) updates.display_name = settingsFullName;
-      if (settingsFullName) updates.full_name = settingsFullName;
+      if (settingsFullName) {
+        updates.display_name = settingsFullName;
+        updates.full_name = settingsFullName;
+      }
 
       await supabase.from('profiles').update({
         ...updates,
@@ -82,7 +91,7 @@ const ProfilePage: React.FC = () => {
       const { error: updateError } = await supabase
         .from('profiles')
         .update({ 
-          avatar_url: `${urlData.publicUrl}?t=${Date.now()}`, 
+          avatar_url: `${urlData.publicUrl}?t=${now}`, 
           updated_at: new Date().toISOString() 
         })
         .eq('id', user.id);
@@ -317,7 +326,6 @@ const ProfilePage: React.FC = () => {
                       {profile?.display_name_updated_at && (
                         (() => {
                           const lastUpdate = new Date(profile.display_name_updated_at).getTime();
-                          const now = new Date().getTime();
                           const sevenDays = 7 * 24 * 60 * 60 * 1000;
                           const remaining = lastUpdate + sevenDays - now;
                           
@@ -337,7 +345,7 @@ const ProfilePage: React.FC = () => {
                       disabled={(() => {
                         if (!profile?.display_name_updated_at) return false;
                         const lastUpdate = new Date(profile.display_name_updated_at).getTime();
-                        return (lastUpdate + (7 * 24 * 60 * 60 * 1000)) > new Date().getTime();
+                        return (lastUpdate + (7 * 24 * 60 * 60 * 1000)) > now;
                       })()}
                       className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-white/20 focus:outline-none focus:border-sage-200/40 transition-colors disabled:opacity-40 disabled:cursor-not-allowed" 
                       placeholder="Your display name" 

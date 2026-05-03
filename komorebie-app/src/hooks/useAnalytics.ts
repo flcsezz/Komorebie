@@ -19,33 +19,49 @@ export interface DeadlineItem {
   created_at: string;
 }
 
-export const useAnalytics = () => {
-  const { user } = useAuth();
+export const useAnalytics = (targetUserId?: string) => {
+  const { user: authUser } = useAuth();
+  
+  // If targetUserId is explicitly null (not just undefined), it means we're in a loading state
+  // and we shouldn't fallback to authUser.
+  const userId = targetUserId !== undefined ? targetUserId : authUser?.id;
+  
   const [data, setData] = useState<CachedAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
   const mountedRef = useRef(true);
+  const lastFetchedUserId = useRef<string | null>(null);
 
   // Fetch data through the cache layer
   const fetchData = useCallback(async (force = false) => {
-    if (!user) return;
+    if (!userId) {
+      setData(null);
+      setLoading(false);
+      return;
+    }
 
-    setLoading(true);
+    // If switching users, clear old data first to avoid showing wrong stats
+    if (userId !== lastFetchedUserId.current) {
+      setData(null);
+      setLoading(true);
+      lastFetchedUserId.current = userId;
+    }
+
     try {
       const result = force
-        ? await analyticsCache.invalidate(user.id)
-        : await analyticsCache.fetch(user.id);
+        ? await analyticsCache.invalidate(userId)
+        : await analyticsCache.fetch(userId);
 
-      if (mountedRef.current && result) {
+      if (mountedRef.current && result && lastFetchedUserId.current === userId) {
         setData(result);
       }
     } catch (err) {
       console.error('useAnalytics: fetch error', err);
     } finally {
-      if (mountedRef.current) {
+      if (mountedRef.current && lastFetchedUserId.current === userId) {
         setLoading(false);
       }
     }
-  }, [user]);
+  }, [userId]);
 
   // Initial fetch + subscribe to cache invalidation
   useEffect(() => {
@@ -54,8 +70,8 @@ export const useAnalytics = () => {
 
     // Subscribe to cache updates (e.g. from other components calling invalidate)
     const unsub = analyticsCache.subscribe(() => {
-      if (user) {
-        const cached = analyticsCache.get(user.id);
+      if (userId) {
+        const cached = analyticsCache.get(userId);
         if (cached) {
           setData(cached);
         }
@@ -66,7 +82,7 @@ export const useAnalytics = () => {
       mountedRef.current = false;
       unsub();
     };
-  }, [fetchData, user]);
+  }, [fetchData, userId]);
 
   // Compute derived statistics
   const stats = useMemo(() => {
@@ -94,7 +110,7 @@ export const useAnalytics = () => {
   // Build streak calendar map
   const streakDates = useMemo(() => {
     if (!data) return new Map();
-    return buildStreakDates(data.streaks);
+    return buildStreakDates(data.streaks, data.tasks);
   }, [data]);
 
   // Deadlines (from cached data)

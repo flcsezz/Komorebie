@@ -90,7 +90,8 @@ const ZenClock: React.FC = () => {
     const absSeconds = Math.abs(timeLeft);
     const mins = Math.floor(absSeconds / 60);
     const secs = absSeconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    const prefix = timeLeft < 0 ? '+' : '';
+    return `${prefix}${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
   const getThemeColor = () => {
@@ -292,7 +293,7 @@ const ZenClock: React.FC = () => {
             <motion.div 
               className="text-[10px] font-mono uppercase tracking-[0.4em] text-white/30 mt-4 h-3 flex items-center justify-center"
             >
-              {!isSessionComplete && (isActive ? 'Remaining' : 'Minutes')}
+              {!isSessionComplete && (isActive ? (timeLeft < 0 ? 'Overtime' : 'Remaining') : 'Minutes')}
             </motion.div>
             
             {/* Start / Stop Toggle */}

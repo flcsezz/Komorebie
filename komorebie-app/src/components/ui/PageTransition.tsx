@@ -48,7 +48,7 @@ const itemVariants: Variants = {
   hidden: { 
     opacity: 0, 
     y: 24,
-    filter: 'blur(8px)',
+    filter: 'blur(4px)',
   },
   visible: { 
     opacity: 1, 

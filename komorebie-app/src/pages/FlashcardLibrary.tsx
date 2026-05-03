@@ -3,8 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
   Plus, Layers, BookOpen, Sparkles, MoreHorizontal,
-  Trash2, Pencil, Lock, Crown, Brain,
-  Clock, ChevronRight, TrendingUp, Star
+  Trash2, Pencil, Lock, Brain,
+  Clock, ChevronRight, Star
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -57,12 +57,14 @@ const DeckCard: React.FC<DeckCardProps> = ({ deck, index, onOpen, onDelete }) =>
   const color = getDeckColor(deck.color);
   const progress = deck.card_count > 0 ? (deck.mastered_count / deck.card_count) * 100 : 0;
   
+  const [now] = useState(() => Date.now());
+  
   const lastStudied = deck.last_studied_at
     ? new Date(deck.last_studied_at)
     : null;
   
-  const getTimeAgo = (date: Date) => {
-    const diff = Date.now() - date.getTime();
+  const getTimeAgo = (date: Date, currentNow: number) => {
+    const diff = currentNow - date.getTime();
     const mins = Math.floor(diff / 60000);
     if (mins < 60) return `${mins}m ago`;
     const hours = Math.floor(mins / 60);
@@ -183,7 +185,7 @@ const DeckCard: React.FC<DeckCardProps> = ({ deck, index, onOpen, onDelete }) =>
             {lastStudied && (
               <div className="flex items-center gap-2">
                 <Clock className="w-4 h-4 text-white/15" />
-                <span className="text-[11px] text-white/30 tracking-tight">{getTimeAgo(lastStudied)}</span>
+                <span className="text-[11px] text-white/30 tracking-tight">{getTimeAgo(lastStudied, now)}</span>
               </div>
             )}
           </div>
@@ -271,8 +273,10 @@ const EmptyState: React.FC<{ onCreateDeck: () => void }> = ({ onCreateDeck }) =>
     initial={{ opacity: 0, y: 20 }}
     animate={{ opacity: 1, y: 0 }}
     transition={{ delay: 0.2 }}
-    className="col-span-full flex flex-col items-center justify-center py-20 px-10 rounded-[3rem] border border-white/5 bg-white/[0.02] backdrop-blur-md"
+    className="col-span-full flex flex-col items-center justify-center py-24 px-10 rounded-[3rem] border border-white/10 bg-white/[0.03] backdrop-blur-2xl relative overflow-hidden shadow-2xl"
   >
+    {/* Ambient background glow */}
+    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-1/2 bg-sage-200/5 blur-[100px] pointer-events-none" />
     <div className="relative mb-10">
       {/* Ambient glow */}
       <div className="absolute inset-0 bg-sage-200/10 blur-[60px] rounded-full scale-150 opacity-50" />
@@ -365,7 +369,8 @@ const FlashcardLibrary: React.FC = () => {
   }, [user]);
 
   useEffect(() => {
-    loadDecks();
+    const init = async () => { await loadDecks(); };
+    init();
   }, [loadDecks]);
 
   const handleCreateDeck = async (deck: { title: string; description: string; emoji: string; color: string }) => {

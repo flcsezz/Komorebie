@@ -81,7 +81,7 @@ const eventVariants: Variants = {
     transition: { 
       delay: 0.6, // Wait for calendar widget to finish
       duration: 0.5,
-      ease: [0.16, 1, 0.3, 1] as any
+      ease: [0.16, 1, 0.3, 1] as [number, number, number, number]
     } 
   }
 };
@@ -121,7 +121,8 @@ export default function SchedulePage() {
   }, [user]);
 
   useEffect(() => {
-    fetchEvents();
+    const init = async () => { await fetchEvents(); };
+    init();
   }, [fetchEvents]);
   
   // Modals and Drawers
@@ -137,17 +138,18 @@ export default function SchedulePage() {
     return () => clearInterval(timer);
   }, []);
 
-  const scrollToNow = () => {
+  const scrollToNow = React.useCallback(() => {
     if (scrollContainerRef.current) {
       const minutes = now.getHours() * 60 + now.getMinutes();
       const top = minutes * MINUTE_HEIGHT;
       scrollContainerRef.current.scrollTo({ top: Math.max(0, top - 200), behavior: 'smooth' });
     }
-  };
+  }, [now]);
 
   useEffect(() => {
     // Initial scroll
     setTimeout(scrollToNow, 100);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view]);
 
   // Derived state

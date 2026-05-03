@@ -13,6 +13,7 @@ interface ZenSelectProps {
   onChange: (value: string) => void;
   options: string[];
   className?: string;
+  buttonClassName?: string;
   placeholder?: string;
   align?: 'left' | 'center' | 'right';
 }
@@ -22,6 +23,7 @@ const ZenSelect: React.FC<ZenSelectProps> = ({
   onChange,
   options,
   className,
+  buttonClassName,
   placeholder,
   align = 'center'
 }) => {
@@ -45,7 +47,8 @@ const ZenSelect: React.FC<ZenSelectProps> = ({
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
           "w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-sage-200/50 transition-all cursor-pointer flex items-center justify-between text-sm group",
-          isOpen && "border-sage-200/50 shadow-[0_0_20px_rgba(183,201,176,0.15)] bg-white/10"
+          isOpen && "border-sage-200/50 shadow-[0_0_20px_rgba(183,201,176,0.15)] bg-white/10",
+          buttonClassName
         )}
       >
         <span className={cn("flex-1", align === 'center' ? "text-center" : align === 'right' ? "text-right" : "text-left")}>

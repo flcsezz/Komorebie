@@ -1,0 +1,307 @@
+
+> komorebie-app@0.0.0 lint
+> eslint .
+
+
+/home/flcsezz/web-cram/komorebie-app/src/components/dashboard/DashboardStats.tsx
+  16:34  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/flcsezz/web-cram/komorebie-app/src/components/dashboard/SoundscapeSelector.tsx
+  6:40  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/flcsezz/web-cram/komorebie-app/src/components/dashboard/ThePathWidget.tsx
+  83:5  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/flcsezz/web-cram/komorebie-app/src/components/dashboard/ThePathWidget.tsx:83:5
+  81 |
+  82 |   React.useEffect(() => {
+> 83 |     fetchTasks();
+     |     ^^^^^^^^^^ Avoid calling setState() directly within an effect
+  84 |   }, [fetchTasks]);
+  85 |
+  86 |   const sensors = useSensors(  react-hooks/set-state-in-effect
+
+/home/flcsezz/web-cram/komorebie-app/src/components/flashcards/AddCardsModal.tsx
+  22:12  error  'e' is defined but never used  @typescript-eslint/no-unused-vars
+
+/home/flcsezz/web-cram/komorebie-app/src/components/flashcards/FlashcardFlip.tsx
+  38:5  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/flcsezz/web-cram/komorebie-app/src/components/flashcards/FlashcardFlip.tsx:38:5
+  36 |   useEffect(() => {
+  37 |     // Reset when card changes
+> 38 |     setHasExited(false);
+     |     ^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  39 |     animate(x, 0, { type: 'spring', stiffness: 300, damping: 30 });
+  40 |   }, [front, back, x]);
+  41 |  react-hooks/set-state-in-effect
+
+/home/flcsezz/web-cram/komorebie-app/src/components/flashcards/StudyComplete.tsx
+  63:20  error  Error: Cannot call impure function during render
+
+`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+/home/flcsezz/web-cram/komorebie-app/src/components/flashcards/StudyComplete.tsx:63:20
+  61 |               style={{ backgroundColor: color.text + '30' }}
+  62 |               initial={{
+> 63 |                 x: Math.random() * 400,
+     |                    ^^^^^^^^^^^^^ Cannot call impure function
+  64 |                 y: Math.random() * 400,
+  65 |                 scale: 0,
+  66 |               }}  react-hooks/purity
+  64:20  error  Error: Cannot call impure function during render
+
+`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+/home/flcsezz/web-cram/komorebie-app/src/components/flashcards/StudyComplete.tsx:64:20
+  62 |               initial={{
+  63 |                 x: Math.random() * 400,
+> 64 |                 y: Math.random() * 400,
+     |                    ^^^^^^^^^^^^^ Cannot call impure function
+  65 |                 scale: 0,
+  66 |               }}
+  67 |               animate={{                                      react-hooks/purity
+
+/home/flcsezz/web-cram/komorebie-app/src/components/layout/AppLayout.tsx
+   71:1  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-explicit-any')
+  201:7  error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/flcsezz/web-cram/komorebie-app/src/components/layout/AppLayout.tsx:201:7
+  199 |   useEffect(() => {
+  200 |     if (profile?.preferred_bg && profile.preferred_bg !== bgImage) {
+> 201 |       setBgImage(profile.preferred_bg);
+      |       ^^^^^^^^^^ Avoid calling setState() directly within an effect
+  202 |       localStorage.setItem('komorebie-bg', profile.preferred_bg);
+  203 |     }
+  204 |   }, [profile?.preferred_bg]);  react-hooks/set-state-in-effect
+  204:6  warning  React Hook useEffect has a missing dependency: 'bgImage'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             react-hooks/exhaustive-deps
+  234:5  error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/flcsezz/web-cram/komorebie-app/src/components/layout/AppLayout.tsx:234:5
+  232 |
+  233 |   useEffect(() => {
+> 234 |     fetchFriendBadge();
+      |     ^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  235 |     const interval = setInterval(fetchFriendBadge, 30000); // Poll every 30s
+  236 |     return () => clearInterval(interval);
+  237 |   }, [fetchFriendBadge]);                                         react-hooks/set-state-in-effect
+
+/home/flcsezz/web-cram/komorebie-app/src/components/profile/OnboardingOverlay.tsx
+   21:28  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   81:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  134:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/flcsezz/web-cram/komorebie-app/src/components/ui/GlassCard.tsx
+  23:3  error  'animateCard' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/home/flcsezz/web-cram/komorebie-app/src/components/ui/InitialLoader.tsx
+   5:42  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  88:84  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/flcsezz/web-cram/komorebie-app/src/components/ui/PageTransition.tsx
+   23:42  error  Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+  112:26  error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  112:65  error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/home/flcsezz/web-cram/komorebie-app/src/context/AuthContext.tsx
+  48:14  error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/home/flcsezz/web-cram/komorebie-app/src/context/BackgroundContext.tsx
+  30:14  error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/home/flcsezz/web-cram/komorebie-app/src/context/SoundscapeContext.tsx
+   4:14  error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  97:14  error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/home/flcsezz/web-cram/komorebie-app/src/context/ZenClockContext.tsx
+  150:37  error    Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+  368:6   warning  React Hook useEffect has a missing dependency: 'isSessionComplete'. Either include it or remove the dependency array            react-hooks/exhaustive-deps
+  495:14  error    Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/home/flcsezz/web-cram/komorebie-app/src/hooks/useAnalytics.ts
+  69:5  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/flcsezz/web-cram/komorebie-app/src/hooks/useAnalytics.ts:69:5
+  67 |   useEffect(() => {
+  68 |     mountedRef.current = true;
+> 69 |     fetchData();
+     |     ^^^^^^^^^ Avoid calling setState() directly within an effect
+  70 |
+  71 |     // Subscribe to cache updates (e.g. from other components calling invalidate)
+  72 |     const unsub = analyticsCache.subscribe(() => {  react-hooks/set-state-in-effect
+
+/home/flcsezz/web-cram/komorebie-app/src/hooks/useFriends.ts
+  64:5  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/flcsezz/web-cram/komorebie-app/src/hooks/useFriends.ts:64:5
+  62 |   useEffect(() => {
+  63 |     mountedRef.current = true;
+> 64 |     fetchAll();
+     |     ^^^^^^^^ Avoid calling setState() directly within an effect
+  65 |     return () => { mountedRef.current = false; };
+  66 |   }, [fetchAll]);
+  67 |  react-hooks/set-state-in-effect
+
+/home/flcsezz/web-cram/komorebie-app/src/lib/analyticsCache.ts
+   19:12  error  Unexpected any. Specify a different type              @typescript-eslint/no-explicit-any
+   20:13  error  Unexpected any. Specify a different type              @typescript-eslint/no-explicit-any
+   21:12  error  Unexpected any. Specify a different type              @typescript-eslint/no-explicit-any
+   22:14  error  Unexpected any. Specify a different type              @typescript-eslint/no-explicit-any
+   23:10  error  Unexpected any. Specify a different type              @typescript-eslint/no-explicit-any
+  194:45  error  Unexpected any. Specify a different type              @typescript-eslint/no-explicit-any
+  195:62  error  Unexpected any. Specify a different type              @typescript-eslint/no-explicit-any
+  202:54  error  Unexpected any. Specify a different type              @typescript-eslint/no-explicit-any
+  205:71  error  Unexpected any. Specify a different type              @typescript-eslint/no-explicit-any
+  207:45  error  Unexpected any. Specify a different type              @typescript-eslint/no-explicit-any
+  211:46  error  Unexpected any. Specify a different type              @typescript-eslint/no-explicit-any
+  216:48  error  Unexpected any. Specify a different type              @typescript-eslint/no-explicit-any
+  228:36  error  Unexpected any. Specify a different type              @typescript-eslint/no-explicit-any
+  235:40  error  Unexpected any. Specify a different type              @typescript-eslint/no-explicit-any
+  246:53  error  Unexpected any. Specify a different type              @typescript-eslint/no-explicit-any
+  246:89  error  Unexpected any. Specify a different type              @typescript-eslint/no-explicit-any
+  256:11  error  'checkDate' is never reassigned. Use 'const' instead  prefer-const
+  293:43  error  Unexpected any. Specify a different type              @typescript-eslint/no-explicit-any
+  293:57  error  Unexpected any. Specify a different type              @typescript-eslint/no-explicit-any
+  297:23  error  Unexpected any. Specify a different type              @typescript-eslint/no-explicit-any
+  307:21  error  Unexpected any. Specify a different type              @typescript-eslint/no-explicit-any
+
+/home/flcsezz/web-cram/komorebie-app/src/lib/friends.ts
+  121:33  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  151:33  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  176:33  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/flcsezz/web-cram/komorebie-app/src/pages/FlashcardDeck.tsx
+   83:21  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/flcsezz/web-cram/komorebie-app/src/pages/FlashcardDeck.tsx:83:21
+  81 |   }, [deckId]);
+  82 |
+> 83 |   useEffect(() => { loadDeck(); }, [loadDeck]);
+     |                     ^^^^^^^^ Avoid calling setState() directly within an effect
+  84 |
+  85 |   // ─── Study Flow ─────────────────────────────────────────────────
+  86 |   const startStudy = async (mode: 'all' | 'due' | 'shuffle') => {  react-hooks/set-state-in-effect
+  253:34  error  Error: Cannot call impure function during render
+
+`Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+/home/flcsezz/web-cram/komorebie-app/src/pages/FlashcardDeck.tsx:253:34
+  251 |   // ─── Complete View ──────────────────────────────────────────────
+  252 |   if (viewMode === 'complete') {
+> 253 |     const duration = Math.round((Date.now() - studyStartTime.current) / 1000);
+      |                                  ^^^^^^^^^^ Cannot call impure function
+  254 |     return (
+  255 |       <div className="max-w-4xl mx-auto py-16">
+  256 |         <StudyComplete                                                                                                                                                                                                                                                                                                                    react-hooks/purity
+  253:47  error  Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+/home/flcsezz/web-cram/komorebie-app/src/pages/FlashcardDeck.tsx:253:47
+  251 |   // ─── Complete View ──────────────────────────────────────────────
+  252 |   if (viewMode === 'complete') {
+> 253 |     const duration = Math.round((Date.now() - studyStartTime.current) / 1000);
+      |                                               ^^^^^^^^^^^^^^^^^^^^^^ Cannot access ref value during render
+  254 |     return (
+  255 |       <div className="max-w-4xl mx-auto py-16">
+  256 |         <StudyComplete                                                                                                                                                                                                                                                           react-hooks/refs
+  272:14  error  'e' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       @typescript-eslint/no-unused-vars
+
+/home/flcsezz/web-cram/komorebie-app/src/pages/FlashcardLibrary.tsx
+   65:18  error  Error: Cannot call impure function during render
+
+`Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+/home/flcsezz/web-cram/komorebie-app/src/pages/FlashcardLibrary.tsx:65:18
+  63 |   
+  64 |   const getTimeAgo = (date: Date) => {
+> 65 |     const diff = Date.now() - date.getTime();
+     |                  ^^^^^^^^^^ Cannot call impure function
+  66 |     const mins = Math.floor(diff / 60000);
+  67 |     if (mins < 60) return `${mins}m ago`;
+  68 |     const hours = Math.floor(mins / 60);                                                                                                                                                                                                                                                                                                                                                           react-hooks/purity
+  370:5   error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/flcsezz/web-cram/komorebie-app/src/pages/FlashcardLibrary.tsx:370:5
+  368 |
+  369 |   useEffect(() => {
+> 370 |     loadDecks();
+      |     ^^^^^^^^^ Avoid calling setState() directly within an effect
+  371 |   }, [loadDecks]);
+  372 |
+  373 |   const handleCreateDeck = async (deck: { title: string; description: string; emoji: string; color: string }) => {  react-hooks/set-state-in-effect
+
+/home/flcsezz/web-cram/komorebie-app/src/pages/ProfilePage.tsx
+  40:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/flcsezz/web-cram/komorebie-app/src/pages/SchedulePage.tsx
+   84:34  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    @typescript-eslint/no-explicit-any
+  124:5   error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/flcsezz/web-cram/komorebie-app/src/pages/SchedulePage.tsx:124:5
+  122 |
+  123 |   useEffect(() => {
+> 124 |     fetchEvents();
+      |     ^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  125 |   }, [fetchEvents]);
+  126 |   
+  127 |   // Modals and Drawers  react-hooks/set-state-in-effect
+  151:6   warning  React Hook useEffect has a missing dependency: 'scrollToNow'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              react-hooks/exhaustive-deps
+
+✖ 63 problems (59 errors, 4 warnings)
+  1 error and 1 warning potentially fixable with the `--fix` option.
+
