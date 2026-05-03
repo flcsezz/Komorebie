@@ -12,11 +12,13 @@ import { useAuth } from '../context/AuthContext';
 import { useAnalytics } from '../hooks/useAnalytics';
 import { PUBLIC_BACKGROUNDS, SPECIAL_BACKGROUNDS, ADMIN_EMAIL } from '../lib/backgrounds';
 import type { Background } from '../lib/backgrounds';
+import { useBackground } from '../context/BackgroundContext';
 import { supabase } from '../lib/supabase';
 
 const BackgroundPage: React.FC = () => {
   const { user } = useAuth();
   const { profile, refresh } = useAnalytics();
+  const { setBackground: setGlobalBg } = useBackground();
   const [selectedId, setSelectedId] = useState<string | null>(profile?.preferred_bg || null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -28,6 +30,7 @@ const BackgroundPage: React.FC = () => {
     if (bg.isSpecial && !isAdmin) return;
     
     setSelectedId(bg.url);
+    setGlobalBg(bg.url); // Apply instantly to the global context
     setIsUpdating(true);
     
     try {
@@ -207,7 +210,7 @@ const BackgroundCard: React.FC<BackgroundCardProps> = ({
       onMouseEnter={onHover}
       onMouseLeave={onLeave}
       onClick={onSelect}
-      className={`group relative aspect-[16/10] rounded-3xl overflow-hidden border cursor-pointer transition-all duration-500 ${
+      className={`group relative aspect-[16/10] rounded-3xl overflow-hidden border cursor-pointer transition-all duration-500 bg-optimize-quality ${
         isSelected 
           ? (isSpecial ? 'border-amber-400/40 shadow-[0_0_30px_rgba(251,191,36,0.15)]' : 'border-sage-200/40 shadow-[0_0_30px_rgba(183,201,176,0.15)]') 
           : 'border-white/10 hover:border-white/30'
@@ -215,7 +218,7 @@ const BackgroundCard: React.FC<BackgroundCardProps> = ({
     >
       {/* Background Image */}
       <div 
-        className={`absolute inset-0 bg-cover bg-center transition-transform duration-1000 ${isHovered ? 'scale-110' : 'scale-100'} ${isLocked ? 'blur-sm grayscale brightness-50' : ''}`}
+        className={`absolute inset-0 bg-cover bg-center transition-transform duration-1000 bg-optimize-quality ${isHovered ? 'scale-110' : 'scale-100'} ${isLocked ? 'blur-sm grayscale brightness-50' : ''}`}
         style={{ backgroundImage: `url(${bg.url})` }}
       />
       

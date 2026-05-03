@@ -191,14 +191,14 @@ const StreakWidget: React.FC<StreakWidgetProps> = ({
                 >
                   {currentStreak}
                 </motion.span>
-                <span className={`text-[10px] uppercase tracking-[0.2em] ${flame.color} font-bold opacity-80`}>Days</span>
+                <span className={`text-[11px] uppercase tracking-[0.2em] ${flame.color} font-bold`}>Days</span>
               </div>
-              <span className="text-[9px] text-white/30 uppercase tracking-widest font-bold -mt-0.5">Current Streak</span>
+              <span className="text-[10px] text-white/50 uppercase tracking-widest font-bold -mt-0.5">Current Streak</span>
             </div>
           </div>
           <div className="flex items-center gap-2 px-3 py-1.5 bg-white/5 rounded-xl border border-white/10">
-            <Trophy className="w-3 h-3 text-amber-200/60" />
-            <span className="text-[10px] text-white/60 font-medium tracking-wide">Best: {bestStreak}</span>
+            <Trophy className="w-3.5 h-3.5 text-amber-200" />
+            <span className="text-[11px] text-white/80 font-medium tracking-wide">Best: {bestStreak}</span>
           </div>
         </div>
 
@@ -216,7 +216,7 @@ const StreakWidget: React.FC<StreakWidgetProps> = ({
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="text-[11px] uppercase tracking-[0.25em] text-white/80 font-bold"
+              className="text-[12px] uppercase tracking-[0.25em] text-white font-bold"
             >
               {monthName}{yearStr}
             </motion.span>
@@ -236,7 +236,7 @@ const StreakWidget: React.FC<StreakWidgetProps> = ({
             {WEEKDAY_LABELS.map((d, i) => (
               <div 
                 key={`side-wk-${i}`} 
-                className="text-[8px] text-white/25 font-bold uppercase select-none leading-none h-3 flex items-center pr-1"
+                className="text-[9px] text-white/40 font-bold uppercase select-none leading-none h-3 flex items-center pr-1"
               >
                 {d.charAt(0)}
               </div>
@@ -310,19 +310,19 @@ const StreakWidget: React.FC<StreakWidgetProps> = ({
 
         {/* Status Footer */}
         <div className="flex items-center justify-between mt-5 pt-3 border-t border-white/5">
-          <div className="flex items-center gap-1.5 text-[9px] uppercase tracking-widest text-white/30 font-medium">
-            <Zap className="w-2.5 h-2.5" />
+          <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-white/50 font-medium">
+            <Zap className="w-3 h-3" />
             <span>{statusLabel}</span>
           </div>
           {/* Legend */}
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1.5">
               <div className="w-2 h-2 rounded-[1.5px] bg-amber-400/40" />
-              <span className="text-[8px] text-white/20 font-medium">Active</span>
+              <span className="text-[9px] text-white/40 font-medium">Active</span>
             </div>
             <div className="flex items-center gap-1.5">
               <div className="w-2 h-2 rounded-[1.5px] bg-white/15" />
-              <span className="text-[8px] text-white/20 font-medium">Focus</span>
+              <span className="text-[9px] text-white/40 font-medium">Focus</span>
             </div>
           </div>
         </div>

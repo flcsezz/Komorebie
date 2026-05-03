@@ -37,13 +37,15 @@
 | AI-01     | todo   | unassigned | Specify AI note-summary and flashcard generation pipeline                    | BE-01        | edge-function contract          |
 | GAME-01   | done   | Codex      | Define companion progression and reward economy                              | UX-02        | progression spec                |
 | UI-03     | done   | Codex      | Redesign Dashboard (TaskCapture) as a Zen Sanctuary                          | none         | immersive dashboard page        |
-| SOCIAL-01 | todo   | unassigned | Define ambient presence and leaderboard behavior                             | IA-02        | social spec                     |
+| SOCIAL-01 | done   | Codex      | Define ambient presence and leaderboard behavior                             | IA-02        | social spec                     |
 | FE-04     | done   | Codex      | Cloudflare Pages deployment and Scroll Video Landing Page                   | FE-02        | pass build + live site          |
 | FE-05     | done   | Antigravity | Profile Picture (Avatar) system with resizing and Storage RLS               | BE-01        | pfp upload + persistent display |
 | BE-02     | done   | Antigravity | Provision Cloudflare R2 bucket and link to web app                          | none         | komorebie-assets bucket + .env config |
 | BE-03     | done   | Antigravity | Attach custom domain komorebie.flcsezz.sbs to the application               | none         | live custom domain              |
 | UI-04     | done   | Antigravity | Robust Onboarding Flow Triggering (Domain/Session Resilience)               | none         | flicker-free onboarding flow    |
 | FE-06     | done   | Antigravity | Fix Zen Clock sync issues and reset-on-start bug                            | none         | robust cross-device clock sync  |
+| UI-05     | done   | Antigravity | Increase text sizes and contrast for Dashboard widgets and Analytics          | none         | High-legibility Zen Dashboard   |
+
 
 
 

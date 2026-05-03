@@ -433,8 +433,20 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       syncTimerToCloud(true, startTime, initialTime, isPomodoroMode, pomodoroState, initialTime);
       
       try {
-        if (!document.fullscreenElement) {
-          await document.documentElement.requestFullscreen();
+        const doc = document as any;
+        const el = document.documentElement as any;
+        const isFull = !!(doc.fullscreenElement || doc.webkitFullscreenElement || doc.mozFullScreenElement || doc.msFullscreenElement);
+
+        if (!isFull) {
+          if (el.requestFullscreen) {
+            await el.requestFullscreen();
+          } else if (el.webkitRequestFullscreen) {
+            await el.webkitRequestFullscreen();
+          } else if (el.mozRequestFullScreen) {
+            await el.mozRequestFullScreen();
+          } else if (el.msRequestFullscreen) {
+            await el.msRequestFullscreen();
+          }
         }
       } catch (err) {
         console.error("Failed to enter fullscreen:", err);

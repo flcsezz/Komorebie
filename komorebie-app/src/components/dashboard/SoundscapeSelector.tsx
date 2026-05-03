@@ -48,7 +48,7 @@ const SoundscapeSelector: React.FC = () => {
   return (
     <div className="w-full flex flex-col gap-3">
       <div className="flex justify-between items-center px-2">
-        <h4 className="text-[9px] uppercase tracking-[0.3em] text-white/30 font-bold">Ambient Mixer</h4>
+        <h4 className="text-[10px] uppercase tracking-[0.3em] text-white/50 font-bold">Ambient Mixer</h4>
         <div className="flex items-center gap-2">
           {Object.values(volumes).some(v => v > 0) && !isMuted && (
             <Visualizer isActive={true} color="text-sage-200" />
@@ -57,12 +57,12 @@ const SoundscapeSelector: React.FC = () => {
             onClick={toggleMute}
             className={`p-1.5 rounded-full border transition-colors cursor-pointer flex items-center justify-center ${
               isMuted 
-                ? 'bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20' 
-                : 'bg-white/5 border-white/10 text-white/40 hover:text-white hover:bg-white/10'
+                ? 'bg-red-500/15 border-red-500/30 text-red-400 hover:bg-red-500/20' 
+                : 'bg-white/5 border-white/10 text-white/60 hover:text-white hover:bg-white/10'
             }`}
             title={isMuted ? "Unmute" : "Mute"}
           >
-            {isMuted ? <VolumeX className="w-3 h-3" /> : <Volume2 className="w-3 h-3" />}
+            {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
           </button>
         </div>
       </div>
@@ -102,7 +102,7 @@ const SoundscapeSelector: React.FC = () => {
                   <Icon className="w-4 h-4" />
                 </div>
                 <div className="flex flex-col items-center gap-0.5">
-                  <span className={`text-[8px] font-bold uppercase tracking-widest ${isActive ? 'text-white/80' : 'text-white/20 group-hover:text-white/40'} transition-colors`}>
+                  <span className={`text-[9px] font-bold uppercase tracking-widest ${isActive ? 'text-white' : 'text-white/40 group-hover:text-white/60'} transition-colors`}>
                     {sound.label}
                   </span>
                   <AnimatePresence>
@@ -111,7 +111,7 @@ const SoundscapeSelector: React.FC = () => {
                          initial={{ opacity: 0, height: 0 }}
                          animate={{ opacity: 1, height: 'auto' }}
                          exit={{ opacity: 0, height: 0 }}
-                         className={`text-[7px] font-bold tracking-wider ${color}`}
+                         className={`text-[9px] font-bold tracking-wider ${color}`}
                       >
                         {vol}%
                       </motion.span>

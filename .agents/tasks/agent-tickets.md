@@ -39,6 +39,34 @@
 - Verify:
   - transition points and CTA hierarchy are documented
 
+## SOCIAL-01: Social Features & Analytics
+**Status:** `DONE`
+**Assignee:** `Codex`
+**Epic:** Phase 6
+
+**Objective:**
+Implement friend system, profile viewing, and basic analytics sharing.
+
+**Tasks:**
+1.  **Friend System:**
+    *   Implement friend request flow (send, accept, reject).
+    *   Create friends list view.
+2.  **Profile Viewing:**
+    *   Create a public profile view for friends.
+    *   Display basic stats (total focus time, streaks).
+3.  **Real-time Presence:**
+    *   Subscribe to `active_timers` via Supabase Realtime to show "Focusing Now" indicators.
+    *   Create `AmbientPresence` widget for the dashboard.
+4.  **Database:**
+    *   Ensure RLS policies secure social data (e.g., `are_friends` function).
+
+**Acceptance Criteria:**
+*   Users can send, accept, and reject friend requests.
+*   Users can view friends' profiles and basic stats.
+*   "Focusing Now" indicator appears when a friend has an active timer.
+*   RLS policies restrict data access to friends only.
+*   UI matches Zen System aesthetics.
+
 ## UI-01 Zen System Translation
 - Goal: turn the chosen design language into implementation rules
 - Scope:

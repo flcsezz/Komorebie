@@ -364,7 +364,7 @@ const ThePathWidget: React.FC = () => {
   return (
     <GlassCard variant="icy" className="flex flex-col p-5 w-full overflow-visible relative">
       <div className="flex justify-between items-center mb-4">
-        <div className="px-4 py-1 bg-white/5 border border-white/10 rounded-full text-[10px] font-bold uppercase tracking-widest text-white/40">TASKS</div>
+        <div className="px-4 py-1 bg-white/5 border border-white/10 rounded-full text-[11px] font-bold uppercase tracking-widest text-white/60">TASKS</div>
         <div className="flex items-center gap-3">
           {loading && <Loader2 className="w-3.5 h-3.5 text-sage-200 animate-spin" />}
           <button 
@@ -405,7 +405,7 @@ const ThePathWidget: React.FC = () => {
           
           {/* IN PROGRESS SECTION */}
           <DroppableArea id="in-progress" className="min-h-[60px] transition-all rounded-2xl p-2" isOver={overContainerId === 'in-progress'}>
-            <div className="flex items-center gap-2 text-[10px] text-sage-200/80 font-bold uppercase tracking-[0.3em] mb-3">
+            <div className="flex items-center gap-2 text-[11px] text-sage-200 font-bold uppercase tracking-[0.3em] mb-3">
               <ChevronDown className="w-3.5 h-3.5 text-sage-200" />
               IN PROGRESS
             </div>
@@ -446,8 +446,8 @@ const ThePathWidget: React.FC = () => {
           
           {/* TODO SECTION */}
           <DroppableArea id="todo" className="min-h-[60px] transition-all rounded-2xl p-2" isOver={overContainerId === 'todo'}>
-            <div className="flex items-center gap-2 text-[10px] text-white/30 font-bold uppercase tracking-[0.3em] mb-3">
-              <ChevronDown className="w-3.5 h-3.5 text-white/30" />
+            <div className="flex items-center gap-2 text-[11px] text-white/50 font-bold uppercase tracking-[0.3em] mb-3">
+              <ChevronDown className="w-3.5 h-3.5 text-white/50" />
               Task List
             </div>
             <SortableContext items={todoTasks.map(t => t.id)} strategy={verticalListSortingStrategy}>

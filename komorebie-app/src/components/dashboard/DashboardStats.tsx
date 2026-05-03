@@ -76,8 +76,8 @@ const DashboardStats: React.FC = () => {
       <motion.div variants={itemVariants} className="flex-1">
         <GlassCard variant="icy" animateCard={false} className="h-full p-4 flex flex-col relative group">
           <div className="flex justify-between items-center mb-4">
-            <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.2em] text-white/60 font-black">
-              <BarChart3 className="w-4 h-4" />
+            <div className="flex items-center gap-2 text-[12px] uppercase tracking-[0.2em] text-white/80 font-black">
+              <BarChart3 className="w-4 h-4 text-sage-200" />
               Analytics
             </div>
             <button 
@@ -93,8 +93,8 @@ const DashboardStats: React.FC = () => {
             {/* Today's Focus */}
             <div className="flex flex-col gap-1 p-2.5 bg-white/[0.04] rounded-xl border border-white/[0.06]">
               <div className="flex items-center gap-1.5">
-                <Clock className="w-3 h-3 text-sage-200/60" />
-                <span className="text-[9px] text-white/50 uppercase tracking-wider font-bold">Focus</span>
+                <Clock className="w-3.5 h-3.5 text-sage-200" />
+                <span className="text-[10px] text-white/60 uppercase tracking-wider font-bold">Focus</span>
               </div>
               <span className="text-xl font-display font-semibold text-white leading-none">{todayFocusFormatted}</span>
             </div>
@@ -102,8 +102,8 @@ const DashboardStats: React.FC = () => {
             {/* Today's Sessions */}
             <div className="flex flex-col gap-1 p-2.5 bg-white/[0.04] rounded-xl border border-white/[0.06]">
               <div className="flex items-center gap-1.5">
-                <Target className="w-3 h-3 text-blue-400/60" />
-                <span className="text-[9px] text-white/50 uppercase tracking-wider font-bold">Sessions</span>
+                <Target className="w-3.5 h-3.5 text-blue-400" />
+                <span className="text-[10px] text-white/60 uppercase tracking-wider font-bold">Sessions</span>
               </div>
               <span className="text-xl font-display font-semibold text-white leading-none">{stats.sessionsToday}</span>
             </div>
@@ -111,8 +111,8 @@ const DashboardStats: React.FC = () => {
             {/* Tasks Done */}
             <div className="flex flex-col gap-1 p-2.5 bg-white/[0.04] rounded-xl border border-white/[0.06]">
               <div className="flex items-center gap-1.5">
-                <CheckCircle2 className="w-3 h-3 text-emerald-400/60" />
-                <span className="text-[9px] text-white/50 uppercase tracking-wider font-bold">Tasks</span>
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                <span className="text-[10px] text-white/60 uppercase tracking-wider font-bold">Tasks</span>
               </div>
               <span className="text-xl font-display font-semibold text-white leading-none">{stats.tasksDoneToday}</span>
             </div>
@@ -120,9 +120,9 @@ const DashboardStats: React.FC = () => {
 
           {/* Today's Focus Progress Bar */}
           <div className="mb-5">
-            <div className="flex justify-between items-center mb-1.5">
-              <span className="text-[10px] text-white/50 font-bold uppercase tracking-wider">Daily Goal · {dailyGoalHours}h</span>
-              <span className="text-[10px] text-white/60 font-mono">{Math.min(Math.round((stats.todayFocusSeconds / dailyGoalSeconds) * 100), 100)}%</span>
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-[11px] text-white/60 font-bold uppercase tracking-wider">Daily Goal · {dailyGoalHours}h</span>
+              <span className="text-[11px] text-white/80 font-mono">{Math.min(Math.round((stats.todayFocusSeconds / dailyGoalSeconds) * 100), 100)}%</span>
             </div>
             <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
               <motion.div 
@@ -137,8 +137,8 @@ const DashboardStats: React.FC = () => {
           {/* Weekly Bar Graph — LARGE */}
           <div className="mb-2">
             <div className="flex justify-between items-center mb-2">
-              <span className="text-[10px] text-white/50 font-bold uppercase tracking-wider">This Week</span>
-              <span className="text-[10px] text-white/40 font-mono">{stats.weekHours}h total</span>
+              <span className="text-[11px] text-white/60 font-bold uppercase tracking-wider">This Week</span>
+              <span className="text-[11px] text-white/50 font-mono">{stats.weekHours}h total</span>
             </div>
 
             <div className="flex items-end gap-2 h-28">
@@ -192,7 +192,7 @@ const DashboardStats: React.FC = () => {
                 return (
                   <div 
                     key={`label-${d.date}`} 
-                    className={`flex-1 text-center text-[10px] font-bold tracking-wide ${
+                    className={`flex-1 text-center text-[11px] font-bold tracking-wide ${
                       isToday ? 'text-sage-200' : 'text-white/40'
                     }`}
                   >
@@ -206,16 +206,16 @@ const DashboardStats: React.FC = () => {
           {/* Weekly Summary Footer */}
           <div className="flex items-center justify-between mt-5 pt-4 border-t border-white/10">
             <div className="flex items-center gap-4">
-              <div className="flex items-center gap-1.5 text-[9px] text-white/50 font-medium">
-                <Clock className="w-3 h-3 opacity-60" />
+              <div className="flex items-center gap-1.5 text-[10px] text-white/60 font-medium">
+                <Clock className="w-3.5 h-3.5 opacity-80" />
                 <span>{stats.totalHours >= 1 ? `${stats.totalHours}h` : `${Math.floor(stats.totalSeconds / 60)}m`} all-time</span>
               </div>
-              <div className="flex items-center gap-1.5 text-[9px] text-white/50 font-medium">
-                <Target className="w-3 h-3 opacity-60" />
+              <div className="flex items-center gap-1.5 text-[10px] text-white/60 font-medium">
+                <Target className="w-3.5 h-3.5 opacity-80" />
                 <span>{stats.totalSessions} sessions</span>
               </div>
             </div>
-            <div className="text-[9px] text-sage-200/50 font-black uppercase tracking-[0.15em]">
+            <div className="text-[10px] text-sage-200/80 font-black uppercase tracking-[0.15em]">
               {stats.weekHours > 0 ? `${Math.round(stats.weekHours / 7 * 10) / 10}h/day avg` : '—'}
             </div>
           </div>
@@ -230,8 +230,8 @@ const DashboardStats: React.FC = () => {
             <span className="text-base relative z-10">🦊</span>
           </div>
           <div className="flex flex-col">
-            <span className="text-[8px] uppercase tracking-[0.2em] text-white/30 font-bold mb-0.5">Companion</span>
-            <span className="text-[11px] text-white/70 font-medium">Forest Fox · Lvl {Math.floor(stats.mana / 100) + 1}</span>
+            <span className="text-[10px] uppercase tracking-[0.2em] text-white/50 font-bold mb-0.5">Companion</span>
+            <span className="text-[12px] text-white font-medium">Forest Fox · Lvl {Math.floor(stats.mana / 100) + 1}</span>
             <div className="w-20 h-1 bg-slate-950/40 rounded-full mt-1 overflow-hidden">
               <div className="h-full bg-sage-200/40 rounded-full" style={{ width: `${stats.mana % 100}%` }} />
             </div>

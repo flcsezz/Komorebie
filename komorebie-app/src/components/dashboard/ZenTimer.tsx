@@ -22,13 +22,13 @@ const ZenTimer: React.FC<ZenTimerProps> = ({ initialTime, onStart, onChange }) =
 
       {/* Header Info */}
       <div className="absolute top-8 left-8 right-8 flex justify-between items-center z-10">
-        <div className="flex items-center gap-2 text-[9px] uppercase tracking-[0.3em] font-bold text-white/30">
-          <TimerIcon className="w-3.5 h-3.5" />
+        <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.3em] font-bold text-white/50">
+          <TimerIcon className="w-4 h-4 text-sage-200" />
           Focus Ritual
         </div>
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-white/5 text-[9px] font-bold text-sage-200/60 uppercase tracking-widest">
-            <Zap className="w-3 h-3" />
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-[10px] font-bold text-sage-200 uppercase tracking-widest">
+            <Zap className="w-3.5 h-3.5" />
             +40 Mana
           </div>
           <button className="text-white/20 hover:text-white transition-colors cursor-pointer">
@@ -102,7 +102,7 @@ const ZenTimer: React.FC<ZenTimerProps> = ({ initialTime, onStart, onChange }) =
           className="group/btn flex items-center gap-4 px-10 py-5 rounded-full bg-white/10 border border-white/10 text-white transition-all cursor-pointer overflow-hidden relative shadow-2xl shadow-sage-200/5"
         >
           <div className="absolute inset-0 bg-gradient-to-r from-sage-200/0 via-sage-200/5 to-sage-200/0 -translate-x-full group-hover/btn:animate-shimmer" />
-          <span className="text-[11px] font-bold uppercase tracking-[0.4em] relative z-10">Begin Session</span>
+          <span className="text-[13px] font-bold uppercase tracking-[0.4em] relative z-10">Begin Session</span>
           <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center relative z-10 group-hover/btn:bg-white/20 transition-colors">
             <Play className="w-3.5 h-3.5 fill-white" />
           </div>
@@ -110,7 +110,7 @@ const ZenTimer: React.FC<ZenTimerProps> = ({ initialTime, onStart, onChange }) =
       </div>
 
       {/* Footer hint */}
-      <div className="absolute bottom-4 text-[8px] text-white/10 uppercase tracking-[0.2em] font-medium">
+      <div className="absolute bottom-4 text-[9px] text-white/30 uppercase tracking-[0.2em] font-medium">
         Deep work sanctuary • Optimized for flow
       </div>
     </GlassCard>

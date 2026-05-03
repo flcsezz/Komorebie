@@ -3,15 +3,18 @@ import { motion } from 'framer-motion';
 import { Flame, Clock, UserMinus, ExternalLink } from 'lucide-react';
 import GlassCard from '../ui/GlassCard';
 import type { FriendWithProfile } from '../../lib/friends';
+import type { PresenceState } from '../../hooks/usePresence';
 
 interface FriendCardProps {
   friendship: FriendWithProfile;
   onRemove: (friendshipId: string) => void;
   onViewProfile?: (friend: FriendWithProfile) => void;
   todayFocusSeconds?: number;
+  presence?: PresenceState;
 }
 
-const FriendCard: React.FC<FriendCardProps> = ({ friendship, onRemove, onViewProfile, todayFocusSeconds = 0 }) => {
+const FriendCard: React.FC<FriendCardProps> = ({ friendship, onRemove, onViewProfile, todayFocusSeconds = 0, presence }) => {
+  const isFocusing = presence?.is_active;
   const { friend, since, friendship_id } = friendship;
   const [confirmRemove, setConfirmRemove] = useState(false);
 
@@ -29,7 +32,7 @@ const FriendCard: React.FC<FriendCardProps> = ({ friendship, onRemove, onViewPro
       {/* Ambient glow on hover */}
       <div 
         className="absolute inset-0 opacity-0 group-hover:opacity-20 transition-opacity duration-700 pointer-events-none"
-        style={{ background: `radial-gradient(circle at center, var(--color-sage-200), transparent 70%)` }}
+        style={{ background: `radial-gradient(circle at center, ${isFocusing ? 'var(--color-green-400)' : 'var(--color-sage-200)'}, transparent 70%)` }}
       />
 
       {/* Decorative corner accents */}
@@ -43,7 +46,7 @@ const FriendCard: React.FC<FriendCardProps> = ({ friendship, onRemove, onViewPro
         className="relative mt-4 cursor-pointer"
         onClick={() => onViewProfile?.(friendship)}
       >
-        <div className="w-20 h-20 rounded-[2rem] bg-slate-800 border-2 border-white/5 overflow-hidden flex items-center justify-center shadow-xl group-hover:border-sage-200/30 transition-all duration-500">
+        <div className={`w-20 h-20 rounded-[2rem] bg-slate-800 border-2 border-white/5 overflow-hidden flex items-center justify-center shadow-xl group-hover:border-sage-200/30 transition-all duration-500 ${isFocusing ? 'border-green-400/30' : ''}`}>
           {friend.avatar_url ? (
             <img src={friend.avatar_url} alt={friend.display_name} className="w-full h-full object-cover" />
           ) : (
@@ -52,9 +55,9 @@ const FriendCard: React.FC<FriendCardProps> = ({ friendship, onRemove, onViewPro
             </span>
           )}
         </div>
-        {/* Online Status */}
+        {/* Presence Indicator */}
         <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-slate-950 flex items-center justify-center">
-          <div className="w-3 h-3 rounded-full bg-sage-200/60 shadow-[0_0_10px_rgba(183,201,176,0.4)]" />
+          <div className={`w-3 h-3 rounded-full shadow-[0_0_10px_rgba(183,201,176,0.4)] ${isFocusing ? 'bg-green-400 animate-pulse' : 'bg-sage-200/60'}`} />
         </div>
       </div>
 

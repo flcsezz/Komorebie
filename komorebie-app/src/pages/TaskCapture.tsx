@@ -10,6 +10,7 @@ import StreakWidget from '../components/dashboard/StreakWidget';
 import SoundscapeSelector from '../components/dashboard/SoundscapeSelector';
 import ThePathWidget from '../components/dashboard/ThePathWidget';
 import ZenClock from '../components/dashboard/ZenClock';
+import AmbientPresence from '../components/dashboard/AmbientPresence';
 import { useZenClock } from '../context/ZenClockContext';
 import { useAnalytics } from '../hooks/useAnalytics';
 import { useAuth } from '../context/AuthContext';
@@ -185,6 +186,8 @@ const TaskCapture: React.FC = () => {
         </div>
 
       </div>
+      
+      <AmbientPresence />
     </div>
 
     {/* Deadline Creation Modal */}

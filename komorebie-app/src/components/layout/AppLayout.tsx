@@ -197,15 +197,12 @@ const AppLayout: React.FC = () => {
 
   // Sync background state with profile when it loads
   useEffect(() => {
-    // Only set initial background from profile/localStorage if we don't have one
-    const savedBg = localStorage.getItem('komorebie-bg');
-    if (!bgImage && savedBg) {
-      setBgImage(savedBg);
-    } else if (!bgImage && profile?.preferred_bg) {
+    if (profile?.preferred_bg && profile.preferred_bg !== bgImage) {
       setBgImage(profile.preferred_bg);
       localStorage.setItem('komorebie-bg', profile.preferred_bg);
     }
-  }, [profile?.preferred_bg, bgImage]);
+  }, [profile?.preferred_bg]);
+
   const [showBgPicker, setShowBgPicker] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(true);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -250,27 +247,60 @@ const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
     const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
+      const doc = document as any;
+      const isFull = !!(doc.fullscreenElement || 
+                       doc.webkitFullscreenElement || 
+                       doc.mozFullScreenElement || 
+                       doc.msFullscreenElement);
+      setIsFullscreen(isFull);
     };
+
     document.addEventListener('fullscreenchange', handleFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+    document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
+    };
   }, []);
 
   const toggleFullscreen = async () => {
-    if (!document.fullscreenElement) {
-      try {
-        await document.documentElement.requestFullscreen();
-      } catch (err) {
-        console.error("Error attempting to enable fullscreen:", err);
-      }
-    } else {
-      if (document.exitFullscreen) {
-        try {
-          await document.exitFullscreen();
-        } catch (err) {
-          console.error("Error attempting to exit fullscreen:", err);
+    try {
+      const doc = document as any;
+      const el = document.documentElement as any;
+
+      const fullscreenElement = doc.fullscreenElement || 
+                                doc.webkitFullscreenElement || 
+                                doc.mozFullScreenElement || 
+                                doc.msFullscreenElement;
+
+      if (!fullscreenElement) {
+        if (el.requestFullscreen) {
+          await el.requestFullscreen();
+        } else if (el.webkitRequestFullscreen) {
+          await el.webkitRequestFullscreen();
+        } else if (el.mozRequestFullScreen) {
+          await el.mozRequestFullScreen();
+        } else if (el.msRequestFullscreen) {
+          await el.msRequestFullscreen();
+        }
+      } else {
+        if (doc.exitFullscreen) {
+          await doc.exitFullscreen();
+        } else if (doc.webkitExitFullscreen) {
+          await doc.webkitExitFullscreen();
+        } else if (doc.mozCancelFullScreen) {
+          await doc.mozCancelFullScreen();
+        } else if (doc.msExitFullscreen) {
+          await doc.msExitFullscreen();
         }
       }
+    } catch (err) {
+      console.error("Fullscreen toggle failed:", err);
     }
   };
 
@@ -310,7 +340,7 @@ const [isFullscreen, setIsFullscreen] = useState(false);
 
         {/* Dynamic Background Image */}
         <div 
-          className="fixed inset-0 z-0 bg-cover bg-center transition-all duration-700 ease-in-out pointer-events-none opacity-40"
+          className="fixed inset-0 z-0 bg-cover bg-center transition-all duration-700 ease-in-out pointer-events-none opacity-40 bg-optimize-quality"
           style={{ backgroundImage: `url(${backgroundOverride || bgImage})`, transform: 'scale(1.05)' }}
         />
         {/* Background Overlay */}
@@ -358,10 +388,10 @@ const [isFullscreen, setIsFullscreen] = useState(false);
                     transition={{ duration: 0.2 }}
                     className="flex flex-col"
                   >
-                    <span className="text-sm font-medium text-white/80 group-hover/profile:text-white transition-colors">
+                    <span className="text-sm font-medium text-white/90 group-hover/profile:text-white transition-colors">
                       {profile?.display_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Explorer'}
                     </span>
-                    <span className="text-[10px] text-white/30">View Profile</span>
+                    <span className="text-[11px] text-white/50 font-bold uppercase tracking-wider">View Profile</span>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -392,7 +422,7 @@ const [isFullscreen, setIsFullscreen] = useState(false);
             {/* Join Our Gang */}
             {!isCollapsed && (
               <div className="mt-12 p-4 text-center">
-                <p className="text-[10px] font-black text-amber-400 uppercase tracking-[0.2em] mb-4">Join Our Gang!</p>
+                <p className="text-[11px] font-black text-amber-400 uppercase tracking-[0.2em] mb-4 shadow-[0_0_10px_rgba(251,191,36,0.2)]">Join Our Gang!</p>
                 <div className="flex justify-center gap-4">
                   <div className="w-10 h-10 rounded-xl bg-[#5865F2] flex items-center justify-center cursor-pointer hover:scale-110 transition-transform shadow-lg shadow-[#5865F2]/20">
                     <MessageSquare className="w-5 h-5 text-white" fill="currentColor" />
@@ -463,8 +493,8 @@ const [isFullscreen, setIsFullscreen] = useState(false);
 </AnimatePresence>
               </div>
               
-              <button className="flex items-center gap-2 px-4 py-1.5 bg-sage-200/10 text-sage-200 border border-sage-200/20 rounded-full text-[9px] uppercase tracking-[0.2em] transition-colors hover:bg-sage-200/20 font-bold cursor-pointer">
-                <Crown className="w-3 h-3" strokeWidth={3} />
+              <button className="flex items-center gap-2 px-4 py-1.5 bg-sage-200/15 text-sage-200 border border-sage-200/30 rounded-full text-[10px] uppercase tracking-[0.2em] transition-colors hover:bg-sage-200/25 font-bold cursor-pointer shadow-[0_0_15px_rgba(183,201,176,0.1)]">
+                <Crown className="w-3.5 h-3.5" strokeWidth={3} />
                 Go Premium
               </button>
 
@@ -472,8 +502,8 @@ const [isFullscreen, setIsFullscreen] = useState(false);
                 onClick={toggleFullscreen}
                 className="flex items-center gap-2 px-4 py-1.5 bg-white/5 border border-white/10 rounded-full transition-colors hover:bg-white/10 text-white/40 hover:text-white cursor-pointer"
               >
-                {isFullscreen ? <Minimize className="w-3.5 h-3.5" strokeWidth={1.5} /> : <Maximize className="w-3.5 h-3.5" strokeWidth={1.5} />}
-                <span className="text-[10px] font-medium">{isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}</span>
+                {isFullscreen ? <Minimize className="w-3.5 h-3.5" strokeWidth={2} /> : <Maximize className="w-3.5 h-3.5" strokeWidth={2} />}
+                <span className="text-[11px] font-bold tracking-wide">{isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}</span>
               </button>
               
               <div className="relative flex items-center ml-2">
@@ -492,7 +522,7 @@ const [isFullscreen, setIsFullscreen] = useState(false);
                       exit={{ opacity: 0, y: 10, scale: 0.95 }}
                       className="absolute top-12 left-0 w-48 bg-slate-950/80 backdrop-blur-2xl border border-white/10 rounded-2xl p-2 z-[100] shadow-2xl"
                     >
-                      <h5 className="px-3 py-2 text-[9px] uppercase tracking-widest text-white/30 font-bold">Backgrounds</h5>
+                      <h5 className="px-3 py-2 text-[10px] uppercase tracking-widest text-white/50 font-bold">Backgrounds</h5>
                       <div className="space-y-1">
                         {getVisibleBackgrounds(user?.email).map((bg) => (
                           <button
@@ -501,11 +531,11 @@ const [isFullscreen, setIsFullscreen] = useState(false);
                               handleBgChange(bg.url);
                               setShowBgPicker(false);
                             }}
-                            className={`w-full text-left px-3 py-2 rounded-xl text-[10px] transition-colors flex items-center gap-2 ${
-                              bgImage === bg.url ? 'bg-sage-200/10 text-sage-200' : 'text-white/40 hover:bg-white/5 hover:text-white'
+                            className={`w-full text-left px-3 py-2 rounded-xl text-[11px] transition-colors flex items-center gap-2 ${
+                              bgImage === bg.url ? 'bg-sage-200/15 text-white font-bold' : 'text-white/50 hover:bg-white/5 hover:text-white'
                             }`}
                           >
-                            <div className="w-6 h-4 rounded bg-cover bg-center border border-white/10" style={{ backgroundImage: `url(${bg.url})` }} />
+                            <div className="w-6 h-4 rounded bg-cover bg-center border border-white/10 bg-optimize-quality" style={{ backgroundImage: `url(${bg.url})` }} />
                             {bg.name}
                           </button>
                         ))}
@@ -548,16 +578,16 @@ const [isFullscreen, setIsFullscreen] = useState(false);
                       className="absolute top-12 right-0 w-48 bg-slate-950/80 backdrop-blur-3xl border border-white/10 rounded-2xl p-2 z-[100] shadow-2xl"
                     >
                       <div className="px-3 py-2 mb-1 border-b border-white/5">
-                        <p className="text-[10px] font-bold text-white/80 truncate">{profile?.display_name || 'Explorer'}</p>
-                        <p className="text-[9px] text-white/30 truncate">@{profile?.username || 'explorer'}</p>
+                        <p className="text-[11px] font-bold text-white/90 truncate">{profile?.display_name || 'Explorer'}</p>
+                        <p className="text-[10px] text-white/40 font-medium truncate">@{profile?.username || 'explorer'}</p>
                         
                         <div className="flex items-center gap-3 mt-2">
-                          <div className="flex items-center gap-1 text-[9px] text-amber-400 font-bold">
-                            <Flame className="w-2.5 h-2.5" />
+                          <div className="flex items-center gap-1 text-[10px] text-amber-400 font-bold">
+                            <Flame className="w-3 h-3" />
                             {stats.currentStreak}d
                           </div>
-                          <div className="flex items-center gap-1 text-[9px] text-sage-200 font-bold">
-                            <Sparkles className="w-2.5 h-2.5" />
+                          <div className="flex items-center gap-1 text-[10px] text-sage-200 font-bold">
+                            <Sparkles className="w-3 h-3" />
                             {stats.mana}
                           </div>
                         </div>
@@ -567,17 +597,17 @@ const [isFullscreen, setIsFullscreen] = useState(false);
                         <Link 
                           to="/app/profile" 
                           onClick={() => setShowProfileMenu(false)}
-                          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[11px] text-white/50 hover:bg-white/5 hover:text-white transition-all group"
+                          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[12px] text-white/60 hover:bg-white/5 hover:text-white transition-all group font-medium"
                         >
-                          <Users className="w-3.5 h-3.5 opacity-40 group-hover:opacity-100" />
+                          <Users className="w-4 h-4 opacity-50 group-hover:opacity-100" />
                           My Sanctuary
                         </Link>
                         <Link 
                           to="/app/settings" 
                           onClick={() => setShowProfileMenu(false)}
-                          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[11px] text-white/50 hover:bg-white/5 hover:text-white transition-all group"
+                          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[12px] text-white/60 hover:bg-white/5 hover:text-white transition-all group font-medium"
                         >
-                          <Settings className="w-3.5 h-3.5 opacity-40 group-hover:opacity-100" />
+                          <Settings className="w-4 h-4 opacity-50 group-hover:opacity-100" />
                           Settings
                         </Link>
                         <div className="h-px bg-white/5 my-1 mx-2" />
@@ -586,9 +616,9 @@ const [isFullscreen, setIsFullscreen] = useState(false);
                             setShowProfileMenu(false);
                             handleSignOut();
                           }}
-                          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[11px] text-red-400/60 hover:bg-red-400/5 hover:text-red-400 transition-all group cursor-pointer"
+                          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[12px] text-red-400/80 hover:bg-red-400/5 hover:text-red-400 transition-all group cursor-pointer font-medium"
                         >
-                          <LogOut className="w-3.5 h-3.5 opacity-40 group-hover:opacity-100" />
+                          <LogOut className="w-4 h-4 opacity-50 group-hover:opacity-100" />
                           Log Out
                         </button>
                       </div>
@@ -614,9 +644,9 @@ const [isFullscreen, setIsFullscreen] = useState(false);
           </main>
           
           {/* Bottom Right Time */}
-          <div className="absolute bottom-6 right-6 flex items-center gap-2 px-4 py-1.5 bg-white/5 border border-white/10 rounded-full z-20">
-            <Clock className="w-3.5 h-3.5 text-sage-200" />
-            <span className="text-[11px] font-mono font-semibold text-white/80 tabular-nums">
+          <div className="absolute bottom-6 right-6 flex items-center gap-2 px-4 py-1.5 bg-white/5 border border-white/10 rounded-full z-20 hover:bg-white/10 transition-colors">
+            <Clock className="w-4 h-4 text-sage-200" />
+            <span className="text-[12px] font-mono font-bold text-white tabular-nums">
               {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </span>
           </div>

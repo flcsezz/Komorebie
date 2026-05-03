@@ -9,6 +9,7 @@ import FriendCard from '../components/friends/FriendCard';
 import FriendRequestCard from '../components/friends/FriendRequestCard';
 import UserSearchCard from '../components/friends/UserSearchCard';
 import { useFriends } from '../hooks/useFriends';
+import { usePresence } from '../hooks/usePresence';
 import { type FriendWithProfile, type FriendRequest } from '../lib/friends';
 
 // ─── Tab Types ──────────────────────────────────────────────
@@ -52,6 +53,7 @@ const FriendsPage: React.FC = () => {
     loading, searching, searchResults, focusTimes,
     handleSearch, sendRequest, acceptRequest, rejectRequest, cancelRequest, removeFriend,
   } = useFriends();
+  const { presences } = usePresence();
 
   const [activeTab, setActiveTab] = useState<Tab>('friends');
   const [searchQuery, setSearchQuery] = useState('');
@@ -192,6 +194,7 @@ const FriendsPage: React.FC = () => {
                             key={f.friendship_id}
                             friendship={f}
                             todayFocusSeconds={focusTimes[f.friend.id] || 0}
+                            presence={presences[f.friend.id]}
                             onRemove={removeFriend}
                             onViewProfile={(f: FriendWithProfile) => navigate(`/app/friends/${f.friend.username}`)}
                           />
