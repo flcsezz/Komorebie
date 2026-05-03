@@ -1,15 +1,27 @@
 import { supabase } from './supabase';
 
+/**
+ * Helper to get YYYY-MM-DD in local time.
+ */
+export const toLocalISO = (date: Date) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
 // ─── Cache configuration ───────────────────────────────────────────
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const CACHE_TTL_MS = 2 * 60 * 1000; // 2 minutes
 const STALE_WHILE_REVALIDATE_MS = 30 * 1000; // Serve stale data for 30s while refetching
 
 // ─── Types ─────────────────────────────────────────────────────────
 export interface CachedAnalytics {
-  profile: any;
-  sessions: any[];
-  streaks: any[];
-  deadlines: any[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  profile: any; 
+  sessions: { id: string; status: string; elapsed_seconds?: number; started_at: string }[];
+  streaks: { focus_date: string; total_focus_seconds: number; sessions_count: number; streak_qualified: boolean }[];
+  deadlines: { id: string; deadline_date: string; title: string }[];
+  tasks: { id: string; is_completed: boolean; completed_at: string | null }[];
   fetchedAt: number;
 }
 
@@ -106,7 +118,7 @@ class AnalyticsCacheStore {
   private async fetchFromSupabase(userId: string): Promise<CachedAnalytics | null> {
     try {
       // Run all queries in parallel for speed
-      const [profileRes, sessionsRes, streaksRes, deadlinesRes] = await Promise.all([
+      const [profileRes, sessionsRes, streaksRes, deadlinesRes, tasksRes] = await Promise.all([
         supabase
           .from('profiles')
           .select('*')
@@ -117,18 +129,24 @@ class AnalyticsCacheStore {
           .select('*')
           .eq('user_id', userId)
           .order('started_at', { ascending: false })
-          .limit(500), // Cap query size to prevent huge payloads
+          .limit(500),
         supabase
           .from('streaks')
           .select('*')
           .eq('user_id', userId)
           .order('focus_date', { ascending: false })
-          .limit(365), // Max 1 year of streak data
+          .limit(365),
         supabase
           .from('deadlines')
           .select('*')
           .eq('user_id', userId)
           .order('deadline_date', { ascending: true }),
+        supabase
+          .from('tasks')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('is_completed', true)
+          .order('completed_at', { ascending: false }),
       ]);
 
       const entry: CachedAnalytics = {
@@ -136,6 +154,7 @@ class AnalyticsCacheStore {
         sessions: sessionsRes.data || [],
         streaks: streaksRes.data || [],
         deadlines: deadlinesRes.data || [],
+        tasks: tasksRes.data || [],
         fetchedAt: Date.now(),
       };
 
@@ -173,28 +192,31 @@ export const analyticsCache = new AnalyticsCacheStore();
 export function computeStats(data: CachedAnalytics) {
   const { profile, sessions, streaks } = data;
 
-  const completedSessions = sessions.filter((s: any) => s.status === 'completed');
-  const totalSeconds = completedSessions.reduce((acc: number, s: any) => acc + (s.elapsed_seconds || 0), 0);
+  const validSessions = sessions.filter((s) => s.status === 'completed' || (s.elapsed_seconds || 0) >= 300);
+  const totalSeconds = validSessions.reduce((acc: number, s) => acc + (s.elapsed_seconds || 0), 0);
   const totalHours = Math.round((totalSeconds / 3600) * 10) / 10;
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = toLocalISO(new Date());
 
-  const sessionsToday = sessions.filter((s: any) =>
-    new Date(s.started_at).toISOString().split('T')[0] === today
+  // Today's focus time - prefer calculating from sessions for accuracy, 
+  // but fallback to streaks table for historical consistency if needed.
+  const sessionsTodayList = validSessions.filter((s) =>
+    toLocalISO(new Date(s.started_at)) === today
+  );
+  const todayFocusSeconds = sessionsTodayList.reduce((acc: number, s) => acc + (s.elapsed_seconds || 0), 0);
+
+  const sessionsToday = sessions.filter((s) =>
+    toLocalISO(new Date(s.started_at)) === today
   ).length;
 
-  const completedToday = sessions.filter((s: any) =>
-    s.status === 'completed' && new Date(s.started_at).toISOString().split('T')[0] === today
+  const completedToday = sessions.filter((s) =>
+    s.status === 'completed' && toLocalISO(new Date(s.started_at)) === today
   ).length;
 
-  const tasksDone = completedSessions.filter((s: any) => s.task_id).length;
-  const tasksDoneToday = sessions.filter((s: any) =>
-    s.status === 'completed' && s.task_id && new Date(s.started_at).toISOString().split('T')[0] === today
+  const tasksDone = data.tasks.length;
+  const tasksDoneToday = data.tasks.filter((t) =>
+    t.completed_at && toLocalISO(new Date(t.completed_at)) === today
   ).length;
-
-  // Today's focus time from streaks table
-  const todayStreak = streaks.find((s: any) => s.focus_date === today);
-  const todayFocusSeconds = todayStreak ? todayStreak.total_focus_seconds : 0;
 
   // Weekly data (last 7 days)
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -203,31 +225,55 @@ export function computeStats(data: CachedAnalytics) {
   for (let i = 6; i >= 0; i--) {
     const date = new Date();
     date.setDate(date.getDate() - i);
-    const dateStr = date.toISOString().split('T')[0];
-    const entry = streaks.find((s: any) => s.focus_date === dateStr);
-
-    const daySessions = sessions.filter((s: any) =>
-      s.status === 'completed' && new Date(s.started_at).toISOString().split('T')[0] === dateStr
-    );
+    const dateStr = toLocalISO(date);
+    const entry = streaks.find((s) => s.focus_date === dateStr);
 
     weeklyData.push({
       date: dateStr,
       day: dayNames[date.getDay()],
       focusSeconds: entry ? entry.total_focus_seconds : 0,
       sessionsCount: entry ? entry.sessions_count : 0,
-      tasksDone: daySessions.filter((s: any) => s.task_id).length,
+      tasksDone: data.tasks.filter((t) => 
+        t.completed_at && toLocalISO(new Date(t.completed_at)) === dateStr
+      ).length,
     });
   }
 
   const weekSeconds = weeklyData.reduce((acc, d) => acc + d.focusSeconds, 0);
   const weekHours = Math.round((weekSeconds / 3600) * 10) / 10;
 
-  const currentStreak = profile?.current_streak || 0;
-  const bestStreak = profile?.best_streak || 0;
+  // Calculate current streak from focus history
+  let currentStreak = 0;
+  const qualifiedDates = new Set(streaks.filter((s) => s.streak_qualified).map((s) => s.focus_date));
+  
+  if (qualifiedDates.size > 0) {
+    const todayStr = today;
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = toLocalISO(yesterday);
+    
+    // Streak is active if either today or yesterday is qualified
+    if (qualifiedDates.has(todayStr) || qualifiedDates.has(yesterdayStr)) {
+      const checkDate = qualifiedDates.has(todayStr) ? new Date() : yesterday;
+      
+      while (qualifiedDates.has(toLocalISO(checkDate))) {
+        currentStreak++;
+        checkDate.setDate(checkDate.getDate() - 1);
+      }
+    }
+  }
+
+  // Fallback to profile field if calculation is 0 but profile says otherwise (e.g. data older than 365 days)
+  if (currentStreak === 0 && profile?.current_streak > 0) {
+    currentStreak = profile.current_streak;
+  }
+
+  const bestStreak = Math.max(currentStreak, profile?.best_streak || 0);
 
   return {
+    totalSeconds,
     totalHours,
-    totalSessions: completedSessions.length,
+    totalSessions: validSessions.length,
     sessionsToday,
     completedToday,
     tasksDone,
@@ -237,6 +283,7 @@ export function computeStats(data: CachedAnalytics) {
     mana: profile?.mana_points || 0,
     todayFocusSeconds,
     weeklyData,
+    weekSeconds,
     weekHours,
   };
 }
@@ -244,14 +291,39 @@ export function computeStats(data: CachedAnalytics) {
 /**
  * Build streak dates map for the calendar heatmap.
  */
-export function buildStreakDates(streaks: any[]): Map<string, { qualified: boolean; seconds: number; sessions: number }> {
-  const map = new Map<string, { qualified: boolean; seconds: number; sessions: number }>();
-  streaks.forEach((s: any) => {
+export function buildStreakDates(
+  streaks: { focus_date: string; total_focus_seconds: number; sessions_count: number; streak_qualified: boolean }[], 
+  tasks: { completed_at: string | null }[] = []
+): Map<string, { qualified: boolean; seconds: number; sessions: number; tasksDone: number }> {
+  const map = new Map<string, { qualified: boolean; seconds: number; sessions: number; tasksDone: number }>();
+  
+  // Initialize with streak data
+  streaks.forEach((s) => {
     map.set(s.focus_date, {
       qualified: s.streak_qualified || false,
       seconds: s.total_focus_seconds || 0,
       sessions: s.sessions_count || 0,
+      tasksDone: 0 // Will fill in next step
     });
   });
+
+  // Add task completion data
+  tasks.forEach((t) => {
+    if (t.completed_at) {
+      const dateStr = toLocalISO(new Date(t.completed_at));
+      const entry = map.get(dateStr);
+      if (entry) {
+        entry.tasksDone += 1;
+      } else {
+        map.set(dateStr, {
+          qualified: false,
+          seconds: 0,
+          sessions: 0,
+          tasksDone: 1
+        });
+      }
+    }
+  });
+
   return map;
 }

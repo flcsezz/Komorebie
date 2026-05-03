@@ -13,7 +13,14 @@ const STREAK_THRESHOLD_SECONDS = 300; // 5 minutes minimum to qualify for streak
 
 export const logFocusSession = async (session: FocusSessionData) => {
   try {
-    console.log('[Analytics] Inserting focus session:', JSON.stringify(session));
+    const elapsed = session.elapsed_seconds || session.duration_seconds;
+    const isQualified = elapsed >= STREAK_THRESHOLD_SECONDS;
+
+    // Force status to abandoned if session is shorter than 5 minutes
+    if (!isQualified) {
+      session.status = 'abandoned';
+    }
+
     const { data, error } = await supabase
       .from('focus_sessions')
       .insert([
@@ -21,7 +28,7 @@ export const logFocusSession = async (session: FocusSessionData) => {
           user_id: session.user_id,
           task_id: session.task_id,
           duration_seconds: session.duration_seconds,
-          elapsed_seconds: session.elapsed_seconds || session.duration_seconds,
+          elapsed_seconds: elapsed,
           status: session.status,
           started_at: session.started_at,
           ended_at: new Date().toISOString(),
@@ -36,10 +43,11 @@ export const logFocusSession = async (session: FocusSessionData) => {
 
     console.log('[Analytics] Session inserted successfully:', data);
 
-    // Update streaks if the session was completed
-    if (session.status === 'completed') {
-      const elapsed = session.elapsed_seconds || session.duration_seconds;
+    // ONLY update stats (streaks, mana, daily totals) if the session is qualified (>= 5 mins)
+    if (isQualified) {
       await updateStreak(session.user_id, elapsed);
+      // Award mana: 1 mana per completed minute
+      await updateProfileMana(session.user_id, Math.floor(elapsed / 60));
     }
 
     return data;
@@ -49,9 +57,15 @@ export const logFocusSession = async (session: FocusSessionData) => {
   }
 };
 
+const toLocalISO = (date: Date) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
 const updateStreak = async (userId: string, seconds: number) => {
-  const today = new Date().toISOString().split('T')[0];
-  const qualifiesForStreak = seconds >= STREAK_THRESHOLD_SECONDS;
+  const today = toLocalISO(new Date());
 
   try {
     // Attempt to get existing streak for today
@@ -67,14 +81,13 @@ const updateStreak = async (userId: string, seconds: number) => {
     }
 
     if (existing) {
-      // Update existing record
-      const newQualified = existing.streak_qualified || qualifiesForStreak;
+      // Update existing record - daily stats only grow if the session is qualified
       const { error: updateError } = await supabase
         .from('streaks')
         .update({
           total_focus_seconds: (existing.total_focus_seconds || 0) + seconds,
           sessions_count: (existing.sessions_count || 0) + 1,
-          streak_qualified: newQualified
+          streak_qualified: true // Since this session is qualified (>= 5 mins)
         })
         .eq('id', existing.id);
 
@@ -89,7 +102,7 @@ const updateStreak = async (userId: string, seconds: number) => {
             focus_date: today,
             total_focus_seconds: seconds,
             sessions_count: 1,
-            streak_qualified: qualifiesForStreak
+            streak_qualified: true
           }
         ]);
 
@@ -98,9 +111,6 @@ const updateStreak = async (userId: string, seconds: number) => {
     
     // Recalculate current streak & best streak
     await recalculateStreak(userId);
-    
-    // Also update profile mana_points
-    await updateProfileMana(userId, Math.floor(seconds / 60));
 
   } catch (error) {
     console.error('Error updating streak:', error);
@@ -133,7 +143,7 @@ export const recalculateStreak = async (userId: string) => {
       
       if (diffDays <= 1) {
         // Count consecutive days backward
-        let expectedDate = new Date(latestDate);
+        const expectedDate = new Date(latestDate);
         
         for (const day of streakDays) {
           const dayDate = new Date(day.focus_date + 'T00:00:00');
@@ -307,5 +317,26 @@ export const fetchDeadlines = async (userId: string) => {
   } catch (error) {
     console.error('Error fetching deadlines:', error);
     return [];
+  }
+};
+export const fetchTodayFocusForUsers = async (userIds: string[]) => {
+  if (!userIds || userIds.length === 0) return {};
+  const today = toLocalISO(new Date());
+  try {
+    const { data, error } = await supabase
+      .from('streaks')
+      .select('user_id, total_focus_seconds')
+      .in('user_id', userIds)
+      .eq('focus_date', today);
+    
+    if (error) throw error;
+    
+    return (data || []).reduce((acc: Record<string, number>, curr) => {
+      acc[curr.user_id] = curr.total_focus_seconds;
+      return acc;
+    }, {});
+  } catch (err) {
+    console.error('Error fetching today focus for users:', err);
+    return {};
   }
 };

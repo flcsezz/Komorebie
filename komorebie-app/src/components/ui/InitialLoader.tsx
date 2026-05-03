@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { createPortal } from 'react-dom';
 
 const zenEase = [0.22, 0.61, 0.36, 1] as any;
 
@@ -20,18 +21,17 @@ const InitialLoader: React.FC<{ minDuration?: number, show?: boolean }> = ({ min
 
   const isVisible = show !== undefined ? show : internalVisible;
 
-  return (
-    <AnimatePresence>
+  const content = (
+    <AnimatePresence mode="wait">
       {isVisible && (
         <motion.div
-          key={show !== undefined ? `transition-${show}` : 'initial-mount'}
+          key="initial-loader-overlay"
           initial={{ opacity: 1 }}
+          animate={{ opacity: 1 }}
           exit={{ 
             opacity: 0,
-            filter: 'blur(12px)',
-            scale: 1.05,
           }}
-          transition={{ duration: 0.8, ease: zenEase }}
+          transition={{ duration: 0.5, ease: zenEase }}
           className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-slate-950"
         >
           {/* Ambient glow orb */}
@@ -92,6 +92,8 @@ const InitialLoader: React.FC<{ minDuration?: number, show?: boolean }> = ({ min
       )}
     </AnimatePresence>
   );
+
+  return createPortal(content, document.body);
 };
 
 export default InitialLoader;

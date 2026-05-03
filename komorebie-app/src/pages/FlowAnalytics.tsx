@@ -13,6 +13,7 @@ import {
 
 const FlowAnalytics: React.FC = () => {
   const { stats, streakDates } = useAnalytics();
+  const [viewMode, setViewMode] = React.useState<'today' | 'total'>('today');
 
   // Map streaks to garden grid (49 cells = 7 weeks)
   const gardenData = useMemo(() => {
@@ -31,14 +32,20 @@ const FlowAnalytics: React.FC = () => {
 
   // Weekly distribution data for bar chart
   const weeklyBarData = useMemo(() => {
+    const maxSecondsRaw = Math.max(...stats.weeklyData.map(w => w.focusSeconds), 0);
+    const scaleMax = Math.max(maxSecondsRaw, 3600); // Enforce 1hr minimum scaling ceiling
+    
     return stats.weeklyData.map(d => ({
       ...d,
       hours: Math.round((d.focusSeconds / 3600) * 10) / 10,
-      percent: Math.max(d.focusSeconds > 0 ? 8 : 3, (d.focusSeconds / Math.max(...stats.weeklyData.map(w => w.focusSeconds), 1)) * 100),
+      percent: Math.max(d.focusSeconds > 0 ? 8 : 3, (d.focusSeconds / scaleMax) * 100),
     }));
   }, [stats.weeklyData]);
 
-  const totalHoursFormatted = stats.totalHours >= 1 ? `${stats.totalHours}h` : `${Math.floor(stats.totalHours * 60)}m`;
+  const totalHoursFormatted = stats.totalHours >= 1 ? `${stats.totalHours}h` : `${Math.floor(stats.totalSeconds / 60)}m`;
+  const weekHoursFormatted = stats.weekHours >= 1 ? `${stats.weekHours}h` : `${Math.floor(stats.weekSeconds / 60)}m`;
+  const todayHours = stats.todayFocusSeconds / 3600;
+  const todayFocusFormatted = todayHours >= 1 ? `${todayHours.toFixed(1)}h` : `${Math.floor(stats.todayFocusSeconds / 60)}m`;
 
   return (
     <div className="min-h-screen pt-12 pb-20 px-6 max-w-7xl mx-auto">
@@ -48,13 +55,37 @@ const FlowAnalytics: React.FC = () => {
             <div className="w-10 h-10 rounded-2xl bg-sage-200/10 flex items-center justify-center border border-sage-200/20">
               <Activity className="w-5 h-5 text-sage-200" />
             </div>
-            <h2 className="text-sm uppercase tracking-[0.4em] text-white/30 font-light">
+            <h2 className="text-[13px] uppercase tracking-[0.4em] text-white/50 font-bold">
               Inner Rhythm
             </h2>
           </div>
           <h1 className="text-4xl md:text-6xl font-display font-light text-white tracking-tight">
             Flow <span className="text-white/40">Analytics</span>
           </h1>
+        </div>
+
+        {/* View Mode Toggle */}
+        <div className="flex bg-white/[0.03] border border-white/5 p-1 rounded-2xl backdrop-blur-sm self-start md:self-end">
+          <button
+            onClick={() => setViewMode('today')}
+            className={`px-6 py-2.5 rounded-xl text-[11px] uppercase tracking-[0.2em] font-bold transition-all duration-500 ${
+              viewMode === 'today' 
+                ? 'bg-sage-200 text-slate-950 shadow-[0_0_20px_rgba(183,201,176,0.3)]' 
+                : 'text-white/40 hover:text-white/80'
+            }`}
+          >
+            Today
+          </button>
+          <button
+            onClick={() => setViewMode('total')}
+            className={`px-6 py-2.5 rounded-xl text-[11px] uppercase tracking-[0.2em] font-bold transition-all duration-500 ${
+              viewMode === 'total' 
+                ? 'bg-sage-200 text-slate-950 shadow-[0_0_20px_rgba(183,201,176,0.3)]' 
+                : 'text-white/40 hover:text-white/80'
+            }`}
+          >
+            All Time
+          </button>
         </div>
       </header>
 
@@ -63,9 +94,9 @@ const FlowAnalytics: React.FC = () => {
         <StatCard 
           icon={Clock} 
           label="Focus Time" 
-          value={totalHoursFormatted} 
-          subValue={`${stats.weekHours}h this week`} 
-          trend={stats.totalHours > 0 ? `${stats.sessionsToday} today` : "Start a session"} 
+          value={viewMode === 'today' ? todayFocusFormatted : totalHoursFormatted} 
+          subValue={viewMode === 'today' ? `${totalHoursFormatted} total` : `${weekHoursFormatted} this week`} 
+          trend={viewMode === 'today' ? (stats.todayFocusSeconds > 0 ? "Deep Flowing" : "Begin your day") : "Lifetime Focus"} 
           color="sage"
         />
         <StatCard 
@@ -79,17 +110,17 @@ const FlowAnalytics: React.FC = () => {
         <StatCard 
           icon={CheckCircle2} 
           label="Tasks Done" 
-          value={stats.tasksDone.toString()} 
-          subValue="Completed in flow" 
-          trend="Achievement" 
-          color="blue"
+          value={viewMode === 'today' ? stats.tasksDoneToday.toString() : stats.tasksDone.toString()} 
+          subValue={viewMode === 'today' ? `${stats.tasksDone} total` : `${stats.tasksDoneToday} today`} 
+          trend={viewMode === 'today' ? (stats.tasksDoneToday > 0 ? "Productive Day" : "Start your path") : "Total Achievement"} 
+          color="blue" 
         />
         <StatCard 
           icon={Trophy} 
           label="Sessions" 
-          value={stats.totalSessions.toString()} 
-          subValue={`${stats.sessionsToday} today`} 
-          trend="Total Flow" 
+          value={viewMode === 'today' ? stats.sessionsToday.toString() : stats.totalSessions.toString()} 
+          subValue={viewMode === 'today' ? `${stats.totalSessions} total` : `${stats.sessionsToday} today`} 
+          trend={viewMode === 'today' ? "Daily Rhythm" : "Total Flow Sessions"} 
           color="purple"
         />
       </div>
@@ -100,8 +131,8 @@ const FlowAnalytics: React.FC = () => {
           <GlassCard className="p-8 h-[450px] flex flex-col">
             <div className="flex items-center justify-between mb-8">
               <div>
-                <h3 className="text-xl font-display font-light text-white/80">Weekly Focus</h3>
-                <p className="text-xs text-white/30 tracking-widest uppercase mt-1">This week's distribution</p>
+                <h3 className="text-xl font-display font-light text-white/90">Weekly Focus</h3>
+                <p className="text-[12px] text-white/40 tracking-widest uppercase mt-1">This week's distribution</p>
               </div>
               <TrendingUp className="w-5 h-5 text-sage-200/40" />
             </div>
@@ -113,7 +144,7 @@ const FlowAnalytics: React.FC = () => {
                 return (
                   <div key={d.date} className="flex-1 flex flex-col items-center gap-2 h-full justify-end group/bar relative">
                     <div className="absolute -top-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-slate-900/95 border border-white/10 text-[9px] text-white/70 rounded-lg opacity-0 group-hover/bar:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-20">
-                      {d.hours}h
+                      {d.hours >= 1 ? `${d.hours}h` : `${Math.floor(d.focusSeconds / 60)}m`}
                     </div>
                     <motion.div
                       initial={{ height: 0 }}
@@ -133,7 +164,7 @@ const FlowAnalytics: React.FC = () => {
               {weeklyBarData.map((d, i) => {
                 const isToday = i === weeklyBarData.length - 1;
                 return (
-                  <div key={`label-${d.date}`} className={`flex-1 text-center text-[11px] font-semibold tracking-wide ${isToday ? 'text-sage-200/60' : 'text-white/30'}`}>
+                  <div key={`label-${d.date}`} className={`flex-1 text-center text-[12px] font-semibold tracking-wide ${isToday ? 'text-sage-200/80' : 'text-white/40'}`}>
                     {d.day}
                   </div>
                 );
@@ -146,8 +177,8 @@ const FlowAnalytics: React.FC = () => {
         <div className="lg:col-span-1">
           <GlassCard className="p-8 h-full flex flex-col">
             <div className="mb-8">
-              <h3 className="text-xl font-display font-light text-white/80">Focus Garden</h3>
-              <p className="text-xs text-white/30 tracking-widest uppercase mt-1">Last 7 weeks</p>
+              <h3 className="text-xl font-display font-light text-white/90">Focus Garden</h3>
+              <p className="text-[12px] text-white/40 tracking-widest uppercase mt-1">Last 7 weeks</p>
             </div>
             
             <div className="grid grid-cols-7 gap-2 flex-1">
@@ -157,7 +188,7 @@ const FlowAnalytics: React.FC = () => {
                   className={`aspect-square rounded-sm transition-colors duration-500 hover:ring-1 hover:ring-white/20 relative group/day ${day.active ? 'bg-sage-200' : 'bg-white/10'}`}
                   style={{ opacity: day.opacity }}
                 >
-                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900 text-[8px] text-white rounded opacity-0 group-hover/day:opacity-100 whitespace-nowrap pointer-events-none z-50">
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900 text-[10px] text-white rounded opacity-0 group-hover/day:opacity-100 whitespace-nowrap pointer-events-none z-50">
                     {day.dateStr}
                   </div>
                 </div>
@@ -165,7 +196,7 @@ const FlowAnalytics: React.FC = () => {
             </div>
 
             <div className="mt-8 pt-8 border-t border-white/5">
-              <div className="flex items-center justify-between text-[10px] uppercase tracking-widest text-white/40">
+              <div className="flex items-center justify-between text-[11px] uppercase tracking-widest text-white/50 font-bold">
                 <span>Less Flow</span>
                 <div className="flex gap-1">
                   {[0.1, 0.3, 0.6, 0.9].map((op) => (
@@ -205,11 +236,11 @@ const StatCard = ({ icon: Icon, label, value, subValue, trend, color }: StatCard
         <div className={`w-10 h-10 rounded-2xl flex items-center justify-center mb-6 border ${colors[color]}`}>
           <Icon className="w-5 h-5" />
         </div>
-        <div className="text-white/30 text-[10px] uppercase tracking-[0.2em] mb-2 font-bold">{label}</div>
+        <div className="text-white/50 text-[11px] uppercase tracking-[0.2em] mb-2 font-bold">{label}</div>
         <div className="text-3xl font-display font-light text-white mb-2">{value}</div>
         <div className="flex items-center justify-between">
-          <span className="text-[10px] text-white/20 uppercase tracking-widest">{subValue}</span>
-          <span className={`text-[10px] font-bold ${trend.includes('🔥') || trend.includes('today') ? 'text-sage-200/60' : 'text-white/40'}`}>
+          <span className="text-[11px] text-white/40 uppercase tracking-widest">{subValue}</span>
+          <span className={`text-[11px] font-bold ${trend.includes('🔥') || trend.includes('today') ? 'text-sage-200/80' : 'text-white/60'}`}>
             {trend}
           </span>
         </div>

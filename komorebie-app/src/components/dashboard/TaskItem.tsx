@@ -114,13 +114,13 @@ const TaskItem: React.FC<TaskItemProps> = ({
         ) : (
           <span 
             onDoubleClick={(e) => { e.stopPropagation(); setIsEditing(true); }}
-            className={`text-xs font-light transition-all duration-500 truncate ${task.isCompleted ? 'line-through text-white/30' : 'text-white/80'}`}
+            className={`text-[13px] font-medium transition-all duration-500 truncate ${task.isCompleted ? 'line-through text-white/30' : 'text-white/95'}`}
           >
             {task.title}
           </span>
         )}
         <div className="flex items-center gap-2 mt-0.5">
-          <span className="text-[9px] uppercase tracking-[0.2em] font-bold text-white/20">
+          <span className="text-[10px] uppercase tracking-[0.2em] font-bold text-white/40">
             {task.category}
           </span>
         </div>

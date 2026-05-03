@@ -23,3 +23,15 @@
 - **Decision:** Komorebie's gamification loop will center on mana, sanctuary progression, companion growth, and soft streaks, with rewards shown mainly before or after sessions rather than during focus mode.
 - **Rationale:** Retention matters, but the product promise is calm deep work. Interruptive streaks, feeds, and reward spam would directly damage the core experience.
 - **Implications:** Focus mode stays visually sparse. Mana is earned from meaningful completion, spent on room and companion cosmetics, and supported by weekly reflection rather than aggressive engagement tactics.
+
+## 2026-05-03 | Cloudflare R2 Asset Storage
+- **Decision:** Use Cloudflare R2 for large static assets (ambient audio, 4K backgrounds) to bypass Supabase storage limits and reduce egress costs.
+- **Rationale:** High-fidelity Zen experiences require high-quality assets. R2 provides a cost-effective, S3-compatible solution that integrates seamlessly with our Cloudflare deployment.
+- **Implications:** Assets should be referenced via the `komorebie-assets` bucket. Public access is enabled via `r2.dev` for public assets. Secure uploads must be handled via Workers or pre-signed URLs.
+
+## 2026-05-03 | Custom Domain & Branding
+- **Decision:** Attached `komorebie.flcsezz.sbs` as the primary custom domain for the application.
+- **Rationale:** Professional branding requires a clean domain. Leveraging the user's existing `flcsezz.sbs` domain provides a free, high-fidelity alternative to the default Workers URL.
+- **Implications:** The application is now live at `https://komorebie.flcsezz.sbs`.
+
+

@@ -41,3 +41,10 @@
 - Problem: some docs still refer to AetherStudy while the app and design direction use Komorebie.
 - Impact: agents can generate mismatched copy, page names, and product language.
 - Recommended fix: lock a single canonical product name before broader implementation.
+### 6. Zen Clock Resume/Reset Sync Bug
+
+- Severity: high
+- File: `komorebie-app/src/context/ZenClockContext.tsx`
+- Problem: The timer would "resume" instead of "reset" on manual start because the preferred session duration was being overwritten by the "paused" time left in the cloud.
+- Impact: Users couldn't easily start a fresh 25-minute session after stopping a previous one without manual adjustment; cross-device state was inconsistent regarding "target" vs "remaining" time.
+- Action taken: Added `session_duration` column to DB, separated "target duration" from "countdown time" in context, and forced a reset to target duration on manual session starts.

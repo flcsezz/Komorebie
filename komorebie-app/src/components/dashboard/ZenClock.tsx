@@ -90,7 +90,8 @@ const ZenClock: React.FC = () => {
     const absSeconds = Math.abs(timeLeft);
     const mins = Math.floor(absSeconds / 60);
     const secs = absSeconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    const prefix = timeLeft < 0 ? '+' : '';
+    return `${prefix}${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
   const getThemeColor = () => {
@@ -125,8 +126,8 @@ const ZenClock: React.FC = () => {
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className={`absolute top-6 px-4 py-1.5 rounded-full border text-[9px] font-bold uppercase tracking-widest z-30 ${
-              pomodoroState === 'work' ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-blue-500/10 border-blue-500/20 text-blue-400'
+            className={`absolute top-6 px-4 py-1.5 rounded-full border text-[10px] font-bold uppercase tracking-widest z-30 ${
+              pomodoroState === 'work' ? 'bg-red-500/15 border-red-500/30 text-red-400' : 'bg-blue-500/15 border-blue-500/30 text-blue-400'
             }`}
           >
             {pomodoroState === 'work' ? `FOCUS · CYCLE ${pomodoroCycle}/4` :
@@ -290,9 +291,9 @@ const ZenClock: React.FC = () => {
             </div>
             
             <motion.div 
-              className="text-[10px] font-mono uppercase tracking-[0.4em] text-white/30 mt-4 h-3 flex items-center justify-center"
+              className="text-[11px] font-mono uppercase tracking-[0.4em] text-white/50 mt-4 h-3 flex items-center justify-center"
             >
-              {!isSessionComplete && (isActive ? 'Remaining' : 'Minutes')}
+              {!isSessionComplete && (isActive ? (timeLeft < 0 ? 'Overtime' : 'Remaining') : 'Minutes')}
             </motion.div>
             
             {/* Start / Stop Toggle */}
@@ -301,7 +302,7 @@ const ZenClock: React.FC = () => {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={isSessionComplete ? completeSession : toggleTimer}
-                className={`px-12 py-3.5 rounded-full border transition-all duration-500 cursor-pointer font-display font-bold text-[12px] uppercase tracking-[0.25em] ${
+                className={`px-12 py-3.5 rounded-full border transition-all duration-500 cursor-pointer font-display font-bold text-[13px] uppercase tracking-[0.25em] ${
                   isSessionComplete
                     ? 'bg-green-500/20 border-green-500/40 text-green-400 animate-pulse-glow'
                     : isActive 
@@ -326,7 +327,7 @@ const ZenClock: React.FC = () => {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: 10 }}
                     onClick={skipBreak}
-                    className="px-6 py-2 rounded-full border border-white/10 bg-white/5 text-[9px] font-bold uppercase tracking-[0.2em] text-white/40 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
+                    className="px-6 py-2 rounded-full border border-white/10 bg-white/5 text-[10px] font-bold uppercase tracking-[0.2em] text-white/50 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
                   >
                     Skip Break
                   </motion.button>
@@ -356,7 +357,7 @@ const ZenClock: React.FC = () => {
                   exit={{ opacity: 0, scale: 0.9, y: 10 }}
                   className="glass rounded-2xl p-4 shadow-2xl min-w-[200px] mb-2 border-white/10"
                 >
-                  <div className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-3 px-1 flex items-center justify-between">
+                  <div className="text-[11px] font-bold text-white/60 uppercase tracking-widest mb-3 px-1 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Volume2 className="w-3 h-3" />
                       Alarm Sound
@@ -413,7 +414,7 @@ const ZenClock: React.FC = () => {
 
             {/* Pomodoro Toggle */}
             <div className="flex items-center gap-3 bg-slate-950/40 backdrop-blur-md border border-white/5 pl-4 pr-1.5 py-1.5 rounded-full shadow-xl opacity-0 group-hover/clock:opacity-100 transition-all duration-500 ease-in-out">
-              <span className="text-[9px] uppercase tracking-widest text-white/40 font-bold">Pomodoro</span>
+              <span className="text-[10px] uppercase tracking-widest text-white/60 font-bold">Pomodoro</span>
               <button 
                 onClick={() => setIsPomodoroMode(!isPomodoroMode)}
                 className={`w-12 h-6 rounded-full relative transition-colors ${isPomodoroMode ? 'bg-red-500/10 border border-red-500/20' : 'bg-white/5 border border-white/10'}`}
