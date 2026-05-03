@@ -79,12 +79,12 @@ const TaskCapture: React.FC = () => {
 
   return (
     <>
-    <div className="min-h-full w-full max-w-[1600px] mx-auto pt-2">
-      <div className="flex flex-col lg:flex-row gap-6 items-start">
+    <div className="min-h-full w-full max-w-[1800px] mx-auto pt-0">
+      <div className="flex flex-col lg:flex-row gap-4 items-start">
         
         {/* Left Column: Streak + Analytics */}
         <div 
-          className="w-full lg:w-auto flex flex-col gap-6 transition-all duration-700 ease-in-out"
+          className="w-full lg:w-auto flex flex-col gap-4 transition-all duration-700 ease-in-out"
           style={{ flex: isActive ? '2.7 1 0%' : '3 1 0%' }}
         >
           <StreakWidget 
@@ -97,25 +97,25 @@ const TaskCapture: React.FC = () => {
  
         {/* Center Column: The Altar */}
         <div 
-          className="w-full lg:w-auto flex flex-col gap-6 transition-all duration-700 ease-in-out"
-          style={{ flex: isActive ? '6.3 1 0%' : '6 1 0%' }}
+          className="w-full lg:w-auto flex flex-col gap-4 transition-all duration-700 ease-in-out"
+          style={{ flex: isActive ? '6.8 1 0%' : '6.5 1 0%' }}
         >
-          <GlassCard variant="icy" className="p-8 flex items-center justify-center min-h-[400px]">
+          <GlassCard variant="icy" className="p-6 flex items-center justify-center min-h-[380px]">
             <ZenClock />
           </GlassCard>
  
-          <GlassCard variant="icy" className="p-4">
+          <GlassCard variant="icy" className="p-3">
             <SoundscapeSelector />
           </GlassCard>
         </div>
 
         {/* Right Column: Deadlines + The Path */}
         <div 
-          className="w-full lg:w-auto flex flex-col gap-6 h-full transition-all duration-700 ease-in-out"
-          style={{ flex: '3 1 0%' }}
+          className="w-full lg:w-auto flex flex-col gap-4 h-full transition-all duration-700 ease-in-out"
+          style={{ flex: isActive ? '2.5 1 0%' : '2.5 1 0%' }}
         >
           {/* Deadlines Widget */}
-          <GlassCard variant="icy" className="flex-none p-5 flex flex-col gap-4 relative group">
+          <GlassCard variant="icy" className="flex-none p-4 flex flex-col gap-3 relative group">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-[9px] uppercase tracking-[0.2em] font-bold text-white/30">
                 <CalendarIcon className="w-3.5 h-3.5" />

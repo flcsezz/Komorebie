@@ -313,7 +313,7 @@ const AppLayout: React.FC = () => {
             <SidebarLink to="/app" icon={LayoutDashboard} label="Dashboard" active={location.pathname === '/app'} isCollapsed={isCollapsed} />
             <SidebarLink to="/app/analytics" icon={BarChart3} label="Analytics" active={location.pathname === '/app/analytics'} isCollapsed={isCollapsed} />
             <SidebarLink to="/app/calendar" icon={Calendar} label="Calendar" active={location.pathname === '/app/calendar'} isCollapsed={isCollapsed} />
-            <SidebarLink to="/app/flashcards" icon={Layers} label="Flashcards" active={location.pathname === '/app/flashcards'} isCollapsed={isCollapsed} />
+            <SidebarLink to="/app/flashcards" icon={Layers} label="Flashcards" active={location.pathname.startsWith('/app/flashcards')} isCollapsed={isCollapsed} />
 
             {/* Preferences */}
             <SidebarSection label="Preferences" isCollapsed={isCollapsed}>
@@ -487,7 +487,7 @@ const AppLayout: React.FC = () => {
           </header>
 
           {/* Page Content */}
-          <main className="flex-1 overflow-y-auto p-6 custom-scrollbar relative">
+          <main className="flex-1 overflow-y-auto px-6 py-4 custom-scrollbar relative">
             <div className="min-h-full">
               <Outlet />
             </div>

@@ -27,15 +27,16 @@ const DashboardStats: React.FC = () => {
     return `${m}m`;
   })();
 
-  // Scale bars: find max value for relative scaling
-  const maxSeconds = Math.max(...stats.weeklyData.map(d => d.focusSeconds), 1);
+  // Scale bars: dynamic scaling relative to max value, with a minimum ceiling of 1 hour (3600s) like Digital Wellbeing
+  const maxSecondsRaw = Math.max(...stats.weeklyData.map(d => d.focusSeconds), 0);
+  const maxSeconds = Math.max(maxSecondsRaw, 3600);
 
   return (
-    <motion.div variants={itemVariants} className="flex flex-col gap-5">
+    <motion.div variants={itemVariants} className="flex flex-col gap-4">
       {/* Analytics Card */}
       <motion.div variants={itemVariants} className="flex-1">
-        <GlassCard variant="icy" animateCard={false} className="h-full p-5 flex flex-col relative group">
-          <div className="flex justify-between items-center mb-4">
+        <GlassCard variant="icy" animateCard={false} className="h-full p-4 flex flex-col relative group">
+          <div className="flex justify-between items-center mb-3">
             <div className="flex items-center gap-2 text-[9px] uppercase tracking-[0.2em] text-white/30 font-bold">
               <BarChart3 className="w-3.5 h-3.5" />
               Analytics
@@ -44,9 +45,9 @@ const DashboardStats: React.FC = () => {
           </div>
 
           {/* Quick Stats Row */}
-          <div className="grid grid-cols-3 gap-3 mb-5">
+          <div className="grid grid-cols-3 gap-2 mb-4">
             {/* Today's Focus */}
-            <div className="flex flex-col gap-1 p-2.5 bg-white/[0.03] rounded-xl border border-white/[0.04]">
+            <div className="flex flex-col gap-0.5 p-2 bg-white/[0.03] rounded-xl border border-white/[0.04]">
               <div className="flex items-center gap-1">
                 <Clock className="w-2.5 h-2.5 text-sage-200/40" />
                 <span className="text-[6px] text-white/25 uppercase tracking-wider font-bold">Focus</span>
@@ -55,16 +56,16 @@ const DashboardStats: React.FC = () => {
             </div>
 
             {/* Today's Sessions */}
-            <div className="flex flex-col gap-1 p-2.5 bg-white/[0.03] rounded-xl border border-white/[0.04]">
+            <div className="flex flex-col gap-0.5 p-2 bg-white/[0.03] rounded-xl border border-white/[0.04]">
               <div className="flex items-center gap-1">
                 <Target className="w-2.5 h-2.5 text-blue-400/40" />
                 <span className="text-[6px] text-white/25 uppercase tracking-wider font-bold">Sessions</span>
               </div>
-              <span className="text-lg font-display font-semibold text-white leading-none">{stats.completedToday}</span>
+              <span className="text-lg font-display font-semibold text-white leading-none">{stats.sessionsToday}</span>
             </div>
 
             {/* Tasks Done */}
-            <div className="flex flex-col gap-1 p-2.5 bg-white/[0.03] rounded-xl border border-white/[0.04]">
+            <div className="flex flex-col gap-0.5 p-2 bg-white/[0.03] rounded-xl border border-white/[0.04]">
               <div className="flex items-center gap-1">
                 <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400/40" />
                 <span className="text-[6px] text-white/25 uppercase tracking-wider font-bold">Tasks</span>
@@ -74,12 +75,12 @@ const DashboardStats: React.FC = () => {
           </div>
 
           {/* Today's Focus Progress Bar */}
-          <div className="mb-5">
-            <div className="flex justify-between items-center mb-1.5">
+          <div className="mb-4">
+            <div className="flex justify-between items-center mb-1">
               <span className="text-[7px] text-white/25 font-bold uppercase tracking-wider">Daily Goal · 4h</span>
               <span className="text-[7px] text-white/30 font-mono">{Math.min(Math.round((stats.todayFocusSeconds / 14400) * 100), 100)}%</span>
             </div>
-            <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+            <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
               <motion.div 
                 initial={{ width: 0 }}
                 animate={{ width: `${Math.min((stats.todayFocusSeconds / 14400) * 100, 100)}%` }}
@@ -91,12 +92,12 @@ const DashboardStats: React.FC = () => {
 
           {/* Weekly Bar Graph — LARGE */}
           <div>
-            <div className="flex justify-between items-center mb-2">
+            <div className="flex justify-between items-center mb-1.5">
               <span className="text-[7px] text-white/25 font-bold uppercase tracking-wider">This Week</span>
               <span className="text-[7px] text-white/20 font-mono">{stats.weekHours}h total</span>
             </div>
 
-            <div className="flex items-end gap-1.5 h-36">
+            <div className="flex items-end gap-1.5 h-28">
               {stats.weeklyData.map((d, i) => {
                 const isToday = i === stats.weeklyData.length - 1;
                 const barHeight = maxSeconds > 0 ? Math.max((d.focusSeconds / maxSeconds) * 100, d.focusSeconds > 0 ? 8 : 3) : 3;
@@ -166,7 +167,7 @@ const DashboardStats: React.FC = () => {
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-1 text-[7px] text-white/20">
                 <Clock className="w-2 h-2" />
-                <span>{stats.totalHours}h all-time</span>
+                <span>{stats.totalHours >= 1 ? `${stats.totalHours}h` : `${Math.floor(stats.totalSeconds / 60)}m`} all-time</span>
               </div>
               <div className="flex items-center gap-1 text-[7px] text-white/20">
                 <Target className="w-2 h-2" />
@@ -182,15 +183,15 @@ const DashboardStats: React.FC = () => {
 
       {/* Companion Progress */}
       <motion.div variants={itemVariants}>
-        <GlassCard variant="icy" animateCard={false} className="p-4 flex items-center gap-4 group cursor-pointer hover:border-white/20 transition-all">
-          <div className="w-12 h-12 rounded-xl bg-slate-950/40 flex items-center justify-center border border-white/5 relative overflow-hidden">
+        <GlassCard variant="icy" animateCard={false} className="p-3 flex items-center gap-3 group cursor-pointer hover:border-white/20 transition-all">
+          <div className="w-10 h-10 rounded-xl bg-slate-950/40 flex items-center justify-center border border-white/5 relative overflow-hidden">
             <div className="absolute inset-0 bg-sage-200/10 animate-breath" />
-            <span className="text-lg relative z-10">🦊</span>
+            <span className="text-base relative z-10">🦊</span>
           </div>
           <div className="flex flex-col">
-            <span className="text-[9px] uppercase tracking-[0.2em] text-white/30 font-bold mb-0.5">Companion</span>
-            <span className="text-xs text-white/70 font-medium">Forest Fox · Lvl {Math.floor(stats.mana / 100) + 1}</span>
-            <div className="w-24 h-1 bg-slate-950/40 rounded-full mt-1.5 overflow-hidden">
+            <span className="text-[8px] uppercase tracking-[0.2em] text-white/30 font-bold mb-0.5">Companion</span>
+            <span className="text-[11px] text-white/70 font-medium">Forest Fox · Lvl {Math.floor(stats.mana / 100) + 1}</span>
+            <div className="w-20 h-1 bg-slate-950/40 rounded-full mt-1 overflow-hidden">
               <div className="h-full bg-sage-200/40 rounded-full" style={{ width: `${stats.mana % 100}%` }} />
             </div>
           </div>

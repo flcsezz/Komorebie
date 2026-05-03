@@ -10,6 +10,7 @@ export interface CachedAnalytics {
   sessions: any[];
   streaks: any[];
   deadlines: any[];
+  tasks: any[];
   fetchedAt: number;
 }
 
@@ -106,7 +107,7 @@ class AnalyticsCacheStore {
   private async fetchFromSupabase(userId: string): Promise<CachedAnalytics | null> {
     try {
       // Run all queries in parallel for speed
-      const [profileRes, sessionsRes, streaksRes, deadlinesRes] = await Promise.all([
+      const [profileRes, sessionsRes, streaksRes, deadlinesRes, tasksRes] = await Promise.all([
         supabase
           .from('profiles')
           .select('*')
@@ -117,18 +118,24 @@ class AnalyticsCacheStore {
           .select('*')
           .eq('user_id', userId)
           .order('started_at', { ascending: false })
-          .limit(500), // Cap query size to prevent huge payloads
+          .limit(500),
         supabase
           .from('streaks')
           .select('*')
           .eq('user_id', userId)
           .order('focus_date', { ascending: false })
-          .limit(365), // Max 1 year of streak data
+          .limit(365),
         supabase
           .from('deadlines')
           .select('*')
           .eq('user_id', userId)
           .order('deadline_date', { ascending: true }),
+        supabase
+          .from('tasks')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('is_completed', true)
+          .order('completed_at', { ascending: false }),
       ]);
 
       const entry: CachedAnalytics = {
@@ -136,6 +143,7 @@ class AnalyticsCacheStore {
         sessions: sessionsRes.data || [],
         streaks: streaksRes.data || [],
         deadlines: deadlinesRes.data || [],
+        tasks: tasksRes.data || [],
         fetchedAt: Date.now(),
       };
 
@@ -173,8 +181,8 @@ export const analyticsCache = new AnalyticsCacheStore();
 export function computeStats(data: CachedAnalytics) {
   const { profile, sessions, streaks } = data;
 
-  const completedSessions = sessions.filter((s: any) => s.status === 'completed');
-  const totalSeconds = completedSessions.reduce((acc: number, s: any) => acc + (s.elapsed_seconds || 0), 0);
+  const validSessions = sessions.filter((s: any) => s.status === 'completed' || (s.elapsed_seconds || 0) >= 300);
+  const totalSeconds = validSessions.reduce((acc: number, s: any) => acc + (s.elapsed_seconds || 0), 0);
   const totalHours = Math.round((totalSeconds / 3600) * 10) / 10;
 
   const today = new Date().toISOString().split('T')[0];
@@ -187,9 +195,9 @@ export function computeStats(data: CachedAnalytics) {
     s.status === 'completed' && new Date(s.started_at).toISOString().split('T')[0] === today
   ).length;
 
-  const tasksDone = completedSessions.filter((s: any) => s.task_id).length;
-  const tasksDoneToday = sessions.filter((s: any) =>
-    s.status === 'completed' && s.task_id && new Date(s.started_at).toISOString().split('T')[0] === today
+  const tasksDone = data.tasks.length;
+  const tasksDoneToday = data.tasks.filter((t: any) =>
+    t.completed_at && new Date(t.completed_at).toISOString().split('T')[0] === today
   ).length;
 
   // Today's focus time from streaks table
@@ -206,16 +214,14 @@ export function computeStats(data: CachedAnalytics) {
     const dateStr = date.toISOString().split('T')[0];
     const entry = streaks.find((s: any) => s.focus_date === dateStr);
 
-    const daySessions = sessions.filter((s: any) =>
-      s.status === 'completed' && new Date(s.started_at).toISOString().split('T')[0] === dateStr
-    );
-
     weeklyData.push({
       date: dateStr,
       day: dayNames[date.getDay()],
       focusSeconds: entry ? entry.total_focus_seconds : 0,
       sessionsCount: entry ? entry.sessions_count : 0,
-      tasksDone: daySessions.filter((s: any) => s.task_id).length,
+      tasksDone: data.tasks.filter((t: any) => 
+        t.completed_at && new Date(t.completed_at).toISOString().split('T')[0] === dateStr
+      ).length,
     });
   }
 
@@ -226,8 +232,9 @@ export function computeStats(data: CachedAnalytics) {
   const bestStreak = profile?.best_streak || 0;
 
   return {
+    totalSeconds,
     totalHours,
-    totalSessions: completedSessions.length,
+    totalSessions: validSessions.length,
     sessionsToday,
     completedToday,
     tasksDone,
@@ -237,6 +244,7 @@ export function computeStats(data: CachedAnalytics) {
     mana: profile?.mana_points || 0,
     todayFocusSeconds,
     weeklyData,
+    weekSeconds,
     weekHours,
   };
 }

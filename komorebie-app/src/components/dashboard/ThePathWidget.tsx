@@ -26,6 +26,8 @@ import GlassCard from '../ui/GlassCard';
 import TaskItem, { type Task, type TaskStatus } from './TaskItem';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
+import { analyticsCache } from '../../lib/analyticsCache';
+import { AnimatePresence, motion } from 'framer-motion';
 
 const DroppableArea: React.FC<{ id: string; children: React.ReactNode; className?: string; isOver?: boolean }> = ({ id, children, className, isOver }) => {
   const { setNodeRef, isOver: droppableIsOver } = useDroppable({ id });
@@ -86,8 +88,8 @@ const ThePathWidget: React.FC = () => {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
-  const inProgressTasks = tasks.filter(t => t.status === 'in-progress');
-  const todoTasks = tasks.filter(t => t.status === 'todo');
+  const inProgressTasks = tasks.filter(t => t.status === 'in-progress' && !t.isCompleted);
+  const todoTasks = tasks.filter(t => t.status === 'todo' && !t.isCompleted);
 
   // Helper: find which container a given id belongs to
   const findContainer = useCallback((id: UniqueIdentifier): TaskStatus | null => {
@@ -143,19 +145,26 @@ const ThePathWidget: React.FC = () => {
     if (!task) return;
 
     const nextState = !task.isCompleted;
+    const completedAt = nextState ? new Date().toISOString() : null;
     
     // Optimistic update
     setTasks(tasks.map(t => t.id === id ? { ...t, isCompleted: nextState } : t));
 
     const { error } = await supabase
       .from('tasks')
-      .update({ is_completed: nextState })
+      .update({ 
+        is_completed: nextState,
+        completed_at: completedAt
+      })
       .eq('id', id);
 
     if (error) {
       console.error('Error toggling task:', error);
       // Rollback on error
       setTasks(tasks.map(t => t.id === id ? { ...t, isCompleted: !nextState } : t));
+    } else if (user) {
+      // Refresh analytics cache to update "Tasks Done" stat
+      analyticsCache.invalidate(user.id);
     }
   };
 
@@ -354,8 +363,8 @@ const ThePathWidget: React.FC = () => {
 
   return (
     <GlassCard variant="icy" className="flex flex-col p-5 w-full overflow-visible relative">
-      <div className="flex justify-between items-center mb-6">
-        <div className="px-4 py-1.5 bg-white/5 border border-white/10 rounded-full text-[10px] font-bold uppercase tracking-widest text-white/40">TASKS</div>
+      <div className="flex justify-between items-center mb-4">
+        <div className="px-4 py-1 bg-white/5 border border-white/10 rounded-full text-[10px] font-bold uppercase tracking-widest text-white/40">TASKS</div>
         <div className="flex items-center gap-3">
           {loading && <Loader2 className="w-3.5 h-3.5 text-sage-200 animate-spin" />}
           <button 
@@ -372,7 +381,7 @@ const ThePathWidget: React.FC = () => {
       </div>
 
       {isAdding && (
-        <form onSubmit={handleAddTask} className="mb-6 px-1">
+        <form onSubmit={handleAddTask} className="mb-4 px-1">
           <input
             autoFocus
             type="text"
@@ -392,26 +401,40 @@ const ThePathWidget: React.FC = () => {
         onDragEnd={handleDragEnd}
         autoScroll={false}
       >
-        <div className="overflow-y-auto overflow-x-hidden custom-scrollbar pr-1 flex flex-col gap-8 max-h-[600px]">
+        <div className="overflow-y-auto overflow-x-hidden custom-scrollbar pr-1 flex flex-col gap-6 max-h-[420px]">
           
           {/* IN PROGRESS SECTION */}
-          <DroppableArea id="in-progress" className="min-h-[80px] transition-all rounded-2xl p-2" isOver={overContainerId === 'in-progress'}>
-            <div className="flex items-center gap-2 text-[10px] text-sage-200/80 font-bold uppercase tracking-[0.3em] mb-4">
+          <DroppableArea id="in-progress" className="min-h-[60px] transition-all rounded-2xl p-2" isOver={overContainerId === 'in-progress'}>
+            <div className="flex items-center gap-2 text-[10px] text-sage-200/80 font-bold uppercase tracking-[0.3em] mb-3">
               <ChevronDown className="w-3.5 h-3.5 text-sage-200" />
               IN PROGRESS
             </div>
             <SortableContext items={inProgressTasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
-              <div className="space-y-3">
-                {inProgressTasks.map(task => (
-                  <TaskItem 
-                    key={task.id} 
-                    task={task} 
-                    onToggle={handleToggle}
-                    onEdit={handleEdit}
-                    onDelete={handleDelete}
-                    onMove={handleMove}
-                  />
-                ))}
+              <div className="space-y-2.5">
+                <AnimatePresence initial={false}>
+                  {inProgressTasks.map(task => (
+                    <motion.div
+                      key={task.id}
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ 
+                        opacity: 0, 
+                        scale: 0.5, 
+                        filter: 'blur(10px)',
+                        transition: { duration: 0.4, ease: "easeIn" }
+                      }}
+                      layout
+                    >
+                      <TaskItem 
+                        task={task} 
+                        onToggle={handleToggle}
+                        onEdit={handleEdit}
+                        onDelete={handleDelete}
+                        onMove={handleMove}
+                      />
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
                 {inProgressTasks.length === 0 && (
                   <div className="text-xs text-white/20 font-light italic px-4 py-2 border border-dashed border-white/10 rounded-xl flex items-center justify-center h-16">
                     Drop tasks here
@@ -422,23 +445,37 @@ const ThePathWidget: React.FC = () => {
           </DroppableArea>
           
           {/* TODO SECTION */}
-          <DroppableArea id="todo" className="min-h-[80px] transition-all rounded-2xl p-2" isOver={overContainerId === 'todo'}>
-            <div className="flex items-center gap-2 text-[10px] text-white/30 font-bold uppercase tracking-[0.3em] mb-4">
+          <DroppableArea id="todo" className="min-h-[60px] transition-all rounded-2xl p-2" isOver={overContainerId === 'todo'}>
+            <div className="flex items-center gap-2 text-[10px] text-white/30 font-bold uppercase tracking-[0.3em] mb-3">
               <ChevronDown className="w-3.5 h-3.5 text-white/30" />
               Task List
             </div>
             <SortableContext items={todoTasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
-              <div className="space-y-3">
-                {todoTasks.map(task => (
-                  <TaskItem 
-                    key={task.id} 
-                    task={task} 
-                    onToggle={handleToggle}
-                    onEdit={handleEdit}
-                    onDelete={handleDelete}
-                    onMove={handleMove}
-                  />
-                ))}
+              <div className="space-y-2.5">
+                <AnimatePresence initial={false}>
+                  {todoTasks.map(task => (
+                    <motion.div
+                      key={task.id}
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ 
+                        opacity: 0, 
+                        scale: 0.5, 
+                        filter: 'blur(10px)',
+                        transition: { duration: 0.4, ease: "easeIn" }
+                      }}
+                      layout
+                    >
+                      <TaskItem 
+                        task={task} 
+                        onToggle={handleToggle}
+                        onEdit={handleEdit}
+                        onDelete={handleDelete}
+                        onMove={handleMove}
+                      />
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
                 {todoTasks.length === 0 && (
                   <div className="text-xs text-white/20 font-light italic px-4 py-2 border border-dashed border-white/10 rounded-xl flex items-center justify-center h-16">
                     Empty

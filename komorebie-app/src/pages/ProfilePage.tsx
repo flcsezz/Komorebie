@@ -106,6 +106,7 @@ const ProfilePage: React.FC = () => {
       if (error) throw error;
 
       // 2. Clear local storage and sign out
+      await supabase.auth.signOut();
       localStorage.clear();
       window.location.href = '/';
     } catch (err) {

@@ -14,12 +14,15 @@ const FlowAnalytics = lazy(() => import('./pages/FlowAnalytics'));
 const ZenEnvironment = lazy(() => import('./components/three/ZenEnvironment'));
 const SchedulePage = lazy(() => import('./pages/SchedulePage'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
+const FlashcardLibrary = lazy(() => import('./pages/FlashcardLibrary'));
+const FlashcardDeckPage = lazy(() => import('./pages/FlashcardDeck'));
 
 // Placeholders
 import { TasksPage, NotesPage, RoomPage, SocialPage, PlaceholderPage } from './pages/Placeholders';
 
 import ZenLoader from './components/ui/ZenLoader';
 import InitialLoader from './components/ui/InitialLoader';
+import ErrorBoundary from './components/ErrorBoundary';
 import { ZenClockProvider } from './context/ZenClockContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import AuthGateway from './pages/AuthGateway';
@@ -66,6 +69,7 @@ function App() {
       <InitialLoader minDuration={1300} />
       
       <Suspense fallback={<PageLoader />}>
+        <ErrorBoundary>
         <AuthProvider>
           <ZenClockProvider>
             <Routes>
@@ -80,7 +84,8 @@ function App() {
                 <Route index element={<TaskCapture />} />
                 <Route path="tasks" element={<TasksPage />} />
                 <Route path="notes" element={<NotesPage />} />
-                <Route path="flashcards" element={<Navigate to="/app/notes" replace />} /> {/* Consolidating flashcards under notes for MVP */}
+                <Route path="flashcards" element={<FlashcardLibrary />} />
+                <Route path="flashcards/:deckId" element={<FlashcardDeckPage />} />
                 <Route path="analytics" element={<FlowAnalytics />} />
                 <Route path="room" element={<RoomPage />} />
                 <Route path="social" element={<SocialPage />} />
@@ -106,6 +111,7 @@ function App() {
             </Routes>
           </ZenClockProvider>
         </AuthProvider>
+        </ErrorBoundary>
       </Suspense>
     </div>
   );

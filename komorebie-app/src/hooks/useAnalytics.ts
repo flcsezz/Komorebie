@@ -72,6 +72,7 @@ export const useAnalytics = () => {
   const stats = useMemo(() => {
     if (!data) {
       return {
+        totalSeconds: 0,
         totalHours: 0,
         totalSessions: 0,
         sessionsToday: 0,
@@ -83,6 +84,7 @@ export const useAnalytics = () => {
         mana: 0,
         todayFocusSeconds: 0,
         weeklyData: [] as { date: string; day: string; focusSeconds: number; sessionsCount: number; tasksDone: number }[],
+        weekSeconds: 0,
         weekHours: 0,
       };
     }

@@ -13,6 +13,7 @@ import {
 
 const FlowAnalytics: React.FC = () => {
   const { stats, streakDates } = useAnalytics();
+  const [viewMode, setViewMode] = React.useState<'today' | 'total'>('today');
 
   // Map streaks to garden grid (49 cells = 7 weeks)
   const gardenData = useMemo(() => {
@@ -31,14 +32,20 @@ const FlowAnalytics: React.FC = () => {
 
   // Weekly distribution data for bar chart
   const weeklyBarData = useMemo(() => {
+    const maxSecondsRaw = Math.max(...stats.weeklyData.map(w => w.focusSeconds), 0);
+    const scaleMax = Math.max(maxSecondsRaw, 3600); // Enforce 1hr minimum scaling ceiling
+    
     return stats.weeklyData.map(d => ({
       ...d,
       hours: Math.round((d.focusSeconds / 3600) * 10) / 10,
-      percent: Math.max(d.focusSeconds > 0 ? 8 : 3, (d.focusSeconds / Math.max(...stats.weeklyData.map(w => w.focusSeconds), 1)) * 100),
+      percent: Math.max(d.focusSeconds > 0 ? 8 : 3, (d.focusSeconds / scaleMax) * 100),
     }));
   }, [stats.weeklyData]);
 
-  const totalHoursFormatted = stats.totalHours >= 1 ? `${stats.totalHours}h` : `${Math.floor(stats.totalHours * 60)}m`;
+  const totalHoursFormatted = stats.totalHours >= 1 ? `${stats.totalHours}h` : `${Math.floor(stats.totalSeconds / 60)}m`;
+  const weekHoursFormatted = stats.weekHours >= 1 ? `${stats.weekHours}h` : `${Math.floor(stats.weekSeconds / 60)}m`;
+  const todayHours = stats.todayFocusSeconds / 3600;
+  const todayFocusFormatted = todayHours >= 1 ? `${todayHours.toFixed(1)}h` : `${Math.floor(stats.todayFocusSeconds / 60)}m`;
 
   return (
     <div className="min-h-screen pt-12 pb-20 px-6 max-w-7xl mx-auto">
@@ -56,6 +63,30 @@ const FlowAnalytics: React.FC = () => {
             Flow <span className="text-white/40">Analytics</span>
           </h1>
         </div>
+
+        {/* View Mode Toggle */}
+        <div className="flex bg-white/[0.03] border border-white/5 p-1 rounded-2xl backdrop-blur-sm self-start md:self-end">
+          <button
+            onClick={() => setViewMode('today')}
+            className={`px-6 py-2.5 rounded-xl text-[10px] uppercase tracking-[0.2em] font-bold transition-all duration-500 ${
+              viewMode === 'today' 
+                ? 'bg-sage-200 text-slate-950 shadow-[0_0_20px_rgba(183,201,176,0.3)]' 
+                : 'text-white/30 hover:text-white/60'
+            }`}
+          >
+            Today
+          </button>
+          <button
+            onClick={() => setViewMode('total')}
+            className={`px-6 py-2.5 rounded-xl text-[10px] uppercase tracking-[0.2em] font-bold transition-all duration-500 ${
+              viewMode === 'total' 
+                ? 'bg-sage-200 text-slate-950 shadow-[0_0_20px_rgba(183,201,176,0.3)]' 
+                : 'text-white/30 hover:text-white/60'
+            }`}
+          >
+            All Time
+          </button>
+        </div>
       </header>
 
       {/* Main Stats Grid */}
@@ -63,9 +94,9 @@ const FlowAnalytics: React.FC = () => {
         <StatCard 
           icon={Clock} 
           label="Focus Time" 
-          value={totalHoursFormatted} 
-          subValue={`${stats.weekHours}h this week`} 
-          trend={stats.totalHours > 0 ? `${stats.sessionsToday} today` : "Start a session"} 
+          value={viewMode === 'today' ? todayFocusFormatted : totalHoursFormatted} 
+          subValue={viewMode === 'today' ? `${totalHoursFormatted} total` : `${weekHoursFormatted} this week`} 
+          trend={viewMode === 'today' ? (stats.todayFocusSeconds > 0 ? "Deep Flowing" : "Begin your day") : "Lifetime Focus"} 
           color="sage"
         />
         <StatCard 
@@ -79,17 +110,17 @@ const FlowAnalytics: React.FC = () => {
         <StatCard 
           icon={CheckCircle2} 
           label="Tasks Done" 
-          value={stats.tasksDone.toString()} 
-          subValue="Completed in flow" 
-          trend="Achievement" 
-          color="blue"
+          value={viewMode === 'today' ? stats.tasksDoneToday.toString() : stats.tasksDone.toString()} 
+          subValue={viewMode === 'today' ? `${stats.tasksDone} total` : `${stats.tasksDoneToday} today`} 
+          trend={viewMode === 'today' ? (stats.tasksDoneToday > 0 ? "Productive Day" : "Start your path") : "Total Achievement"} 
+          color="blue" 
         />
         <StatCard 
           icon={Trophy} 
           label="Sessions" 
-          value={stats.totalSessions.toString()} 
-          subValue={`${stats.sessionsToday} today`} 
-          trend="Total Flow" 
+          value={viewMode === 'today' ? stats.sessionsToday.toString() : stats.totalSessions.toString()} 
+          subValue={viewMode === 'today' ? `${stats.totalSessions} total` : `${stats.sessionsToday} today`} 
+          trend={viewMode === 'today' ? "Daily Rhythm" : "Total Flow Sessions"} 
           color="purple"
         />
       </div>
@@ -113,7 +144,7 @@ const FlowAnalytics: React.FC = () => {
                 return (
                   <div key={d.date} className="flex-1 flex flex-col items-center gap-2 h-full justify-end group/bar relative">
                     <div className="absolute -top-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-slate-900/95 border border-white/10 text-[9px] text-white/70 rounded-lg opacity-0 group-hover/bar:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-20">
-                      {d.hours}h
+                      {d.hours >= 1 ? `${d.hours}h` : `${Math.floor(d.focusSeconds / 60)}m`}
                     </div>
                     <motion.div
                       initial={{ height: 0 }}

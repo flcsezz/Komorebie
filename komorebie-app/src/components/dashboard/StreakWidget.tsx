@@ -155,7 +155,7 @@ const StreakWidget: React.FC<StreakWidgetProps> = ({
       
       <div className="relative z-10">
         {/* Header Row: flame icon + streak number + best */}
-        <div className="flex items-center justify-between mb-2.5">
+        <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2.5">
             <div className={`w-9 h-9 rounded-lg ${flame.bg} border ${flame.border} flex items-center justify-center`}>
               <Flame className={`w-5 h-5 ${flame.color}`} />
@@ -170,22 +170,22 @@ const StreakWidget: React.FC<StreakWidgetProps> = ({
               >
                 {currentStreak}
               </motion.span>
-              <span className={`text-[10px] uppercase tracking-[0.15em] ${flame.color} font-bold opacity-70`}>day streak</span>
+              <span className={`text-[10px] uppercase tracking-[0.15em] ${flame.color} font-bold`}>day streak</span>
             </div>
           </div>
-          <div className="flex items-center gap-1 text-[7px] text-white/20 font-medium">
-            <Trophy className="w-2 h-2" />
-            <span>Best: {bestStreak}</span>
+          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-white/5 rounded-full border border-white/5">
+            <Trophy className="w-3 h-3 text-amber-200" />
+            <span className="text-[9px] text-white/70 font-bold uppercase tracking-wider">Best: {bestStreak}</span>
           </div>
         </div>
 
         {/* Month Navigation */}
-        <div className="flex items-center justify-between mb-1.5">
+        <div className="flex items-center justify-between mb-3 px-1">
           <button 
             onClick={prevMonth}
-            className="p-0.5 rounded hover:bg-white/5 text-white/20 hover:text-white/40 transition-colors cursor-pointer"
+            className="p-1 rounded-full bg-white/5 hover:bg-white/10 text-white/60 hover:text-white transition-all cursor-pointer border border-white/5"
           >
-            <ChevronLeft className="w-2 h-2" />
+            <ChevronLeft className="w-3 h-3" />
           </button>
           <AnimatePresence mode="wait">
             <motion.span 
@@ -193,27 +193,27 @@ const StreakWidget: React.FC<StreakWidgetProps> = ({
               initial={{ opacity: 0, y: -2 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 2 }}
-              className="text-[9px] uppercase tracking-[0.12em] text-white/30 font-bold"
+              className="text-[11px] uppercase tracking-[0.2em] text-white font-black"
             >
               {monthName}{yearStr}
             </motion.span>
           </AnimatePresence>
           <button 
             onClick={nextMonth}
-            className="p-0.5 rounded hover:bg-white/5 text-white/20 hover:text-white/40 transition-colors cursor-pointer"
+            className="p-1 rounded-full bg-white/5 hover:bg-white/10 text-white/60 hover:text-white transition-all cursor-pointer border border-white/5"
           >
-            <ChevronRight className="w-2 h-2" />
+            <ChevronRight className="w-3 h-3" />
           </button>
         </div>
 
         {/* Calendar Grid - Labels on the side */}
-        <div className="flex gap-2.5 items-start">
+        <div className="flex gap-3 items-start px-1">
           {/* Weekday Labels on the side */}
-          <div className="flex flex-col justify-between py-1 h-[110px]">
+          <div className="flex flex-col justify-between py-0.5 h-[96px]">
             {WEEKDAY_LABELS.map((d, i) => (
               <div 
                 key={`side-wk-${i}`} 
-                className="text-[7px] text-white/15 font-bold uppercase select-none leading-none h-2.5 flex items-center"
+                className="text-[8px] text-white/50 font-black uppercase select-none leading-none h-2.5 flex items-center"
               >
                 {d}
               </div>
@@ -221,21 +221,18 @@ const StreakWidget: React.FC<StreakWidgetProps> = ({
           </div>
 
           {/* Grid: Columns are weeks, Rows are weekdays */}
-          <div className="flex-1 grid grid-rows-7 grid-flow-col gap-1.5 h-[110px]">
+          <div className="flex-1 grid grid-rows-7 grid-flow-col gap-1 h-[96px]">
             {/* Generate all possible cells in the month grid (max 6 weeks) */}
             {(() => {
               const cells = [];
               const totalDays = daysInMonth;
               
               // We need to map each day to its correct row (weekday) and column (week)
-              // firstDayOfWeek (0-6 for Mon-Sun)
               for (let d = 1; d <= totalDays; d++) {
                 const date = new Date(viewMonth.year, viewMonth.month, d);
                 const rawDay = date.getDay();
                 const row = rawDay === 0 ? 6 : rawDay - 1; // Mon=0, Sun=6
                 
-                // Calculate column based on which week this day falls into
-                // Week 0 starts at day 1, but we need to account for the firstDayOfWeek offset
                 const col = Math.floor((d + firstDayOfWeek - 1) / 7);
                 
                 const sq = daySquares.find(s => s.day === d);
@@ -250,10 +247,10 @@ const StreakWidget: React.FC<StreakWidgetProps> = ({
                         gridColumnStart: col + 1
                       }}
                       className={`
-                        w-2.5 h-2.5 rounded-[1.5px] border transition-colors duration-200 
+                        w-2.5 h-2.5 rounded-[2px] border transition-colors duration-200 
                         relative 
                         ${getSquareClasses(sq)} 
-                        ${sq.isToday ? 'ring-1 ring-white/30 ring-offset-0' : ''}
+                        ${sq.isToday ? 'ring-1 ring-white/50 ring-offset-0' : ''}
                       `}
                       title={`${sq.day} — ${sq.qualified ? 'Streak ✓' : streakDates.get(sq.dateStr)?.seconds ? `${Math.round((streakDates.get(sq.dateStr)?.seconds || 0) / 60)}m focus` : 'No focus'}`}
                     />

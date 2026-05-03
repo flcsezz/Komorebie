@@ -218,8 +218,8 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     // The elapsed time includes the original duration + any overtime (negative timeLeft).
     if (user && (!isPomodoroMode || pomodoroState === 'work')) {
       const totalElapsedSeconds = duration * 60 + Math.abs(Math.min(0, timeLeft));
-      if (totalElapsedSeconds >= 60) { // Minimum 1 minute to log
-        console.log('[Zen] Logging completed session:', totalElapsedSeconds, 'seconds');
+      if (totalElapsedSeconds >= 300) { // Minimum 5 minutes to log qualified session
+        console.log('[Zen] Logging completed session (qualified):', totalElapsedSeconds, 'seconds');
         logFocusSession({
           user_id: user.id,
           duration_seconds: duration * 60,
@@ -344,23 +344,6 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const elapsed = duration * 60 - timeLeft;
       console.log('[Zen] Manual stop. Elapsed:', elapsed, 'seconds. User:', user?.id);
       
-      if (user && elapsed >= 60 && (!isPomodoroMode || pomodoroState === 'work')) {
-        console.log('[Zen] Logging abandoned session:', elapsed, 'seconds');
-        try {
-          const result = await logFocusSession({
-            user_id: user.id,
-            duration_seconds: duration * 60,
-            elapsed_seconds: elapsed,
-            status: 'abandoned',
-            started_at: sessionStartTime || new Date().toISOString()
-          });
-          console.log('[Zen] Abandoned session logged:', result);
-          analyticsCache.invalidate(user.id);
-        } catch (err) {
-          console.error('[Zen] FAILED to log abandoned session:', err);
-        }
-      }
-
       setIsActive(false);
       setTimeLeft(duration * 60);
       setSessionStartTime(null);
@@ -374,6 +357,23 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         } catch (err) {
           console.error("Failed to exit fullscreen:", err);
         }
+      }
+
+      if (user && elapsed >= 300 && (!isPomodoroMode || pomodoroState === 'work')) {
+        console.log('[Zen] Logging abandoned session (qualified):', elapsed, 'seconds');
+        // Do not await to prevent UI blocking
+        logFocusSession({
+          user_id: user.id,
+          duration_seconds: duration * 60,
+          elapsed_seconds: elapsed,
+          status: 'abandoned',
+          started_at: sessionStartTime || new Date().toISOString()
+        }).then((result) => {
+          console.log('[Zen] Abandoned session logged:', result);
+          analyticsCache.invalidate(user.id);
+        }).catch((err) => {
+          console.error('[Zen] FAILED to log abandoned session:', err);
+        });
       }
     } else {
       // Normal start
