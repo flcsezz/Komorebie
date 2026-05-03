@@ -197,7 +197,11 @@ const AppLayout: React.FC = () => {
 
   // Sync background state with profile when it loads
   useEffect(() => {
-    if (profile?.preferred_bg && profile.preferred_bg !== bgImage) {
+    // Only set initial background from profile/localStorage if we don't have one
+    const savedBg = localStorage.getItem('komorebie-bg');
+    if (!bgImage && savedBg) {
+      setBgImage(savedBg);
+    } else if (!bgImage && profile?.preferred_bg) {
       setBgImage(profile.preferred_bg);
       localStorage.setItem('komorebie-bg', profile.preferred_bg);
     }
@@ -270,14 +274,16 @@ const [isFullscreen, setIsFullscreen] = useState(false);
     }
   };
 
-  useEffect(() => {
-    // Only sync if we have a user and the bgImage is different from what's in the profile
-    // to avoid redundant updates on mount
-    if (user && profile && bgImage !== profile.preferred_bg) {
-      localStorage.setItem('komorebie-bg', bgImage);
-      supabase.from('profiles').update({ preferred_bg: bgImage }).eq('id', user.id).then(() => {});
+  // Manual Background Change Handler (called by picker)
+  const handleBgChange = useCallback(async (newBg: string) => {
+    setBgImage(newBg);
+    localStorage.setItem('komorebie-bg', newBg);
+    
+    if (user) {
+      await supabase.from('profiles').update({ preferred_bg: newBg }).eq('id', user.id);
+      await refresh(); // Refresh profile so stats/context stay in sync
     }
-  }, [bgImage, user, profile]);
+  }, [user, refresh]);
 
   if (authLoading) {
     return (
@@ -492,7 +498,7 @@ const [isFullscreen, setIsFullscreen] = useState(false);
                           <button
                             key={bg.id}
                             onClick={() => {
-                              setBgImage(bg.url);
+                              handleBgChange(bg.url);
                               setShowBgPicker(false);
                             }}
                             className={`w-full text-left px-3 py-2 rounded-xl text-[10px] transition-colors flex items-center gap-2 ${
