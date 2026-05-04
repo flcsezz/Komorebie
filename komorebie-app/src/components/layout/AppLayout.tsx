@@ -229,7 +229,7 @@ const AppLayout: React.FC = () => {
   }, []);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [friendRequestBadge, setFriendRequestBadge] = useState(0);
-  const { background, backgroundType, setBackground: setGlobalBg } = useBackground();
+  const { background, backgroundType } = useBackground();
   
   // Fetch friend request count for badge
   const fetchFriendBadge = useCallback(async () => {

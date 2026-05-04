@@ -13,7 +13,7 @@ import { useAuth } from '../context/AuthContext';
 import { useBackground } from '../context/BackgroundContext';
 import { getProfileByUsername, getFriendshipStatus, sendFriendRequest, removeFriend, type PublicProfile } from '../lib/friends';
 import { usePresence } from '../hooks/usePresence';
-import { ALL_BACKGROUNDS, ADMIN_EMAIL, ADMIN_USERNAME } from '../lib/backgrounds';
+import { ALL_BACKGROUNDS, ADMIN_USERNAME } from '../lib/backgrounds';
 
 
 const FriendProfilePage: React.FC = () => {
@@ -31,10 +31,11 @@ const FriendProfilePage: React.FC = () => {
   
   // Fetch profile stats
   // Pass null explicitly if profile isn't loaded yet to avoid defaulting to current user
-  const { stats, streakDates, loading: statsLoading, profile: cachedProfile } = useAnalytics(profile?.id || null);
+  const { stats, streakDates, loading: statsLoading, profile: cachedProfile } = useAnalytics(profile?.id || undefined);
   const { presences } = usePresence();
 
   const displayProfile = cachedProfile || profile;
+  const isTargetAdmin = profile?.username === ADMIN_USERNAME.replace('@', '');
   const isFocusing = profile && presences[profile.id]?.is_active;
   const fadeIntervalRef = useRef<any>(null);
 
@@ -44,7 +45,6 @@ const FriendProfilePage: React.FC = () => {
     const bgInfo = ALL_BACKGROUNDS.find(b => b.url === targetBg);
     
     // Only play if it's the admin profile
-    const isTargetAdmin = profile?.username === ADMIN_USERNAME.replace('@', '');
     
     // Prioritize profile-specific unmuted_audio, then unmutedAudio, then ambientAudio
     const audioUrl = profile?.unmuted_audio || bgInfo?.unmutedAudio || bgInfo?.ambientAudio;
@@ -244,7 +244,7 @@ const FriendProfilePage: React.FC = () => {
                 )}
                 
                 {/* Friend Ambient Toggle */}
-                {(profile?.unmuted_audio || ALL_BACKGROUNDS.find(b => b.url === (profile?.profile_bg || profile?.preferred_bg))?.unmutedAudio || ALL_BACKGROUNDS.find(b => b.url === (profile?.profile_bg || profile?.preferred_bg))?.ambientAudio) && profile?.email === ADMIN_EMAIL && (
+                {(profile?.unmuted_audio || ALL_BACKGROUNDS.find(b => b.url === (profile?.profile_bg || profile?.preferred_bg))?.unmutedAudio || ALL_BACKGROUNDS.find(b => b.url === (profile?.profile_bg || profile?.preferred_bg))?.ambientAudio) && isTargetAdmin && (
                   <button 
                     onClick={() => setIsAmbientMuted(!isAmbientMuted)} 
                     className={`absolute -bottom-2 -right-2 p-2 rounded-xl border transition-all cursor-pointer flex items-center justify-center z-20 ${
