@@ -7,10 +7,10 @@
  */
 
 export const R2_CONFIG = {
-  accountId: import.meta.env.VITE_CLOUDFLARE_ACCOUNT_ID,
-  bucketName: import.meta.env.VITE_R2_BUCKET_NAME,
-  publicDomain: import.meta.env.VITE_R2_PUBLIC_DOMAIN,
-  endpoint: import.meta.env.VITE_R2_ENDPOINT,
+  accountId: import.meta.env.VITE_CLOUDFLARE_ACCOUNT_ID || '96aa2c67194083a6ef79367d4b7703d8',
+  bucketName: import.meta.env.VITE_R2_BUCKET_NAME || 'komorebie-assets',
+  publicDomain: import.meta.env.VITE_R2_PUBLIC_DOMAIN || 'assets.komorebie.flcsezz.sbs',
+  endpoint: import.meta.env.VITE_R2_ENDPOINT || 'https://96aa2c67194083a6ef79367d4b7703d8.r2.cloudflarestorage.com',
 };
 
 /**
@@ -20,9 +20,11 @@ export const R2_CONFIG = {
  */
 export function getR2PublicUrl(path: string): string {
   if (!R2_CONFIG.publicDomain) return '';
+  // Clean domain just in case it has https:// or trailing slashes in env vars
+  const cleanDomain = R2_CONFIG.publicDomain.replace(/^https?:\/\//, '').replace(/\/$/, '');
   // Ensure path doesn't start with a slash
   const cleanPath = path.startsWith('/') ? path.slice(1) : path;
-  return `https://${R2_CONFIG.publicDomain}/${cleanPath}`;
+  return `https://${cleanDomain}/${cleanPath}`;
 }
 
 /**
