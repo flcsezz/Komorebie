@@ -25,7 +25,7 @@ const BackgroundPage: React.FC = () => {
   const [collectionType, setCollectionType] = useState<'standard' | 'live'>('standard');
 
   // Check for admin access
-  const isAdmin = user?.email === ADMIN_EMAIL;
+  const isAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
 
   const handleSelect = async (bg: Background, target: 'dashboard' | 'profile' = 'dashboard') => {
     if (bg.isSpecial && !isAdmin) return;

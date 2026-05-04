@@ -29,7 +29,7 @@ const ProfilePage: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [now] = useState(() => Date.now());
 
-  const isAdmin = user?.email === ADMIN_EMAIL;
+  const isAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
   const [isAmbientMuted, setIsAmbientMuted] = useState(() => localStorage.getItem('zen-ambient-muted') === 'true');
   const [showMusicMenu, setShowMusicMenu] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);

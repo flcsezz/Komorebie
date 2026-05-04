@@ -63,6 +63,6 @@ export const ALL_BACKGROUNDS = [
 ];
 
 export const getVisibleBackgrounds = (userEmail?: string | null) => {
-  if (userEmail === ADMIN_EMAIL) return ALL_BACKGROUNDS;
+  if (userEmail?.toLowerCase() === ADMIN_EMAIL.toLowerCase()) return ALL_BACKGROUNDS;
   return [...PUBLIC_BACKGROUNDS, ...LIVE_BACKGROUNDS];
 };
