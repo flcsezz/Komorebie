@@ -19,6 +19,7 @@ const FlashcardDeckPage = lazy(() => import('./pages/FlashcardDeck'));
 const FriendsPage = lazy(() => import('./pages/FriendsPage'));
 const FriendProfilePage = lazy(() => import('./pages/FriendProfilePage'));
 const BackgroundPage = lazy(() => import('./pages/BackgroundPage'));
+const LeaderboardPage = lazy(() => import('./pages/LeaderboardPage'));
 
 // Placeholders
 import { TasksPage, NotesPage, RoomPage, SocialPage, PlaceholderPage } from './pages/Placeholders';
@@ -101,7 +102,7 @@ function App() {
                   <Route path="customize" element={<PlaceholderPage title="Customize" description="Personalize your sanctuary's visual and interactive experience." />} />
                   <Route path="music" element={<PlaceholderPage title="Music" description="Manage your lo-fi beats and ambient soundscapes." />} />
                   <Route path="background" element={<BackgroundPage />} />
-                  <Route path="leaderboard" element={<PlaceholderPage title="Leaderboard" description="See how your focus rhythm compares to the community." />} />
+                  <Route path="leaderboard" element={<LeaderboardPage />} />
                   <Route path="friends" element={<FriendsPage />} />
                   <Route path="friends/:username" element={<FriendProfilePage />} />
                   <Route path="contact" element={<PlaceholderPage title="Contact Us" description="Get in touch with the Komorebie support team." />} />

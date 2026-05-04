@@ -20,7 +20,7 @@ const GlassCard: React.FC<GlassCardProps> = ({
   className, 
   hoverGlow = true,
   variant = 'default',
-  animateCard = true,
+  animateCard: _animateCard = true,
   ...props
 }) => {
   const variantClasses = {

@@ -16,7 +16,6 @@ const STALE_WHILE_REVALIDATE_MS = 30 * 1000; // Serve stale data for 30s while r
 
 // ─── Types ─────────────────────────────────────────────────────────
 export interface CachedAnalytics {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   profile: any; 
   sessions: { id: string; status: string; elapsed_seconds?: number; started_at: string }[];
   streaks: { focus_date: string; total_focus_seconds: number; sessions_count: number; streak_qualified: boolean }[];

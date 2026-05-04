@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
   Trophy, Flame, Clock, Target, 
   UserPlus, Check, Clock as PendingClock, Loader2, ArrowLeft,
-  UserMinus
+  UserMinus, Volume2, VolumeX
 } from 'lucide-react';
 import GlassCard from '../components/ui/GlassCard';
 import FocusActivityWidget from '../components/analytics/FocusActivityWidget';
@@ -13,6 +13,7 @@ import { useAuth } from '../context/AuthContext';
 import { useBackground } from '../context/BackgroundContext';
 import { getProfileByUsername, getFriendshipStatus, sendFriendRequest, removeFriend, type PublicProfile } from '../lib/friends';
 import { usePresence } from '../hooks/usePresence';
+import { ALL_BACKGROUNDS, ADMIN_USERNAME } from '../lib/backgrounds';
 
 
 const FriendProfilePage: React.FC = () => {
@@ -25,26 +26,110 @@ const FriendProfilePage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [friendship, setFriendship] = useState<{ status: string; friendshipId?: string }>({ status: 'none' });
   const [actionLoading, setActionLoading] = useState(false);
+  const [isAmbientMuted, setIsAmbientMuted] = useState(() => localStorage.getItem('zen-ambient-muted') === 'true');
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   
   // Fetch profile stats
-  const { stats, streakDates, loading: statsLoading, profile: cachedProfile } = useAnalytics(profile?.id);
+  // Pass null explicitly if profile isn't loaded yet to avoid defaulting to current user
+  const { stats, streakDates, loading: statsLoading, profile: cachedProfile } = useAnalytics(profile?.id || undefined);
   const { presences } = usePresence();
 
   const displayProfile = cachedProfile || profile;
+  const isTargetAdmin = profile?.username === ADMIN_USERNAME.replace('@', '');
   const isFocusing = profile && presences[profile.id]?.is_active;
+  const fadeIntervalRef = useRef<any>(null);
+
+  // Handle Ambient Audio
+  useEffect(() => {
+    const targetBg = profile?.profile_bg || profile?.preferred_bg;
+    const bgInfo = ALL_BACKGROUNDS.find(b => b.url === targetBg);
+    
+    // Only play if it's the admin profile
+    
+    // Prioritize profile-specific unmuted_audio, then unmutedAudio, then ambientAudio
+    const audioUrl = profile?.unmuted_audio || bgInfo?.unmutedAudio || bgInfo?.ambientAudio;
+    
+    if (audioUrl && isTargetAdmin && !loading && !statsLoading && !isAmbientMuted) {
+      if (!audioRef.current || audioRef.current.src !== audioUrl) {
+        if (audioRef.current) audioRef.current.pause();
+        audioRef.current = new Audio(audioUrl);
+        audioRef.current.loop = true;
+      }
+
+      const audio = audioRef.current;
+      if (fadeIntervalRef.current) clearInterval(fadeIntervalRef.current);
+      
+      audio.volume = 0;
+      audio.play().catch(err => console.warn('[Ambient] Play blocked:', err));
+      
+      let vol = 0;
+      fadeIntervalRef.current = setInterval(() => {
+        vol += 0.05;
+        if (vol >= 0.5) {
+          audio.volume = 0.5;
+          clearInterval(fadeIntervalRef.current);
+        } else {
+          audio.volume = vol;
+        }
+      }, 50);
+    } else {
+      if (audioRef.current) {
+        const audio = audioRef.current;
+        if (fadeIntervalRef.current) clearInterval(fadeIntervalRef.current);
+        
+        let vol = audio.volume;
+        fadeIntervalRef.current = setInterval(() => {
+          vol -= 0.05;
+          if (vol <= 0) {
+            audio.volume = 0;
+            audio.pause();
+            clearInterval(fadeIntervalRef.current);
+          } else {
+            audio.volume = vol;
+          }
+        }, 50);
+      }
+    }
+
+    return () => {
+      if (fadeIntervalRef.current) clearInterval(fadeIntervalRef.current);
+      if (audioRef.current) {
+        const audio = audioRef.current;
+        let vol = audio.volume;
+        const fadeOut = setInterval(() => {
+          vol -= 0.05;
+          if (vol <= 0) {
+            audio.volume = 0;
+            audio.pause();
+            clearInterval(fadeOut);
+          } else {
+            audio.volume = vol;
+          }
+        }, 50);
+      }
+    };
+  }, [profile?.username, profile?.unmuted_audio, profile?.profile_bg, profile?.preferred_bg, isAmbientMuted, loading, statsLoading]);
 
   useEffect(() => {
     let active = true;
-    const load = async () => {
+
+    async function load() {
       if (!username) return;
+      
       setProfile(null); // Reset profile when username changes to avoid showing previous friend's data
       setLoading(true);
+      
       try {
         const p = await getProfileByUsername(username);
         if (p && active) {
           setProfile(p);
-          if (p.preferred_bg) {
-            setBackground(p.preferred_bg);
+          // Prioritize profile_bg for the friend's profile page view
+          const targetBg = p.profile_bg || p.preferred_bg;
+          if (targetBg) {
+            const bgInfo = ALL_BACKGROUNDS.find(b => b.url === targetBg);
+            setBackground(targetBg, bgInfo?.type || 'image');
+          } else {
+            resetBackground();
           }
           if (currentUser) {
             const status = await getFriendshipStatus(currentUser.id, p.id);
@@ -52,17 +137,27 @@ const FriendProfilePage: React.FC = () => {
           }
         }
       } catch (err) {
-        console.error('Error loading friend profile:', err);
+        console.error('Failed to load friend profile:', err);
       } finally {
         if (active) setLoading(false);
       }
-    };
+    }
+
     load();
+
     return () => {
       active = false;
-      resetBackground();
+      // We don't reset immediately here to avoid flickering when switching between friends.
+      // The next load() call will either set a new background or reset it.
     };
   }, [username, setBackground, resetBackground, currentUser]);
+
+  // Global reset only when leaving the friend profile view entirely
+  useEffect(() => {
+    return () => {
+      resetBackground();
+    };
+  }, [resetBackground]);
 
   const handleAddFriend = async () => {
     if (!profile || !currentUser) return;
@@ -139,13 +234,28 @@ const FriendProfilePage: React.FC = () => {
           <div className="flex flex-col sm:flex-row items-center justify-between gap-6 relative z-5">
             <div className="flex flex-col sm:flex-row items-center gap-6">
               {/* Avatar */}
-              <div className="w-32 h-32 rounded-[2rem] bg-slate-800 border-2 border-white/10 overflow-hidden flex items-center justify-center shadow-2xl">
+              <div className="w-32 h-32 rounded-[2rem] bg-slate-800 border-2 border-white/10 overflow-hidden flex items-center justify-center shadow-2xl relative">
                 {displayProfile?.avatar_url ? (
                   <img src={displayProfile.avatar_url} alt={displayProfile.display_name} className="w-full h-full object-cover" />
                 ) : (
                   <span className="text-4xl font-display font-light text-white/40">
                     {(displayProfile?.display_name || displayProfile?.username || '?').charAt(0).toUpperCase()}
                   </span>
+                )}
+                
+                {/* Friend Ambient Toggle */}
+                {(profile?.unmuted_audio || ALL_BACKGROUNDS.find(b => b.url === (profile?.profile_bg || profile?.preferred_bg))?.unmutedAudio || ALL_BACKGROUNDS.find(b => b.url === (profile?.profile_bg || profile?.preferred_bg))?.ambientAudio) && isTargetAdmin && (
+                  <button 
+                    onClick={() => setIsAmbientMuted(!isAmbientMuted)} 
+                    className={`absolute -bottom-2 -right-2 p-2 rounded-xl border transition-all cursor-pointer flex items-center justify-center z-20 ${
+                      isAmbientMuted 
+                        ? 'bg-red-500/80 border-red-500/30 text-white backdrop-blur-md' 
+                        : 'bg-sage-200/80 border-sage-200/30 text-slate-950 backdrop-blur-md'
+                    }`}
+                    title={isAmbientMuted ? "Unmute Ambient" : "Mute Ambient"}
+                  >
+                    {isAmbientMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                  </button>
                 )}
               </div>
 

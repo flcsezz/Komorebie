@@ -12,6 +12,8 @@ create table public.profiles (
   avatar_url text,
   mana_points integer default 0,
   preferred_bg text,
+  profile_bg text,
+  unmuted_audio text,
   preferred_duration integer default 25,
 
   constraint username_length check (char_length(username) >= 3)

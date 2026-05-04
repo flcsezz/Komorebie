@@ -1,17 +1,23 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Settings, Camera, Trophy, Flame, Clock, Target, X, Check, Loader2, AlertTriangle, Trash2, ShieldCheck } from 'lucide-react';
+import { Settings, Camera, Trophy, Flame, Clock, Target, X, Check, Loader2, AlertTriangle, Trash2, ShieldCheck, Image as ImageIcon, Volume2, VolumeX } from 'lucide-react';
 import GlassCard from '../components/ui/GlassCard';
 import FocusActivityWidget from '../components/analytics/FocusActivityWidget';
 import { useAnalytics } from '../hooks/useAnalytics';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import { resizeImage } from '../lib/image-utils';
+import { ADMIN_EMAIL, ADMIN_MUSIC, ALL_BACKGROUNDS, ADMIN_USERNAME } from '../lib/backgrounds';
+import { useNavigate } from 'react-router-dom';
+import { useBackground } from '../context/BackgroundContext';
+import { Music, ListMusic } from 'lucide-react';
 
 const ProfilePage: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const { stats, streakDates, profile, refresh } = useAnalytics();
+  const { setBackground, resetBackground } = useBackground();
   const [showSettings, setShowSettings] = useState(false);
   const [settingsUsername, setSettingsUsername] = useState('');
   const [settingsFullName, setSettingsFullName] = useState('');
@@ -22,6 +28,118 @@ const ProfilePage: React.FC = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [now] = useState(() => Date.now());
+
+  const isAdmin = user?.email === ADMIN_EMAIL;
+  const [isAmbientMuted, setIsAmbientMuted] = useState(() => localStorage.getItem('zen-ambient-muted') === 'true');
+  const [showMusicMenu, setShowMusicMenu] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const fadeIntervalRef = useRef<any>(null);
+
+  // Sync background on load
+  useEffect(() => {
+    const targetBg = profile?.profile_bg || profile?.preferred_bg;
+    if (targetBg) {
+      const bgInfo = ALL_BACKGROUNDS.find(b => b.url === targetBg);
+      setBackground(targetBg, bgInfo?.type || 'image');
+    }
+    return () => resetBackground();
+  }, [profile?.profile_bg, profile?.preferred_bg, setBackground, resetBackground]);
+
+  // Sync mute state
+  useEffect(() => {
+    localStorage.setItem('zen-ambient-muted', isAmbientMuted.toString());
+  }, [isAmbientMuted]);
+
+  // Ambient Audio Logic
+  useEffect(() => {
+    const bgUrl = profile?.profile_bg || profile?.preferred_bg;
+    const bgInfo = ALL_BACKGROUNDS.find(b => b.url === bgUrl);
+    
+    // Only play if it's the admin profile OR if the current user is admin
+    const isTargetAdmin = profile?.username === ADMIN_USERNAME.replace('@', '');
+    
+    // Prioritize profile-specific unmuted_audio if it exists, otherwise fallback to background default
+    const audioUrl = profile?.unmuted_audio || bgInfo?.unmutedAudio || bgInfo?.ambientAudio;
+    
+    if (audioUrl && isTargetAdmin && !isAmbientMuted) {
+      if (!audioRef.current || audioRef.current.src !== audioUrl) {
+        if (audioRef.current) {
+          audioRef.current.pause();
+          audioRef.current = null;
+        }
+        audioRef.current = new Audio(audioUrl);
+        audioRef.current.loop = true;
+      }
+
+      const audio = audioRef.current;
+      if (fadeIntervalRef.current) clearInterval(fadeIntervalRef.current);
+      
+      audio.volume = 0;
+      audio.play().catch(err => console.warn('[Ambient] Play blocked:', err));
+      
+      let vol = 0;
+      fadeIntervalRef.current = setInterval(() => {
+        vol += 0.05;
+        if (vol >= 0.5) {
+          audio.volume = 0.5;
+          clearInterval(fadeIntervalRef.current);
+        } else {
+          audio.volume = vol;
+        }
+      }, 50);
+    } else {
+      if (audioRef.current) {
+        const audio = audioRef.current;
+        if (fadeIntervalRef.current) clearInterval(fadeIntervalRef.current);
+        
+        let vol = audio.volume;
+        fadeIntervalRef.current = setInterval(() => {
+          vol -= 0.05;
+          if (vol <= 0) {
+            audio.volume = 0;
+            audio.pause();
+            clearInterval(fadeIntervalRef.current);
+          } else {
+            audio.volume = vol;
+          }
+        }, 50);
+      }
+    }
+
+    return () => {
+      if (fadeIntervalRef.current) clearInterval(fadeIntervalRef.current);
+      if (audioRef.current) {
+        const audio = audioRef.current;
+        let vol = audio.volume;
+        const fadeOut = setInterval(() => {
+          vol -= 0.05;
+          if (vol <= 0) {
+            audio.volume = 0;
+            audio.pause();
+            clearInterval(fadeOut);
+          } else {
+            audio.volume = vol;
+          }
+        }, 50);
+      }
+    };
+  }, [profile?.username, profile?.unmuted_audio, profile?.profile_bg, profile?.preferred_bg, isAmbientMuted]);
+
+  const handleUpdateMusic = async (audioUrl: string) => {
+    if (!user || !isAdmin) return;
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ unmuted_audio: audioUrl })
+        .eq('id', user.id);
+      
+      if (error) throw error;
+      await refresh();
+      setShowMusicMenu(false);
+    } catch (err) {
+      console.error('Failed to update music:', err);
+    }
+  };
 
 
   const displayName = profile?.display_name || profile?.full_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Explorer';
@@ -288,10 +406,35 @@ const ProfilePage: React.FC = () => {
         <GlassCard variant="frosted" className="p-8 relative overflow-hidden mb-8">
           <div className="absolute -top-32 -right-32 w-64 h-64 bg-sage-200/5 rounded-full blur-[80px] pointer-events-none" />
           
-          {/* Settings Button */}
-          <button onClick={openSettings} className="absolute top-5 right-5 p-2.5 rounded-xl bg-white/5 border border-white/10 text-white/40 hover:text-white hover:bg-white/10 transition-all cursor-pointer z-10" title="Profile Settings">
-            <Settings className="w-4 h-4" />
-          </button>
+          {/* Action Buttons */}
+          <div className="absolute top-5 right-5 flex items-center gap-2 z-10">
+            {(profile?.unmuted_audio || ALL_BACKGROUNDS.find(b => b.url === (profile?.profile_bg || profile?.preferred_bg))?.unmutedAudio || ALL_BACKGROUNDS.find(b => b.url === (profile?.profile_bg || profile?.preferred_bg))?.ambientAudio) && profile?.username === ADMIN_USERNAME.replace('@', '') && (
+              <button 
+                onClick={() => setIsAmbientMuted(!isAmbientMuted)} 
+                className={`p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-center ${
+                  isAmbientMuted 
+                    ? 'bg-red-500/10 border-red-500/20 text-red-400' 
+                    : 'bg-sage-200/10 border-sage-200/20 text-sage-200'
+                }`}
+                title={isAmbientMuted ? "Unmute Ambient" : "Mute Ambient"}
+              >
+                {isAmbientMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+              </button>
+            )}
+            {isAdmin && (
+              <button 
+                onClick={() => navigate('/app/background')} 
+                className="p-2.5 rounded-xl bg-sage-200/10 border border-sage-200/20 text-sage-200 hover:bg-sage-200/20 transition-all cursor-pointer flex items-center gap-2 px-4 group"
+                title="Change Profile Background"
+              >
+                <ImageIcon className="w-4 h-4" />
+                <span className="text-[10px] font-bold uppercase tracking-widest hidden sm:inline">Profile Style</span>
+              </button>
+            )}
+            <button onClick={openSettings} className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-white/40 hover:text-white hover:bg-white/10 transition-all cursor-pointer" title="Profile Settings">
+              <Settings className="w-4 h-4" />
+            </button>
+          </div>
 
           <div className="flex flex-col sm:flex-row items-center gap-6 relative z-5">
             {/* Avatar */}
@@ -359,6 +502,53 @@ const ProfilePage: React.FC = () => {
       >
         <FocusActivityWidget streakDates={streakDates} />
       </motion.div>
+
+      {/* Admin Music Manager - Bottom Right */}
+      {isAdmin && (
+        <div className="fixed bottom-7 right-8 z-50 flex flex-col items-end gap-2 mb-14 sm:mb-0">
+          <AnimatePresence>
+            {showMusicMenu && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: 10 }}
+                className="w-56 bg-slate-950/80 backdrop-blur-2xl border border-white/10 rounded-2xl p-2 shadow-2xl mb-2"
+              >
+                <div className="flex items-center gap-2 px-3 py-2 border-b border-white/5 mb-1">
+                  <ListMusic className="w-3.5 h-3.5 text-sage-200" />
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-white/50">BGM</span>
+                </div>
+                <div className="space-y-1">
+                  {ADMIN_MUSIC.map((track) => {
+                    const isActive = profile?.unmuted_audio === track.url;
+                    return (
+                      <button
+                        key={track.id}
+                        onClick={() => handleUpdateMusic(track.url)}
+                        className={`w-full text-left px-3 py-2 rounded-xl text-[11px] transition-all flex items-center justify-between ${
+                          isActive ? 'bg-sage-200/15 text-sage-200 font-bold' : 'text-white/40 hover:bg-white/5 hover:text-white'
+                        }`}
+                      >
+                        {track.name}
+                        {isActive && <Check className="w-3 h-3 text-sage-200" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+          
+          <button
+            onClick={() => setShowMusicMenu(!showMusicMenu)}
+            className={`p-3 rounded-full border shadow-xl transition-all cursor-pointer ${
+              showMusicMenu ? 'bg-sage-200 text-slate-950 border-sage-200' : 'bg-white/5 border-white/10 text-white/40 hover:text-white hover:bg-white/10'
+            }`}
+          >
+            <Music className="w-5 h-5" />
+          </button>
+        </div>
+      )}
     </div>
 
     {settingsModal}

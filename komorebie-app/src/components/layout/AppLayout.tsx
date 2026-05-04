@@ -68,7 +68,6 @@ const Branding = ({ isCollapsed }: { isCollapsed?: boolean }) => (
   </Link>
 );
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const SidebarLink = ({ to, icon: Icon, label, active, isCollapsed, badge }: { 
   to: string, 
   icon: React.ComponentType<{ className?: string; strokeWidth?: number }>, 
@@ -166,6 +165,7 @@ const AppLayout: React.FC = () => {
   const [prevPath, setPrevPath] = useState(location.pathname);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const lastPathRef = useRef(location.pathname);
+  const { background: backgroundOverride } = useBackground();
 
   // Instant transition trigger on path change
   useLayoutEffect(() => {
@@ -196,12 +196,21 @@ const AppLayout: React.FC = () => {
   });
 
   // Sync background state with profile when it loads
+  // Sync local bg state with profile background if it changes
   useEffect(() => {
     if (profile?.preferred_bg && profile.preferred_bg !== bgImage) {
+      console.log('AppLayout: Syncing bgImage from profile:', profile.preferred_bg);
       setBgImage(profile.preferred_bg);
       localStorage.setItem('komorebie-bg', profile.preferred_bg);
     }
-  }, [profile?.preferred_bg]);
+  }, [profile?.preferred_bg, bgImage]);
+
+  // Log background override status for debugging
+  useEffect(() => {
+    if (backgroundOverride) {
+      console.log('AppLayout: Background override active:', backgroundOverride);
+    }
+  }, [backgroundOverride]);
 
   const [showBgPicker, setShowBgPicker] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(true);
@@ -218,9 +227,9 @@ const AppLayout: React.FC = () => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [friendRequestBadge, setFriendRequestBadge] = useState(0);
-  const { background: backgroundOverride } = useBackground();
+  const { background, backgroundType } = useBackground();
   
   // Fetch friend request count for badge
   const fetchFriendBadge = useCallback(async () => {
@@ -234,7 +243,7 @@ const [isFullscreen, setIsFullscreen] = useState(false);
   useEffect(() => {
     fetchFriendBadge();
     const interval = setInterval(fetchFriendBadge, 30000); // Poll every 30s
-    return () => clearInterval(interval);
+    return () => clearTimeout(interval);
   }, [fetchFriendBadge]);
 
   useEffect(() => {
@@ -275,7 +284,7 @@ const [isFullscreen, setIsFullscreen] = useState(false);
 
       const fullscreenElement = doc.fullscreenElement || 
                                 doc.webkitFullscreenElement || 
-                                doc.mozFullScreenElement || 
+                                doc.mozFullscreenElement || 
                                 doc.msFullscreenElement;
 
       if (!fullscreenElement) {
@@ -338,11 +347,29 @@ const [isFullscreen, setIsFullscreen] = useState(false);
           )}
         </AnimatePresence>
 
-        {/* Dynamic Background Image */}
-        <div 
-          className="fixed inset-0 z-0 bg-cover bg-center transition-all duration-700 ease-in-out pointer-events-none opacity-40 bg-optimize-quality"
-          style={{ backgroundImage: `url(${backgroundOverride || bgImage})`, transform: 'scale(1.05)' }}
-        />
+        {/* Dynamic Background */}
+        <div className="fixed inset-0 z-0 pointer-events-none opacity-40 overflow-hidden bg-slate-950">
+          {(background || bgImage) && (
+            backgroundType === 'video' || (ALL_BACKGROUNDS.find(b => b.url === (background || bgImage))?.type === 'video') ? (
+              <video
+                key={background || bgImage}
+                autoPlay
+                loop
+                muted
+                playsInline
+                className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000"
+                style={{ transform: 'scale(1.05)' }}
+              >
+                <source src={background || bgImage} type={(background || bgImage)?.endsWith('.webm') ? 'video/webm' : 'video/mp4'} />
+              </video>
+            ) : (
+              <div 
+                className="absolute inset-0 bg-cover bg-center transition-all duration-700 ease-in-out bg-optimize-quality"
+                style={{ backgroundImage: `url("${background || bgImage}")`, transform: 'scale(1.05)' }}
+              />
+            )
+          )}
+        </div>
         {/* Background Overlay */}
         <div className="fixed inset-0 z-[1] bg-slate-950/20 pointer-events-none" />
         

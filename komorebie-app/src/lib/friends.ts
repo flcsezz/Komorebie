@@ -10,6 +10,8 @@ export interface PublicProfile {
   current_streak: number;
   best_streak: number;
   preferred_bg: string | null;
+  profile_bg?: string | null;
+  unmuted_audio?: string | null;
 }
 
 export interface FriendWithProfile {
@@ -27,7 +29,7 @@ export interface FriendRequest {
 
 // ─── Profile Fields Selection ───────────────────────────────
 
-const PROFILE_SELECT = 'id, username, display_name, avatar_url, current_streak, best_streak, preferred_bg';
+const PROFILE_SELECT = 'id, username, display_name, avatar_url, current_streak, best_streak, preferred_bg, profile_bg, unmuted_audio';
 
 // ─── Search ─────────────────────────────────────────────────
 
@@ -50,15 +52,21 @@ export async function searchUsers(query: string): Promise<PublicProfile[]> {
 // ─── Friend Requests ────────────────────────────────────────
 
 export async function sendFriendRequest(addresseeId: string): Promise<{ success: boolean; error?: string }> {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { session } } = await supabase.auth.getSession();
+  const user = session?.user;
   if (!user) return { success: false, error: 'Not authenticated' };
 
   // Check for existing relationship (in either direction)
-  const { data: existing } = await supabase
+  const { data: existing, error: fetchError } = await supabase
     .from('friendships')
     .select('id, status')
     .or(`and(requester_id.eq.${user.id},addressee_id.eq.${addresseeId}),and(requester_id.eq.${addresseeId},addressee_id.eq.${user.id})`)
     .maybeSingle();
+
+  if (fetchError) {
+    console.error('[Friends] Error checking existing friendship:', fetchError);
+    return { success: false, error: 'Connection error' };
+  }
 
   if (existing) {
     if (existing.status === 'accepted') return { success: false, error: 'Already friends' };
@@ -73,7 +81,7 @@ export async function sendFriendRequest(addresseeId: string): Promise<{ success:
   });
 
   if (error) {
-    console.error('sendFriendRequest error:', error);
+    console.error('[Friends] sendFriendRequest error:', error);
     return { success: false, error: error.message };
   }
 
@@ -98,6 +106,8 @@ export async function rejectRequest(friendshipId: string): Promise<void> {
 // ─── Friends List ───────────────────────────────────────────
 
 export async function getFriends(userId: string): Promise<FriendWithProfile[]> {
+  if (!userId) return [];
+  
   const { data, error } = await supabase
     .from('friendships')
     .select(`
@@ -114,20 +124,12 @@ export async function getFriends(userId: string): Promise<FriendWithProfile[]> {
     .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`);
 
   if (error) {
-    console.error('getFriends error:', error);
+    console.error('[Friends] getFriends error:', error);
     return [];
   }
 
   return (data || []).map((row) => {
-    const r = row as unknown as { 
-      id: string; 
-      requester_id: string; 
-      addressee_id: string; 
-      updated_at: string; 
-      created_at: string; 
-      requester: PublicProfile; 
-      addressee: PublicProfile; 
-    };
+    const r = row as any;
     const isRequester = r.requester_id === userId;
     const friend = isRequester ? r.addressee : r.requester;
     return {
@@ -199,7 +201,11 @@ export async function getOutgoingRequests(userId: string): Promise<FriendRequest
 // ─── Management ─────────────────────────────────────────────
 
 export async function removeFriend(friendshipId: string): Promise<void> {
-  await supabase.from('friendships').delete().eq('id', friendshipId);
+  const { error } = await supabase.from('friendships').delete().eq('id', friendshipId);
+  if (error) {
+    console.error('[Friends] removeFriend error:', error);
+    throw error;
+  }
 }
 
 export async function blockUser(friendshipId: string): Promise<void> {
@@ -212,6 +218,8 @@ export async function blockUser(friendshipId: string): Promise<void> {
 // ─── Counts ─────────────────────────────────────────────────
 
 export async function getRequestCount(userId: string): Promise<number> {
+  if (!userId) return 0;
+  
   const { count, error } = await supabase
     .from('friendships')
     .select('*', { count: 'exact', head: true })
@@ -219,7 +227,7 @@ export async function getRequestCount(userId: string): Promise<number> {
     .eq('status', 'pending');
 
   if (error) {
-    console.error('getRequestCount error:', error);
+    console.error('[Friends] getRequestCount error:', error);
     return 0;
   }
 
