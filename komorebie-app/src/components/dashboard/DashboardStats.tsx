@@ -30,7 +30,6 @@ const DashboardStats: React.FC = () => {
   React.useEffect(() => {
     if (profile?.daily_goal_seconds) {
       const hours = (profile.daily_goal_seconds / 3600).toString();
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLocalGoalHours(hours);
     }
   }, [profile?.daily_goal_seconds]);
@@ -155,18 +154,6 @@ const DashboardStats: React.FC = () => {
                       <span className="font-bold">{focusMin}m</span>
                       <span className="text-white/50">{sessionDots} session{sessionDots !== 1 ? 's' : ''}</span>
                     </div>
-
-                    {/* Session count dots */}
-                    {sessionDots > 0 && (
-                      <div className="flex gap-px mb-1.5 h-2 items-end">
-                        {Array.from({ length: Math.min(sessionDots, 5) }).map((_, si) => (
-                          <div 
-                            key={si} 
-                            className={`w-1.5 h-1.5 rounded-full ${isToday ? 'bg-sage-200/60' : 'bg-white/30'}`} 
-                          />
-                        ))}
-                      </div>
-                    )}
 
                     <motion.div
                       initial={{ height: 0 }}

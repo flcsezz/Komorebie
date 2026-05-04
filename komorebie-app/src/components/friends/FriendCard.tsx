@@ -102,7 +102,7 @@ const FriendCard: React.FC<FriendCardProps> = ({ friendship, onRemove, onViewPro
       {/* Hover Actions Overlay */}
       <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-xl flex flex-col items-center justify-center gap-3 opacity-0 group-hover:opacity-100 transition-all duration-300 z-20">
         <button
-          onClick={() => onViewProfile?.(friendship)}
+          onClick={(e) => { e.stopPropagation(); onViewProfile?.(friendship); }}
           className="w-36 flex items-center justify-center gap-2 py-3 rounded-2xl bg-white/10 text-white hover:bg-white/20 transition-all font-bold text-[10px] uppercase tracking-widest shadow-xl cursor-pointer"
         >
           <ExternalLink className="w-4 h-4" />
@@ -111,7 +111,7 @@ const FriendCard: React.FC<FriendCardProps> = ({ friendship, onRemove, onViewPro
         
         {!confirmRemove ? (
           <button
-            onClick={() => setConfirmRemove(true)}
+            onClick={(e) => { e.stopPropagation(); setConfirmRemove(true); }}
             className="w-36 flex items-center justify-center gap-2 py-3 rounded-2xl bg-red-500/10 text-red-300 hover:bg-red-500/20 border border-red-500/10 transition-all font-bold text-[10px] uppercase tracking-widest shadow-xl cursor-pointer"
           >
             <UserMinus className="w-4 h-4" />
@@ -126,13 +126,13 @@ const FriendCard: React.FC<FriendCardProps> = ({ friendship, onRemove, onViewPro
             <p className="text-[9px] text-red-200 font-bold uppercase text-center tracking-tight">Confirm Remove?</p>
             <div className="flex gap-1.5">
               <button
-                onClick={() => setConfirmRemove(false)}
+                onClick={(e) => { e.stopPropagation(); setConfirmRemove(false); }}
                 className="flex-1 py-1.5 text-[9px] bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors font-bold uppercase cursor-pointer"
               >
                 No
               </button>
               <button
-                onClick={() => { onRemove(friendship_id); }}
+                onClick={(e) => { e.stopPropagation(); onRemove(friendship_id); }}
                 className="flex-1 py-1.5 text-[9px] bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-bold uppercase cursor-pointer"
               >
                 Yes
