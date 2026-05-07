@@ -133,28 +133,23 @@ export const recalculateStreak = async (userId: string) => {
     if (error) throw error;
 
     let currentStreak = 0;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const todayStr = toLocalISO(new Date());
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = toLocalISO(yesterday);
 
     if (streakDays && streakDays.length > 0) {
-      // Check if most recent qualified day is today or yesterday
-      const latestDate = new Date(streakDays[0].focus_date + 'T00:00:00');
-      const diffDays = Math.floor((today.getTime() - latestDate.getTime()) / (1000 * 60 * 60 * 24));
+      // Create a set for fast lookup of qualified dates
+      const qualifiedDates = new Set(streakDays.map(d => d.focus_date));
       
-      if (diffDays <= 1) {
-        // Count consecutive days backward
-        const expectedDate = new Date(latestDate);
+      // Streak is active if either today or yesterday is qualified
+      if (qualifiedDates.has(todayStr) || qualifiedDates.has(yesterdayStr)) {
+        // Start from either today (if qualified) or yesterday
+        const checkDate = qualifiedDates.has(todayStr) ? new Date() : yesterday;
         
-        for (const day of streakDays) {
-          const dayDate = new Date(day.focus_date + 'T00:00:00');
-          const diff = Math.floor((expectedDate.getTime() - dayDate.getTime()) / (1000 * 60 * 60 * 24));
-          
-          if (diff === 0) {
-            currentStreak++;
-            expectedDate.setDate(expectedDate.getDate() - 1);
-          } else {
-            break;
-          }
+        while (qualifiedDates.has(toLocalISO(checkDate))) {
+          currentStreak++;
+          checkDate.setDate(checkDate.getDate() - 1);
         }
       }
     }

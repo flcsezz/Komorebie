@@ -1,6 +1,6 @@
 import { getR2PublicUrl } from './r2';
 
-export interface Background {
+export type Background = {
   id: string;
   name: string;
   url: string;
@@ -8,13 +8,13 @@ export interface Background {
   isSpecial?: boolean;
   ambientAudio?: string; // Optional R2 URL for profile-specific music
   unmutedAudio?: string; // High-priority admin/premium music
-}
+};
 
 export const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL || 'gauravbaghel7193@gmail.com';
 export const ADMIN_USERNAME = '@albertwesker';
 
 export const ADMIN_MUSIC = [
-  { id: 'wesker-theme', name: 'Wesker Theme', url: getR2PublicUrl('audio/wesker-theme.mp3') },
+  { id: 'admin-bgm', name: 'Admin BGM', url: getR2PublicUrl('audio/bgm.mp3') },
 ];
 
 export const PUBLIC_BACKGROUNDS: Background[] = [
@@ -48,10 +48,10 @@ export const SPECIAL_LIVE_BACKGROUNDS: Background[] = [
   { 
     id: 'admin-live', 
     name: 'Zen Admin', 
-    url: getR2PublicUrl('live-backgrounds/adminback.webm'), 
+    url: getR2PublicUrl('live-backgrounds/adminback.mp4'), 
     type: 'video', 
     isSpecial: true,
-    unmutedAudio: getR2PublicUrl('audio/wesker-theme.mp3') 
+    unmutedAudio: getR2PublicUrl('audio/bgm.mp3') 
   },
 ];
 

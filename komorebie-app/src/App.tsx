@@ -14,6 +14,7 @@ const FlowAnalytics = lazy(() => import('./pages/FlowAnalytics'));
 const ZenEnvironment = lazy(() => import('./components/three/ZenEnvironment'));
 const SchedulePage = lazy(() => import('./pages/SchedulePage'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
+const NotesPage = lazy(() => import('./pages/NotesPage'));
 const FlashcardLibrary = lazy(() => import('./pages/FlashcardLibrary'));
 const FlashcardDeckPage = lazy(() => import('./pages/FlashcardDeck'));
 const FriendsPage = lazy(() => import('./pages/FriendsPage'));
@@ -22,7 +23,7 @@ const BackgroundPage = lazy(() => import('./pages/BackgroundPage'));
 const LeaderboardPage = lazy(() => import('./pages/LeaderboardPage'));
 
 // Placeholders
-import { TasksPage, NotesPage, RoomPage, SocialPage, PlaceholderPage } from './pages/Placeholders';
+import { TasksPage, RoomPage, SocialPage, PlaceholderPage } from './pages/Placeholders';
 
 import ZenLoader from './components/ui/ZenLoader';
 import InitialLoader from './components/ui/InitialLoader';

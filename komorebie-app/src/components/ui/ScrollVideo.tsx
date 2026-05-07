@@ -39,7 +39,8 @@ const ScrollVideo: React.FC<ScrollVideoProps> = ({ src, className }) => {
           src={src}
           muted
           playsInline
-          className="w-full h-full object-cover"
+          preload="auto"
+          className="w-full h-full object-cover video-optimize-quality"
         />
         <div className="absolute inset-0 bg-slate-950/40" />
       </div>

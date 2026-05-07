@@ -170,13 +170,24 @@ body {
   image-rendering: -webkit-optimize-contrast; /* For Chromium browsers like Brave */
 }
 
-/* Force high-quality interpolation for background images */
+/* Force high-quality interpolation for background images and videos */
 .bg-optimize-quality {
   image-rendering: auto;
-  image-rendering: high-quality; /* Not standard, but some engines use it */
+  image-rendering: high-quality;
   -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
   transform: translateZ(0); /* Force GPU layer */
+}
+
+/* Specific optimization for video backgrounds */
+.video-optimize-quality {
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  perspective: 1000;
+  -webkit-perspective: 1000;
+  image-rendering: auto;
 }
 
 /* ─── Glassmorphism ─────────────────────────────────────────────────────

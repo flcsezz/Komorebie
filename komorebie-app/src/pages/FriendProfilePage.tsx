@@ -14,6 +14,7 @@ import { useBackground } from '../context/BackgroundContext';
 import { getProfileByUsername, getFriendshipStatus, sendFriendRequest, removeFriend, type PublicProfile } from '../lib/friends';
 import { usePresence } from '../hooks/usePresence';
 import { ALL_BACKGROUNDS, ADMIN_USERNAME } from '../lib/backgrounds';
+import { resolveProfileDecoration } from '../lib/profile-utils';
 
 
 const FriendProfilePage: React.FC = () => {
@@ -41,13 +42,7 @@ const FriendProfilePage: React.FC = () => {
 
   // Handle Ambient Audio
   useEffect(() => {
-    const targetBg = profile?.profile_bg || profile?.preferred_bg;
-    const bgInfo = ALL_BACKGROUNDS.find(b => b.url === targetBg);
-    
-    // Only play if it's the admin profile
-    
-    // Prioritize profile-specific unmuted_audio, then unmutedAudio, then ambientAudio
-    const audioUrl = profile?.unmuted_audio || bgInfo?.unmutedAudio || bgInfo?.ambientAudio;
+    const { audioUrl } = resolveProfileDecoration(profile, stats.totalHours, isTargetAdmin);
     
     if (audioUrl && isTargetAdmin && !loading && !statsLoading && !isAmbientMuted) {
       if (!audioRef.current || audioRef.current.src !== audioUrl) {
@@ -123,14 +118,10 @@ const FriendProfilePage: React.FC = () => {
         const p = await getProfileByUsername(username);
         if (p && active) {
           setProfile(p);
-          // Prioritize profile_bg for the friend's profile page view
-          const targetBg = p.profile_bg || p.preferred_bg;
-          if (targetBg) {
-            const bgInfo = ALL_BACKGROUNDS.find(b => b.url === targetBg);
-            setBackground(targetBg, bgInfo?.type || 'image');
-          } else {
-            resetBackground();
-          }
+          // Prioritize profile_bg for the friend's profile page view with safety checks
+          const { url, type } = resolveProfileDecoration(p, 0, isTargetAdmin); // Note: we'll update stats once loaded, starting with 0 or fallback
+          setBackground(url, type);
+          
           if (currentUser) {
             const status = await getFriendshipStatus(currentUser.id, p.id);
             if (active) setFriendship(status);
@@ -343,6 +334,9 @@ const FriendProfilePage: React.FC = () => {
           </motion.div>
         ))}
       </motion.div>
+
+      {/* Background Sync Logic for Friend */}
+      <FriendBackgroundSync profile={profile} stats={stats} isTargetAdmin={isTargetAdmin} setBackground={setBackground} />
       </div>
 
       {/* Yearly Heatmap Calendar - Full Width */}
@@ -356,6 +350,17 @@ const FriendProfilePage: React.FC = () => {
       </motion.div>
     </div>
   );
+};
+
+// Helper component to handle background sync without triggering main render loop issues
+const FriendBackgroundSync: React.FC<{ profile: any, stats: any, isTargetAdmin: boolean, setBackground: any }> = ({ profile, stats, isTargetAdmin, setBackground }) => {
+  useEffect(() => {
+    if (!profile) return;
+    const { url, type } = resolveProfileDecoration(profile, stats.totalHours, isTargetAdmin);
+    setBackground(url, type);
+  }, [profile?.id, profile?.profile_bg, profile?.preferred_bg, stats.totalHours, isTargetAdmin, setBackground]);
+
+  return null;
 };
 
 export default FriendProfilePage;

@@ -14,6 +14,7 @@ import { PUBLIC_BACKGROUNDS, SPECIAL_BACKGROUNDS, LIVE_BACKGROUNDS, SPECIAL_LIVE
 import type { Background } from '../lib/backgrounds';
 import { useBackground } from '../context/BackgroundContext';
 import { supabase } from '../lib/supabase';
+import ResilientVideo from '../components/ui/ResilientVideo';
 
 const BackgroundPage: React.FC = () => {
   const { user } = useAuth();
@@ -279,15 +280,10 @@ const BackgroundCard: React.FC<BackgroundCardProps> = ({
     >
       {/* Background Media */}
       {bg.type === 'video' ? (
-        <video
-          autoPlay
-          loop
-          muted
-          playsInline
-          className={`absolute inset-0 w-full h-full object-cover transition-transform duration-1000 ${isHovered ? 'scale-110' : 'scale-100'} ${isLocked ? 'blur-sm grayscale brightness-50' : ''}`}
-        >
-          <source src={bg.url} type={bg.url?.endsWith('.webm') ? 'video/webm' : 'video/mp4'} />
-        </video>
+        <ResilientVideo
+          src={bg.url}
+          className={`absolute inset-0 transition-transform duration-1000 ${isHovered ? 'scale-110' : 'scale-100'} ${isLocked ? 'blur-sm grayscale brightness-50' : ''}`}
+        />
       ) : (
         <div 
           className={`absolute inset-0 bg-cover bg-center transition-transform duration-1000 bg-optimize-quality ${isHovered ? 'scale-110' : 'scale-100'} ${isLocked ? 'blur-sm grayscale brightness-50' : ''}`}

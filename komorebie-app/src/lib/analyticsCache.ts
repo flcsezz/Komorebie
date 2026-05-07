@@ -252,19 +252,20 @@ export function computeStats(data: CachedAnalytics) {
     const yesterdayStr = toLocalISO(yesterday);
     
     // Streak is active if either today or yesterday is qualified
-    if (qualifiedDates.has(todayStr) || qualifiedDates.has(yesterdayStr)) {
+    const isAlive = qualifiedDates.has(todayStr) || qualifiedDates.has(yesterdayStr);
+    
+    if (isAlive) {
       const checkDate = qualifiedDates.has(todayStr) ? new Date() : yesterday;
       
       while (qualifiedDates.has(toLocalISO(checkDate))) {
         currentStreak++;
         checkDate.setDate(checkDate.getDate() - 1);
       }
+      
+      // Fallback to profile field if it's higher (e.g. data older than 365 days)
+      // but only if the streak is actually alive.
+      currentStreak = Math.max(currentStreak, profile?.current_streak || 0);
     }
-  }
-
-  // Fallback to profile field if calculation is 0 but profile says otherwise (e.g. data older than 365 days)
-  if (currentStreak === 0 && profile?.current_streak > 0) {
-    currentStreak = profile.current_streak;
   }
 
   const bestStreak = Math.max(currentStreak, profile?.best_streak || 0);

@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Settings, Camera, Trophy, Flame, Clock, Target, X, Check, Loader2, AlertTriangle, Trash2, ShieldCheck, Image as ImageIcon, Volume2, VolumeX } from 'lucide-react';
+import { Settings, Camera, Trophy, Flame, Clock, Target, X, Check, Loader2, AlertTriangle, Trash2, ShieldCheck, Image as ImageIcon, Volume2, VolumeX, Lock } from 'lucide-react';
 import GlassCard from '../components/ui/GlassCard';
 import FocusActivityWidget from '../components/analytics/FocusActivityWidget';
 import { useAnalytics } from '../hooks/useAnalytics';
@@ -11,7 +11,10 @@ import { resizeImage } from '../lib/image-utils';
 import { ADMIN_EMAIL, ADMIN_MUSIC, ALL_BACKGROUNDS, ADMIN_USERNAME } from '../lib/backgrounds';
 import { useNavigate } from 'react-router-dom';
 import { useBackground } from '../context/BackgroundContext';
-import { Music, ListMusic } from 'lucide-react';
+import { Music, ListMusic, Sparkles as SparklesIcon } from 'lucide-react';
+import ProfileStyleModal from '../components/profile/ProfileStyleModal';
+import { resolveProfileDecoration } from '../lib/profile-utils';
+import ResilientVideo from '../components/ui/ResilientVideo';
 
 const ProfilePage: React.FC = () => {
   const { user } = useAuth();
@@ -34,16 +37,14 @@ const ProfilePage: React.FC = () => {
   const [showMusicMenu, setShowMusicMenu] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const fadeIntervalRef = useRef<any>(null);
+  const [showStyleModal, setShowStyleModal] = useState(false);
 
-  // Sync background on load
+  // Sync background on load with safety logic
   useEffect(() => {
-    const targetBg = profile?.profile_bg || profile?.preferred_bg;
-    if (targetBg) {
-      const bgInfo = ALL_BACKGROUNDS.find(b => b.url === targetBg);
-      setBackground(targetBg, bgInfo?.type || 'image');
-    }
+    const { url, type } = resolveProfileDecoration(profile, stats.totalHours, isAdmin);
+    setBackground(url, type);
     return () => resetBackground();
-  }, [profile?.profile_bg, profile?.preferred_bg, setBackground, resetBackground]);
+  }, [profile?.profile_bg, profile?.preferred_bg, stats.totalHours, isAdmin, setBackground, resetBackground]);
 
   // Sync mute state
   useEffect(() => {
@@ -52,14 +53,9 @@ const ProfilePage: React.FC = () => {
 
   // Ambient Audio Logic
   useEffect(() => {
-    const bgUrl = profile?.profile_bg || profile?.preferred_bg;
-    const bgInfo = ALL_BACKGROUNDS.find(b => b.url === bgUrl);
-    
     // Only play if it's the admin profile OR if the current user is admin
     const isTargetAdmin = profile?.username === ADMIN_USERNAME.replace('@', '');
-    
-    // Prioritize profile-specific unmuted_audio if it exists, otherwise fallback to background default
-    const audioUrl = profile?.unmuted_audio || bgInfo?.unmutedAudio || bgInfo?.ambientAudio;
+    const { audioUrl } = resolveProfileDecoration(profile, stats.totalHours, isAdmin);
     
     if (audioUrl && isTargetAdmin && !isAmbientMuted) {
       if (!audioRef.current || audioRef.current.src !== audioUrl) {
@@ -125,21 +121,7 @@ const ProfilePage: React.FC = () => {
     };
   }, [profile?.username, profile?.unmuted_audio, profile?.profile_bg, profile?.preferred_bg, isAmbientMuted]);
 
-  const handleUpdateMusic = async (audioUrl: string) => {
-    if (!user || !isAdmin) return;
-    try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ unmuted_audio: audioUrl })
-        .eq('id', user.id);
-      
-      if (error) throw error;
-      await refresh();
-      setShowMusicMenu(false);
-    } catch (err) {
-      console.error('Failed to update music:', err);
-    }
-  };
+  // handleUpdateMusic moved to ProfileStyleModal
 
 
   const displayName = profile?.display_name || profile?.full_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Explorer';
@@ -421,16 +403,15 @@ const ProfilePage: React.FC = () => {
                 {isAmbientMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
               </button>
             )}
-            {isAdmin && (
-              <button 
-                onClick={() => navigate('/app/background')} 
-                className="p-2.5 rounded-xl bg-sage-200/10 border border-sage-200/20 text-sage-200 hover:bg-sage-200/20 transition-all cursor-pointer flex items-center gap-2 px-4 group"
-                title="Change Profile Background"
-              >
-                <ImageIcon className="w-4 h-4" />
-                <span className="text-[10px] font-bold uppercase tracking-widest hidden sm:inline">Profile Style</span>
-              </button>
-            )}
+            <button 
+              onClick={() => setShowStyleModal(true)} 
+              className="p-2.5 rounded-xl bg-sage-200/10 border border-sage-200/20 text-sage-200 hover:bg-sage-200/20 transition-all cursor-pointer flex items-center gap-2 px-4 group"
+              title="Change Profile Decoration"
+            >
+              <ImageIcon className="w-4 h-4" />
+              <span className="text-[10px] font-bold uppercase tracking-widest hidden sm:inline">Profile Style</span>
+              {stats.totalHours < 35 && !isAdmin && <Lock className="w-3 h-3 text-white/20" />}
+            </button>
             <button onClick={openSettings} className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-white/40 hover:text-white hover:bg-white/10 transition-all cursor-pointer" title="Profile Settings">
               <Settings className="w-4 h-4" />
             </button>
@@ -505,7 +486,7 @@ const ProfilePage: React.FC = () => {
 
       {/* Admin Music Manager - Bottom Right */}
       {isAdmin && (
-        <div className="fixed bottom-7 right-8 z-50 flex flex-col items-end gap-2 mb-14 sm:mb-0">
+        <div className="fixed bottom-[43px] right-8 z-50 flex flex-col items-end gap-2 mb-14 sm:mb-0">
           <AnimatePresence>
             {showMusicMenu && (
               <motion.div
@@ -552,6 +533,19 @@ const ProfilePage: React.FC = () => {
     </div>
 
     {settingsModal}
+
+    {user && (
+      <ProfileStyleModal
+        isOpen={showStyleModal}
+        onClose={() => setShowStyleModal(false)}
+        totalHours={stats.totalHours}
+        isAdmin={isAdmin}
+        currentBg={profile?.profile_bg || null}
+        currentAudio={profile?.unmuted_audio || null}
+        userId={user.id}
+        onUpdate={refresh}
+      />
+    )}
     </>
   );
 };

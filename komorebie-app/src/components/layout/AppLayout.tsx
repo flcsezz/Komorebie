@@ -12,6 +12,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { useAnalytics } from '../../hooks/useAnalytics';
 import InitialLoader from '../ui/InitialLoader';
+import ResilientVideo from '../ui/ResilientVideo';
 import OnboardingOverlay from '../profile/OnboardingOverlay';
 import { getRequestCount } from '../../lib/friends';
 import { supabase } from '../../lib/supabase';
@@ -195,15 +196,17 @@ const AppLayout: React.FC = () => {
     return localStorage.getItem('komorebie-bg') || ALL_BACKGROUNDS[0].url;
   });
 
-  // Sync background state with profile when it loads
+  const lastSyncedBgRef = useRef<string | null>(null);
+
   // Sync local bg state with profile background if it changes
   useEffect(() => {
-    if (profile?.preferred_bg && profile.preferred_bg !== bgImage) {
+    if (profile?.preferred_bg && profile.preferred_bg !== lastSyncedBgRef.current) {
       console.log('AppLayout: Syncing bgImage from profile:', profile.preferred_bg);
       setBgImage(profile.preferred_bg);
       localStorage.setItem('komorebie-bg', profile.preferred_bg);
+      lastSyncedBgRef.current = profile.preferred_bg;
     }
-  }, [profile?.preferred_bg, bgImage]);
+  }, [profile?.preferred_bg]);
 
   // Log background override status for debugging
   useEffect(() => {
@@ -319,10 +322,20 @@ const AppLayout: React.FC = () => {
     localStorage.setItem('komorebie-bg', newBg);
     
     if (user) {
-      await supabase.from('profiles').update({ preferred_bg: newBg }).eq('id', user.id);
-      await refresh(); // Refresh profile so stats/context stay in sync
+      try {
+        await supabase.from('profiles').update({ preferred_bg: newBg }).eq('id', user.id);
+        // Update the ref so the sync effect doesn't revert it
+        lastSyncedBgRef.current = newBg;
+        await refresh(); 
+      } catch (err) {
+        console.error('Failed to update background preference:', err);
+      }
     }
   }, [user, refresh]);
+
+  const activeBg = background || bgImage;
+  const isVideoByExtension = activeBg ? /\.(mp4|webm|mov|ogg)($|\?)/i.test(activeBg) : false;
+  const isVideo = backgroundType === 'video' || isVideoByExtension || (ALL_BACKGROUNDS.find(b => b.url === activeBg)?.type === 'video');
 
   if (authLoading) {
     return (
@@ -347,31 +360,37 @@ const AppLayout: React.FC = () => {
           )}
         </AnimatePresence>
 
-        {/* Dynamic Background */}
-        <div className="fixed inset-0 z-0 pointer-events-none opacity-40 overflow-hidden bg-slate-950">
-          {(background || bgImage) && (
-            backgroundType === 'video' || (ALL_BACKGROUNDS.find(b => b.url === (background || bgImage))?.type === 'video') ? (
-              <video
-                key={background || bgImage}
-                autoPlay
-                loop
-                muted
-                playsInline
-                className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000"
-                style={{ transform: 'scale(1.05)' }}
+        {/* Dynamic Background — Crossfade System */}
+        <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden bg-slate-950">
+          <AnimatePresence mode="popLayout">
+            {activeBg && (
+              <motion.div
+                key={activeBg}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 1.5, ease: 'easeInOut' }}
+                className="absolute inset-0"
               >
-                <source src={background || bgImage} type={(background || bgImage)?.endsWith('.webm') ? 'video/webm' : 'video/mp4'} />
-              </video>
-            ) : (
-              <div 
-                className="absolute inset-0 bg-cover bg-center transition-all duration-700 ease-in-out bg-optimize-quality"
-                style={{ backgroundImage: `url("${background || bgImage}")`, transform: 'scale(1.05)' }}
-              />
-            )
-          )}
+                {isVideo ? (
+                  <ResilientVideo
+                    key={activeBg}
+                    src={activeBg}
+                    className="absolute inset-0"
+                  />
+                ) : (
+                  <div 
+                    className="absolute inset-0 bg-cover bg-center bg-optimize-quality"
+                    style={{ backgroundImage: `url("${activeBg}")` }}
+                  />
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+          
+          {/* Subtle dark overlay to ensure UI elements remain readable regardless of background content */}
+          <div className="absolute inset-0 bg-slate-950/40 z-1" />
         </div>
-        {/* Background Overlay */}
-        <div className="fixed inset-0 z-[1] bg-slate-950/20 pointer-events-none" />
         
         {/* Sidebar - Hover Peek Behavior */}
         <motion.aside 
@@ -562,7 +581,16 @@ const AppLayout: React.FC = () => {
                               bgImage === bg.url ? 'bg-sage-200/15 text-white font-bold' : 'text-white/50 hover:bg-white/5 hover:text-white'
                             }`}
                           >
-                            <div className="w-6 h-4 rounded bg-cover bg-center border border-white/10 bg-optimize-quality" style={{ backgroundImage: `url(${bg.url})` }} />
+                            {bg.type === 'video' ? (
+                              <video 
+                                src={bg.url} 
+                                className="w-6 h-4 rounded object-cover border border-white/10" 
+                                muted 
+                                playsInline 
+                              />
+                            ) : (
+                              <div className="w-6 h-4 rounded bg-cover bg-center border border-white/10 bg-optimize-quality" style={{ backgroundImage: `url(${bg.url})` }} />
+                            )}
                             {bg.name}
                           </button>
                         ))}
