@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useAnalytics } from '../../hooks/useAnalytics';
+import { useDevice } from '../../hooks/useDevice';
 import InitialLoader from '../ui/InitialLoader';
 import ResilientVideo from '../ui/ResilientVideo';
 import OnboardingOverlay from '../profile/OnboardingOverlay';
@@ -18,6 +19,7 @@ import { getRequestCount } from '../../lib/friends';
 import { supabase } from '../../lib/supabase';
 import { useBackground } from '../../context/BackgroundContext';
 import { getVisibleBackgrounds, ALL_BACKGROUNDS } from '../../lib/backgrounds';
+import OptimizedImage from '../ui/OptimizedImage';
 
 // Spring configuration for animations
 const springConfig = { type: "spring" as const, stiffness: 300, damping: 35 };
@@ -161,6 +163,7 @@ const SidebarSection = ({ label, isCollapsed, children }: { label: string, isCol
 const AppLayout: React.FC = () => {
   const { user, loading: authLoading, signOut } = useAuth();
   const { profile, stats, refresh } = useAnalytics();
+  const { isMobile, isTouch } = useDevice();
   const location = useLocation();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [prevPath, setPrevPath] = useState(location.pathname);
@@ -379,9 +382,13 @@ const AppLayout: React.FC = () => {
                     className="absolute inset-0"
                   />
                 ) : (
-                  <div 
-                    className="absolute inset-0 bg-cover bg-center bg-optimize-quality"
-                    style={{ backgroundImage: `url("${activeBg}")` }}
+                  <OptimizedImage
+                    key={activeBg}
+                    src={activeBg}
+                    alt="Background"
+                    loading="eager" // Backgrounds are critical
+                    fetchPriority="high" // React 19 supports this
+                    className="absolute inset-0"
                   />
                 )}
               </motion.div>
@@ -392,15 +399,16 @@ const AppLayout: React.FC = () => {
           <div className="absolute inset-0 bg-slate-950/40 z-1" />
         </div>
         
-        {/* Sidebar - Hover Peek Behavior */}
-        <motion.aside 
-          initial={false}
-          animate={{ width: isCollapsed ? 80 : 260 }}
-          transition={springConfig}
-          onMouseEnter={() => setIsCollapsed(false)}
-          onMouseLeave={() => setIsCollapsed(true)}
-          className="h-screen border-r border-white/10 flex flex-col z-30 glass relative"
-        >
+        {/* Sidebar - Hover Peek Behavior (Desktop/Tablet) */}
+        {!isMobile && (
+          <motion.aside 
+            initial={false}
+            animate={{ width: isCollapsed ? 80 : 260 }}
+            transition={springConfig}
+            onMouseEnter={() => !isTouch && setIsCollapsed(false)}
+            onMouseLeave={() => !isTouch && setIsCollapsed(true)}
+            className="h-screen border-r border-white/10 flex flex-col z-30 glass relative"
+          >
           {/* Sidebar Header */}
           <div 
             className={`py-6 flex items-center min-h-[80px] overflow-hidden transition-all duration-300 ${isCollapsed ? 'justify-center px-0' : 'px-6'}`}
@@ -415,10 +423,10 @@ const AppLayout: React.FC = () => {
               className={`flex items-center gap-3 p-2 rounded-2xl bg-white/5 border border-white/5 transition-colors hover:bg-white/10 group/profile ${isCollapsed ? 'w-12 h-12 justify-center mx-auto' : 'w-full'}`}
             >
               {profile?.avatar_url ? (
-                <img 
+                <OptimizedImage 
                   src={profile.avatar_url} 
                   alt="Avatar" 
-                  className="w-8 h-8 rounded-lg object-cover flex-shrink-0 border border-white/10 group-hover/profile:border-sage-200/30 transition-colors" 
+                  className="w-8 h-8 rounded-lg flex-shrink-0 border border-white/10 group-hover/profile:border-sage-200/30 transition-colors" 
                 />
               ) : (
                 <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center flex-shrink-0 border border-white/10 group-hover/profile:border-sage-200/30 transition-colors">
@@ -505,12 +513,13 @@ const AppLayout: React.FC = () => {
             </button>
           </div>
         </motion.aside>
+        )}
 
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col min-h-0 relative z-10">
           
           {/* Topbar */}
-          <header className="h-20 flex items-center justify-between px-8 relative z-30">
+          <header className={`flex items-center justify-between relative z-30 ${isMobile ? 'h-16 px-4' : 'h-20 px-8'}`}>
             <div className="flex items-center gap-4">
               <div 
                 className="flex items-center gap-2 cursor-pointer group"
@@ -539,18 +548,20 @@ const AppLayout: React.FC = () => {
 </AnimatePresence>
               </div>
               
-              <button className="flex items-center gap-2 px-4 py-1.5 bg-sage-200/15 text-sage-200 border border-sage-200/30 rounded-full text-[10px] uppercase tracking-[0.2em] transition-colors hover:bg-sage-200/25 font-bold cursor-pointer shadow-[0_0_15px_rgba(183,201,176,0.1)]">
+              <button className="flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-1.5 bg-sage-200/15 text-sage-200 border border-sage-200/30 rounded-full text-[10px] uppercase tracking-[0.2em] transition-colors hover:bg-sage-200/25 font-bold cursor-pointer shadow-[0_0_15px_rgba(183,201,176,0.1)]">
                 <Crown className="w-3.5 h-3.5" strokeWidth={3} />
-                Go Premium
+                <span className="hidden md:inline">Go Premium</span>
               </button>
 
-              <button 
-                onClick={toggleFullscreen}
-                className="flex items-center gap-2 px-4 py-1.5 bg-white/5 border border-white/10 rounded-full transition-colors hover:bg-white/10 text-white/40 hover:text-white cursor-pointer"
-              >
-                {isFullscreen ? <Minimize className="w-3.5 h-3.5" strokeWidth={2} /> : <Maximize className="w-3.5 h-3.5" strokeWidth={2} />}
-                <span className="text-[11px] font-bold tracking-wide">{isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}</span>
-              </button>
+              {!isMobile && (
+                <button 
+                  onClick={toggleFullscreen}
+                  className="flex items-center gap-2 px-4 py-1.5 bg-white/5 border border-white/10 rounded-full transition-colors hover:bg-white/10 text-white/40 hover:text-white cursor-pointer"
+                >
+                  {isFullscreen ? <Minimize className="w-3.5 h-3.5" strokeWidth={2} /> : <Maximize className="w-3.5 h-3.5" strokeWidth={2} />}
+                  <span className="text-[11px] font-bold tracking-wide">{isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}</span>
+                </button>
+              )}
               
               <div className="relative flex items-center ml-2">
                 <button 
@@ -610,7 +621,7 @@ const AppLayout: React.FC = () => {
                   }`}
                 >
                   {profile?.avatar_url ? (
-                    <img src={profile.avatar_url} alt="PFP" className="w-7 h-7 rounded-full object-cover border border-white/5" />
+                    <OptimizedImage src={profile.avatar_url} alt="PFP" className="w-7 h-7 rounded-full border border-white/5" />
                   ) : (
                     <div className="w-7 h-7 rounded-full bg-sage-200/20 flex items-center justify-center border border-white/5 overflow-hidden relative">
                       <span className="text-sage-200 text-[10px] font-bold relative z-10">
@@ -619,7 +630,7 @@ const AppLayout: React.FC = () => {
                     </div>
                   )}
                   <span className="text-xs font-light text-white/50 group-hover:text-white transition-colors flex items-center gap-2">
-                    {profile?.display_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Explorer'}
+                    <span className="hidden sm:inline">{profile?.display_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Explorer'}</span>
                     <ChevronDown className={`w-3 h-3 transition-transform duration-300 ${showProfileMenu ? 'rotate-180' : ''}`} />
                   </span>
                 </button>
@@ -698,13 +709,44 @@ const AppLayout: React.FC = () => {
             </div>
           </main>
           
-          {/* Bottom Right Time */}
-          <div className="absolute bottom-6 right-6 flex items-center gap-2 px-4 py-1.5 bg-white/5 border border-white/10 rounded-full z-20 hover:bg-white/10 transition-colors">
-            <Clock className="w-4 h-4 text-sage-200" />
-            <span className="text-[12px] font-mono font-bold text-white tabular-nums">
-              {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </span>
-          </div>
+          {/* Bottom Right Time (Desktop/Tablet) */}
+          {!isMobile && (
+            <div className="absolute bottom-6 right-6 flex items-center gap-2 px-4 py-1.5 bg-white/5 border border-white/10 rounded-full z-20 hover:bg-white/10 transition-colors">
+              <Clock className="w-4 h-4 text-sage-200" />
+              <span className="text-[12px] font-mono font-bold text-white tabular-nums">
+                {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            </div>
+          )}
+
+          {/* Mobile Bottom Navigation */}
+          {isMobile && (
+            <nav className="h-16 glass-deep border-t border-white/10 flex items-center justify-around px-2 relative z-50">
+              <Link to="/app" className={`flex flex-col items-center gap-1 p-2 ${location.pathname === '/app' ? 'text-sage-200' : 'text-white/40'}`}>
+                <LayoutDashboard className="w-5 h-5" />
+                <span className="text-[9px] font-bold uppercase tracking-tighter">Dashboard</span>
+              </Link>
+              <Link to="/app/analytics" className={`flex flex-col items-center gap-1 p-2 ${location.pathname === '/app/analytics' ? 'text-sage-200' : 'text-white/40'}`}>
+                <BarChart3 className="w-5 h-5" />
+                <span className="text-[9px] font-bold uppercase tracking-tighter">Analytics</span>
+              </Link>
+              <Link to="/app/friends" className={`flex flex-col items-center gap-1 p-2 ${location.pathname === '/app/friends' ? 'text-sage-200' : 'text-white/40'}`}>
+                <div className="relative">
+                  <Users className="w-5 h-5" />
+                  {!!friendRequestBadge && friendRequestBadge > 0 && (
+                    <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-sage-200 text-slate-950 text-[7px] font-black flex items-center justify-center">
+                      {friendRequestBadge}
+                    </div>
+                  )}
+                </div>
+                <span className="text-[9px] font-bold uppercase tracking-tighter">Social</span>
+              </Link>
+              <Link to="/app/profile" className={`flex flex-col items-center gap-1 p-2 ${location.pathname === '/app/profile' ? 'text-sage-200' : 'text-white/40'}`}>
+                <Settings className="w-5 h-5" />
+                <span className="text-[9px] font-bold uppercase tracking-tighter">Settings</span>
+              </Link>
+            </nav>
+          )}
         </div>
     </div>
   );

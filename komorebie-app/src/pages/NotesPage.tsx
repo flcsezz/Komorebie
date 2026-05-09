@@ -16,7 +16,7 @@ import {
   Maximize2,
   Minimize2
 } from 'lucide-react';
-import { useNotes, Note } from '../hooks/useNotes';
+import { useNotes } from '../hooks/useNotes';
 import GlassCard from '../components/ui/GlassCard';
 import PageTransition from '../components/ui/PageTransition';
 import ZenLoader from '../components/ui/ZenLoader';

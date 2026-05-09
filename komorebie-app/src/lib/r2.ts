@@ -7,10 +7,10 @@
  */
 
 export const R2_CONFIG = {
-  accountId: import.meta.env.VITE_CLOUDFLARE_ACCOUNT_ID || '96aa2c67194083a6ef79367d4b7703d8',
+  accountId: import.meta.env.VITE_CLOUDFLARE_ACCOUNT_ID || '',
   bucketName: import.meta.env.VITE_R2_BUCKET_NAME || 'komorebie-assets',
   publicDomain: import.meta.env.VITE_R2_PUBLIC_DOMAIN || 'assets.komorebie.flcsezz.sbs',
-  endpoint: import.meta.env.VITE_R2_ENDPOINT || 'https://96aa2c67194083a6ef79367d4b7703d8.r2.cloudflarestorage.com',
+  endpoint: import.meta.env.VITE_R2_ENDPOINT || '',
 };
 
 /**

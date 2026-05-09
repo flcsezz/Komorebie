@@ -13,6 +13,7 @@ import ZenClock from '../components/dashboard/ZenClock';
 import AmbientPresence from '../components/dashboard/AmbientPresence';
 import { useZenClock } from '../context/ZenClockContext';
 import { useAnalytics } from '../hooks/useAnalytics';
+import { useDevice } from '../hooks/useDevice';
 import { useAuth } from '../context/AuthContext';
 import { createDeadline, deleteDeadline } from '../lib/analytics';
 
@@ -20,6 +21,7 @@ const TaskCapture: React.FC = () => {
   const { stats, streakDates, deadlines, refresh } = useAnalytics();
   const { isActive } = useZenClock();
   const { user } = useAuth();
+  const { isTouch } = useDevice();
 
   // Deadline modal
   const [showDeadlineModal, setShowDeadlineModal] = useState(false);
@@ -81,24 +83,11 @@ const TaskCapture: React.FC = () => {
   return (
     <>
     <div className="min-h-full w-full max-w-[1800px] mx-auto pt-0 px-8">
-      <div className="flex flex-col lg:flex-row gap-6 items-start">
+      <div className="flex flex-col md:flex-row gap-6 items-start">
         
-        {/* Left Column: Streak + Analytics */}
+        {/* Center Column: The Altar (Clock) - Order 1 on mobile */}
         <div 
-          className="w-full lg:w-auto flex flex-col gap-4 transition-all duration-700 ease-in-out"
-          style={{ flex: isActive ? '2.43 1 0%' : '2.67 1 0%' }}
-        >
-          <StreakWidget 
-            currentStreak={stats.currentStreak} 
-            bestStreak={stats.bestStreak} 
-            streakDates={streakDates}
-          />
-          <DashboardStats />
-        </div>
- 
-        {/* Center Column: The Altar */}
-        <div 
-          className="w-full lg:w-auto flex flex-col gap-4 transition-all duration-700 ease-in-out"
+          className="w-full md:w-auto flex flex-col gap-4 transition-all duration-700 ease-in-out order-1 md:order-2"
           style={{ flex: isActive ? '6.78 1 0%' : '6.55 1 0%' }}
         >
           <GlassCard variant="icy" className="p-6 flex items-center justify-center min-h-[380px]">
@@ -110,9 +99,22 @@ const TaskCapture: React.FC = () => {
           </GlassCard>
         </div>
 
-        {/* Right Column: Deadlines + The Path */}
+        {/* Left Column: Streak + Analytics - Order 2 on mobile */}
         <div 
-          className="w-full lg:w-auto flex flex-col gap-4 h-full transition-all duration-700 ease-in-out"
+          className="w-full md:w-auto flex flex-col gap-4 transition-all duration-700 ease-in-out order-2 md:order-1"
+          style={{ flex: isActive ? '2.43 1 0%' : '2.67 1 0%' }}
+        >
+          <StreakWidget 
+            currentStreak={stats.currentStreak} 
+            bestStreak={stats.bestStreak} 
+            streakDates={streakDates}
+          />
+          <DashboardStats />
+        </div>
+ 
+        {/* Right Column: Deadlines + The Path - Order 3 on mobile */}
+        <div 
+          className="w-full md:w-auto flex flex-col gap-4 h-full transition-all duration-700 ease-in-out order-3"
           style={{ flex: isActive ? '2.79 1 0%' : '2.78 1 0%' }}
         >
           {/* Deadlines Widget */}
@@ -152,7 +154,7 @@ const TaskCapture: React.FC = () => {
                         <div className="flex items-center gap-1.5">
                           <button 
                             onClick={(e) => { e.stopPropagation(); handleDeleteDeadline(d.id); }}
-                            className="p-1 rounded-lg text-white/10 hover:text-red-400/60 hover:bg-red-400/5 transition-all opacity-0 group-hover/item:opacity-100 cursor-pointer"
+                            className={`p-1 rounded-lg text-white/10 hover:text-red-400/60 hover:bg-red-400/5 transition-all cursor-pointer ${isTouch ? 'opacity-100' : 'opacity-0 group-hover/item:opacity-100'}`}
                           >
                             <Trash2 className="w-3 h-3" />
                           </button>

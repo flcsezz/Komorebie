@@ -11,7 +11,7 @@ interface ResilientVideoProps extends React.VideoHTMLAttributes<HTMLVideoElement
 const ResilientVideo: React.FC<ResilientVideoProps> = ({ src, className, ...props }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isBuffering, setIsBuffering] = useState(false);
-  const [retryCount, setRetryCount] = useState(0);
+  const [retryCount] = useState(0);
 
   useEffect(() => {
     const video = videoRef.current;

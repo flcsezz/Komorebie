@@ -14,6 +14,7 @@ import GlassCard from '../components/ui/GlassCard';
 import PageTransition from '../components/ui/PageTransition';
 import { useAuth } from '../context/AuthContext';
 import ZenLoader from '../components/ui/ZenLoader';
+import OptimizedImage from '../components/ui/OptimizedImage';
 
 interface LeaderboardUser {
   id: string;
@@ -241,10 +242,10 @@ const LeaderboardPage: React.FC = () => {
                       </div>
                       
                       <div className="relative">
-                        <img 
+                        <OptimizedImage 
                           src={u.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.username}`} 
                           alt={u.username}
-                          className="w-10 h-10 rounded-full border border-white/10 object-cover"
+                          className="w-10 h-10 rounded-full border border-white/10"
                         />
                         {u.id === currentUser?.id && (
                           <div className="absolute -top-1 -right-1 w-3 h-3 bg-sage-200 rounded-full border-2 border-slate-950" />
@@ -344,10 +345,10 @@ const PodiumCard: React.FC<PodiumCardProps> = ({ user, rank, delay, formatTime, 
 
         {/* Avatar */}
         <div className="relative inline-block mb-4">
-          <img 
+          <OptimizedImage 
             src={user.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.username}`} 
             alt={user.username}
-            className={`rounded-full border-2 object-cover ${
+            className={`rounded-full border-2 ${
               isFirst ? 'w-24 h-24 border-sage-200' : 'w-20 h-20 border-white/20'
             }`}
           />

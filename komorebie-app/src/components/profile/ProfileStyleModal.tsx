@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Lock, Sparkles, Image as ImageIcon, Video, Music, Loader2, Check } from 'lucide-react';
 import GlassCard from '../ui/GlassCard';
-import type { Background } from '../../lib/backgrounds';
 import { ALL_BACKGROUNDS, PUBLIC_BACKGROUNDS, SPECIAL_BACKGROUNDS, ADMIN_MUSIC } from '../../lib/backgrounds';
 import { supabase } from '../../lib/supabase';
 import ResilientVideo from '../ui/ResilientVideo';

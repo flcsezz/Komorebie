@@ -27,6 +27,12 @@ interface ZenClockContextType {
 
 const ZenClockContext = createContext<ZenClockContextType | undefined>(undefined);
 
+// Pomodoro duration constants (minutes)
+const POMODORO_WORK_MINUTES = 25;
+const POMODORO_SHORT_BREAK_MINUTES = 5;
+const POMODORO_LONG_BREAK_MINUTES = 15;
+const POMODORO_TOTAL_CYCLES = 4;
+
 export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isPomodoroMode, setIsPomodoroModeState] = useState(() => {
     return localStorage.getItem('zen-pomodoro-mode') === 'true';
@@ -56,12 +62,19 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const { user } = useAuth();
   
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const alarmTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastLocalUpdateRef = useRef<number>(0);
+  // Guard to prevent double-firing of completion logic within the tick effect
+  const hasTriggeredCompletionRef = useRef<boolean>(false);
+  // Debounce timer for cloud sync
+  const syncDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Stable ref for Supabase channel to prevent leak on re-renders
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
-  // Cloud Sync Helper
-  const syncTimerToCloud = useCallback(async (
+  // Raw cloud sync (no debounce) — used internally
+  const syncTimerToCloudImmediate = useCallback(async (
     active: boolean, 
     start: string | null, 
     remSeconds: number, 
@@ -87,6 +100,26 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       console.error('Failed to sync timer to cloud:', err);
     }
   }, [user]);
+
+  // Debounced cloud sync — coalesces rapid state changes (500ms trailing edge)
+  const syncTimerToCloud = useCallback((
+    active: boolean,
+    start: string | null,
+    remSeconds: number,
+    isPom: boolean,
+    pomState: PomodoroState,
+    sessionDurSeconds: number
+  ) => {
+    // Update the local guard immediately so real-time listener ignores echo
+    lastLocalUpdateRef.current = Date.now();
+
+    if (syncDebounceRef.current) {
+      clearTimeout(syncDebounceRef.current);
+    }
+    syncDebounceRef.current = setTimeout(() => {
+      syncTimerToCloudImmediate(active, start, remSeconds, isPom, pomState, sessionDurSeconds);
+    }, 500);
+  }, [syncTimerToCloudImmediate]);
 
   // Initial Cloud Sync
   useEffect(() => {
@@ -116,6 +149,8 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             setSessionStartTime(data.started_at);
             setIsPomodoroModeState(data.is_pomodoro);
             setPomodoroState(data.pomodoro_state);
+            // Reset the completion guard since we're restoring an active timer
+            hasTriggeredCompletionRef.current = false;
           } else if (!data.is_active) {
             // Paused state in cloud
             const sessionDur = data.session_duration || data.duration_seconds;
@@ -135,9 +170,15 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     fetchCloudTimer();
   }, [user]);
 
-  // Real-time Sync Listener
+  // Real-time Sync Listener — stable subscription, no re-subscribe on state changes
   useEffect(() => {
     if (!user) return;
+
+    // Clean up any existing channel before creating a new one (StrictMode safety)
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
+    }
 
     const channel = supabase
       .channel(`timer_sync_${user.id}`)
@@ -157,16 +198,9 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         };
         if (!data) return;
 
-        const cloudRemaining = data.is_active && data.started_at 
-          ? data.duration_seconds - Math.floor((Date.now() - new Date(data.started_at).getTime()) / 1000)
-          : data.duration_seconds;
-
         // Ignore if we recently updated locally (avoid race conditions/jumps)
-        if (Date.now() - lastLocalUpdateRef.current < 2000) {
-          return;
-        }
-
-        if (data.is_active === isActive && data.pomodoro_state === pomodoroState && Math.abs(timeLeft - cloudRemaining) < 3) {
+        // Widened from 2s to 5s to prevent cloud overwrites during Pomodoro phase transitions
+        if (Date.now() - lastLocalUpdateRef.current < 5000) {
           return;
         }
 
@@ -183,6 +217,7 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           setSessionStartTime(data.started_at);
           setIsPomodoroModeState(data.is_pomodoro);
           setPomodoroState(data.pomodoro_state);
+          hasTriggeredCompletionRef.current = false;
         } else {
           setIsActive(false);
           setTargetEndTime(null);
@@ -195,10 +230,17 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       })
       .subscribe();
 
+    channelRef.current = channel;
+
     return () => {
-      supabase.removeChannel(channel);
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
     };
-  }, [user, isActive, pomodoroState, duration, timeLeft]);
+  // Only re-subscribe when user identity changes, NOT on every state change
+  // This prevents subscription churn that causes memory leaks
+  }, [user?.id]);
 
   // Persistence
   useEffect(() => {
@@ -245,56 +287,140 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }, 7000);
   }, [selectedAlarm, stopAlarm]);
 
+  const playTransitionSound = useCallback(() => {
+    const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'); // Zen Bell
+    audio.volume = 0.4;
+    audio.play().catch(err => console.error("Transition sound failed:", err));
+  }, []);
+
+  // --- LOG HELPER: logs a focus session if it qualifies ---
+  const logSessionIfQualified = useCallback((
+    elapsedSeconds: number,
+    status: 'completed' | 'abandoned',
+    startedAt: string | null
+  ) => {
+    if (!user) return;
+    if (elapsedSeconds < 300) return; // Must be >= 5 minutes
+
+    console.log(`[Zen] Logging ${status} session (qualified):`, elapsedSeconds, 'seconds');
+    logFocusSession({
+      user_id: user.id,
+      duration_seconds: duration * 60,
+      elapsed_seconds: elapsedSeconds,
+      status,
+      started_at: startedAt || new Date().toISOString()
+    }).then((result) => {
+      console.log('[Zen] Session logged to Supabase:', result);
+      if (user) analyticsCache.invalidate(user.id);
+    }).catch((err: Error | unknown) => {
+      console.error('[Zen] FAILED to log session:', err);
+    });
+  }, [user, duration]);
+
+  /**
+   * advancePomodoroPhase — called automatically when a Pomodoro period timer hits 0.
+   * Handles work→break and break→work transitions with auto-start.
+   * After a long break ends, shows session complete (full 4-cycle set done).
+   */
+  const advancePomodoroPhase = useCallback(() => {
+    // Log the completed work period
+    if (pomodoroState === 'work') {
+      const totalElapsedSeconds = duration * 60;
+      logSessionIfQualified(totalElapsedSeconds, 'completed', sessionStartTime);
+    }
+
+    let nextPomState: PomodoroState;
+    let nextCycle = pomodoroCycle;
+    let nextDurationMinutes: number;
+
+    if (pomodoroState === 'work') {
+      // Work → Break
+      if (pomodoroCycle >= POMODORO_TOTAL_CYCLES) {
+        nextPomState = 'longBreak';
+        nextDurationMinutes = POMODORO_LONG_BREAK_MINUTES;
+      } else {
+        nextPomState = 'shortBreak';
+        nextDurationMinutes = POMODORO_SHORT_BREAK_MINUTES;
+      }
+    } else {
+      // Break → Work (or end of full cycle)
+      if (pomodoroState === 'longBreak') {
+        // Full 4-cycle Pomodoro set is complete
+        console.log('[Zen] Full Pomodoro set complete (4 cycles + long break)');
+        nextCycle = 1;
+        setPomodoroState('work');
+        setPomodoroCycle(1);
+        setDurationState(POMODORO_WORK_MINUTES);
+        setTimeLeft(POMODORO_WORK_MINUTES * 60);
+        setIsActive(false);
+        setIsSessionComplete(true);
+        setSessionStartTime(null);
+        setTargetEndTime(null);
+        playAlarm(); // Play full alarm for end of Pomodoro set
+        syncTimerToCloud(false, null, POMODORO_WORK_MINUTES * 60, true, 'work', POMODORO_WORK_MINUTES * 60);
+        return;
+      } else {
+        // Short break ended → advance cycle, start work
+        nextCycle = pomodoroCycle + 1;
+        nextPomState = 'work';
+        nextDurationMinutes = POMODORO_WORK_MINUTES;
+      }
+    }
+
+    // Play transition sound between phases
+    playTransitionSound();
+
+    // Auto-start the next phase
+    const now = Date.now();
+    const startTime = new Date(now).toISOString();
+    const nextDurationSeconds = nextDurationMinutes * 60;
+    const targetEnd = now + (nextDurationSeconds * 1000);
+
+    setPomodoroState(nextPomState);
+    setPomodoroCycle(nextCycle);
+    setDurationState(nextDurationMinutes);
+    setTimeLeft(nextDurationSeconds);
+    setIsActive(true);
+    setIsSessionComplete(false);
+    setSessionStartTime(startTime);
+    setTargetEndTime(targetEnd);
+    hasTriggeredCompletionRef.current = false; // Reset guard for the new phase
+
+    // Sync the new phase to cloud
+    syncTimerToCloud(true, startTime, nextDurationSeconds, true, nextPomState, nextDurationSeconds);
+
+    console.log(`[Zen] Pomodoro auto-advanced: ${pomodoroState} → ${nextPomState}, cycle ${nextCycle}/${POMODORO_TOTAL_CYCLES}`);
+  }, [pomodoroState, pomodoroCycle, duration, sessionStartTime, logSessionIfQualified, playTransitionSound, playAlarm, syncTimerToCloud]);
+
+  /**
+   * completeSession — called when the user manually clicks "COMPLETE SESSION".
+   * Used for:
+   * 1. Non-Pomodoro mode: after alarm plays and user acknowledges
+   * 2. Pomodoro mode: after full 4-cycle set (long break ended)
+   * 3. Fallback: if user manually triggers completion
+   */
   const completeSession = useCallback(() => {
     stopAlarm();
 
-    // Capture current values from closure
-    let nextPomState = pomodoroState;
-    let nextCycle = pomodoroCycle;
-    let nextDuration = duration;
-
-    // --- LOG THE COMPLETED SESSION ---
-    if (user && (!isPomodoroMode || pomodoroState === 'work')) {
+    // Log session if in non-pomodoro mode or if this is a manual completion during work
+    if (!isPomodoroMode || pomodoroState === 'work') {
       const totalElapsedSeconds = duration * 60 + Math.abs(Math.min(0, timeLeft));
-      if (totalElapsedSeconds >= 300) {
-        console.log('[Zen] Logging completed session (qualified):', totalElapsedSeconds, 'seconds');
-        logFocusSession({
-          user_id: user.id,
-          duration_seconds: duration * 60,
-          elapsed_seconds: totalElapsedSeconds,
-          status: 'completed',
-          started_at: sessionStartTime || new Date().toISOString()
-        }).then((result) => {
-          console.log('[Zen] Session logged to Supabase:', result);
-          if (user) analyticsCache.invalidate(user.id);
-        }).catch((err: Error | unknown) => {
-          console.error('[Zen] FAILED to log session:', err);
-        });
-      }
+      logSessionIfQualified(totalElapsedSeconds, 'completed', sessionStartTime);
     }
 
     setIsSessionComplete(false);
     setSessionStartTime(null);
+    setTargetEndTime(null);
     
+    let nextDuration = duration;
+    let nextPomState = pomodoroState;
+    let nextCycle = pomodoroCycle;
+
     if (isPomodoroMode) {
-      if (pomodoroState === 'work') {
-        if (pomodoroCycle >= 4) {
-          nextPomState = 'longBreak';
-          nextDuration = 15;
-        } else {
-          nextPomState = 'shortBreak';
-          nextDuration = 5;
-        }
-      } else {
-        if (pomodoroState === 'longBreak') {
-          nextCycle = 1;
-        } else {
-          nextCycle = pomodoroCycle + 1;
-        }
-        nextPomState = 'work';
-        nextDuration = 25;
-      }
-      
+      // Reset to work state for new Pomodoro set
+      nextPomState = 'work';
+      nextCycle = 1;
+      nextDuration = POMODORO_WORK_MINUTES;
       setPomodoroState(nextPomState);
       setPomodoroCycle(nextCycle);
     }
@@ -302,46 +428,67 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setDurationState(nextDuration);
     setTimeLeft(nextDuration * 60);
     setIsActive(false);
+    hasTriggeredCompletionRef.current = false;
     
     // SYNC: Clear active timer from cloud with the NEW state
     syncTimerToCloud(false, null, nextDuration * 60, isPomodoroMode, nextPomState, nextDuration * 60);
-  }, [isPomodoroMode, pomodoroState, pomodoroCycle, duration, timeLeft, sessionStartTime, user, stopAlarm, syncTimerToCloud]);
+  }, [isPomodoroMode, pomodoroState, pomodoroCycle, duration, timeLeft, sessionStartTime, stopAlarm, syncTimerToCloud, logSessionIfQualified]);
 
   const skipBreak = useCallback(() => {
     if (isPomodoroMode && (pomodoroState === 'shortBreak' || pomodoroState === 'longBreak')) {
       stopAlarm();
       
-      if (pomodoroState === 'longBreak') {
-        setPomodoroCycle(1);
-      } else {
-        setPomodoroCycle(prevCycle => prevCycle + 1);
-      }
+      // Correctly reset cycle counter based on which break was skipped
+      const nextCycle = pomodoroState === 'longBreak' ? 1 : pomodoroCycle + 1;
+      setPomodoroCycle(nextCycle);
       
       setPomodoroState('work');
-      const nextDuration = 25;
+      const nextDuration = POMODORO_WORK_MINUTES;
       setDurationState(nextDuration);
       setTimeLeft(nextDuration * 60);
       setIsActive(true);
       setIsSessionComplete(false);
+      hasTriggeredCompletionRef.current = false;
 
       // SYNC: Start next pomodoro leg in cloud
       const startTime = new Date().toISOString();
       setSessionStartTime(startTime);
+      const targetEnd = Date.now() + (nextDuration * 60 * 1000);
+      setTargetEndTime(targetEnd);
       syncTimerToCloud(true, startTime, nextDuration * 60, isPomodoroMode, 'work', nextDuration * 60);
     }
-  }, [isPomodoroMode, pomodoroState, stopAlarm, syncTimerToCloud]);
+  }, [isPomodoroMode, pomodoroState, pomodoroCycle, stopAlarm, syncTimerToCloud]);
 
-  const playTransitionSound = useCallback(() => {
-    const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'); // Zen Bell
-    audio.volume = 0.4;
-    audio.play().catch(err => console.error("Transition sound failed:", err));
-  }, []);
+  // Cloud heartbeat — writes updated_at every 30s while timer is active
+  // This signals to other devices that the timer is still alive
+  useEffect(() => {
+    if (isActive && user) {
+      heartbeatRef.current = setInterval(() => {
+        supabase.from('active_timers')
+          .update({ updated_at: new Date().toISOString() })
+          .eq('user_id', user.id)
+          .then(({ error }) => {
+            if (error) console.error('[Zen] Heartbeat failed:', error);
+          });
+        // Mark as local update to prevent the real-time listener from echoing
+        lastLocalUpdateRef.current = Date.now();
+      }, 30_000);
+    }
+
+    return () => {
+      if (heartbeatRef.current) {
+        clearInterval(heartbeatRef.current);
+        heartbeatRef.current = null;
+      }
+    };
+  }, [isActive, user]);
 
   // Handle timer tick and tab visibility
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && isActive && targetEndTime) {
-        const remaining = Math.max(0, Math.ceil((targetEndTime - Date.now()) / 1000));
+        // Hard recalculate from authoritative targetEndTime on tab re-focus
+        const remaining = Math.ceil((targetEndTime - Date.now()) / 1000);
         setTimeLeft(remaining);
       }
     };
@@ -354,14 +501,18 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         const remaining = Math.ceil((targetEndTime - now) / 1000);
         setTimeLeft(remaining);
         
-        // When hitting exactly 0 or resuming past 0, trigger notifications but DO NOT stop
-        if (remaining <= 0 && !isSessionComplete) {
+        // When hitting 0 or below, trigger completion logic ONCE
+        if (remaining <= 0 && !hasTriggeredCompletionRef.current) {
+          hasTriggeredCompletionRef.current = true;
+
           if (isPomodoroMode) {
-            playTransitionSound();
+            // Auto-advance to next Pomodoro phase
+            advancePomodoroPhase();
           } else {
+            // Non-Pomodoro: play alarm and show "COMPLETE SESSION" button
             playAlarm();
+            setIsSessionComplete(true);
           }
-          setIsSessionComplete(true);
         }
       }, 1000);
     } else {
@@ -372,7 +523,7 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [isActive, targetEndTime, playAlarm, playTransitionSound, isPomodoroMode, isSessionComplete]);
+  }, [isActive, targetEndTime, playAlarm, advancePomodoroPhase, isPomodoroMode]);
 
   const toggleTimer = async () => {
     if (isSessionComplete) {
@@ -391,6 +542,7 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setIsActive(false);
       setSessionStartTime(null);
       setTargetEndTime(null);
+      hasTriggeredCompletionRef.current = false;
 
       // RESET: Immediately reset timeLeft on stop so progress bar clears
       const resetTime = duration * 60;
@@ -428,6 +580,7 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setTimeLeft(initialTime);
       setSessionStartTime(startTime);
       setTargetEndTime(targetEnd);
+      hasTriggeredCompletionRef.current = false;
       
       // SYNC: Push start event to cloud with the RESET duration
       syncTimerToCloud(true, startTime, initialTime, isPomodoroMode, pomodoroState, initialTime);
@@ -467,9 +620,10 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setIsPomodoroModeState(enabled);
     if (!isActive && !isSessionComplete) {
       if (enabled) setPomodoroState('work');
-      const nextDuration = 25;
+      const nextDuration = POMODORO_WORK_MINUTES;
       setDurationState(nextDuration);
       setTimeLeft(nextDuration * 60);
+      setPomodoroCycle(1); // Always reset cycle when toggling mode
       // Immediate cloud sync for mode change while stopped
       syncTimerToCloud(false, null, nextDuration * 60, enabled, enabled ? 'work' : pomodoroState, nextDuration * 60);
     }
@@ -481,6 +635,7 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     stopAlarm();
     setTimeLeft(duration * 60);
     setTargetEndTime(null);
+    hasTriggeredCompletionRef.current = false;
     
     // SYNC: Clear cloud timer
     syncTimerToCloud(false, null, duration * 60, isPomodoroMode, pomodoroState, duration * 60);

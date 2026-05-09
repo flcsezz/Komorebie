@@ -48,7 +48,7 @@ export const SPECIAL_LIVE_BACKGROUNDS: Background[] = [
   { 
     id: 'admin-live', 
     name: 'Zen Admin', 
-    url: getR2PublicUrl('live-backgrounds/adminback.mp4'), 
+    url: getR2PublicUrl('live-backgrounds/adminback.webm'), 
     type: 'video', 
     isSpecial: true,
     unmutedAudio: getR2PublicUrl('audio/bgm.mp3') 

@@ -7,4 +7,15 @@ import { cloudflare } from "@cloudflare/vite-plugin";
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss(), cloudflare()],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-three': ['three', '@react-three/fiber', '@react-three/drei'],
+          'vendor-ui': ['framer-motion', 'lucide-react', 'lenis'],
+          'vendor-utils': ['@supabase/supabase-js', 'date-fns'],
+        },
+      },
+    },
+  },
 })

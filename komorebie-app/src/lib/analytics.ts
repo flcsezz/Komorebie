@@ -21,6 +21,26 @@ export const logFocusSession = async (session: FocusSessionData) => {
       session.status = 'abandoned';
     }
 
+    // --- Server-side elapsed time validation ---
+    // Compare client-reported elapsed_seconds against wall-clock time
+    // to prevent client-side manipulation of focus time stats
+    const endedAt = new Date();
+    const startedAt = new Date(session.started_at);
+    const wallClockSeconds = Math.max(0, Math.floor((endedAt.getTime() - startedAt.getTime()) / 1000));
+    
+    // Allow a tolerance of 10% or 30 seconds (whichever is larger)
+    // to account for network latency and timer drift
+    const tolerance = Math.max(30, wallClockSeconds * 0.1);
+    let validatedElapsed = elapsed;
+    
+    if (elapsed > wallClockSeconds + tolerance) {
+      console.warn(
+        `[Analytics] Elapsed time validation: client reported ${elapsed}s but wall-clock was ${wallClockSeconds}s. ` +
+        `Clamping to wall-clock value.`
+      );
+      validatedElapsed = wallClockSeconds;
+    }
+
     const { data, error } = await supabase
       .from('focus_sessions')
       .insert([
@@ -28,10 +48,10 @@ export const logFocusSession = async (session: FocusSessionData) => {
           user_id: session.user_id,
           task_id: session.task_id,
           duration_seconds: session.duration_seconds,
-          elapsed_seconds: elapsed,
+          elapsed_seconds: validatedElapsed,
           status: session.status,
           started_at: session.started_at,
-          ended_at: new Date().toISOString(),
+          ended_at: endedAt.toISOString(),
         }
       ])
       .select();
@@ -44,10 +64,12 @@ export const logFocusSession = async (session: FocusSessionData) => {
     console.log('[Analytics] Session inserted successfully:', data);
 
     // ONLY update stats (streaks, mana, daily totals) if the session is qualified (>= 5 mins)
-    if (isQualified) {
-      await updateStreak(session.user_id, elapsed);
+    // Use validatedElapsed (wall-clock clamped) for integrity
+    const isStillQualified = validatedElapsed >= STREAK_THRESHOLD_SECONDS;
+    if (isStillQualified) {
+      await updateStreak(session.user_id, validatedElapsed);
       // Award mana: 1 mana per completed minute
-      await updateProfileMana(session.user_id, Math.floor(elapsed / 60));
+      await updateProfileMana(session.user_id, Math.floor(validatedElapsed / 60));
     }
 
     return data;

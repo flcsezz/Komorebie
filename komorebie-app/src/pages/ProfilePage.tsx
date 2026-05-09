@@ -8,17 +8,14 @@ import { useAnalytics } from '../hooks/useAnalytics';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import { resizeImage } from '../lib/image-utils';
-import { ADMIN_EMAIL, ADMIN_MUSIC, ALL_BACKGROUNDS, ADMIN_USERNAME } from '../lib/backgrounds';
-import { useNavigate } from 'react-router-dom';
+import { ADMIN_EMAIL, ADMIN_USERNAME, ALL_BACKGROUNDS } from '../lib/backgrounds';
 import { useBackground } from '../context/BackgroundContext';
-import { Music, ListMusic, Sparkles as SparklesIcon } from 'lucide-react';
 import ProfileStyleModal from '../components/profile/ProfileStyleModal';
 import { resolveProfileDecoration } from '../lib/profile-utils';
-import ResilientVideo from '../components/ui/ResilientVideo';
+import OptimizedImage from '../components/ui/OptimizedImage';
 
 const ProfilePage: React.FC = () => {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const { stats, streakDates, profile, refresh } = useAnalytics();
   const { setBackground, resetBackground } = useBackground();
   const [showSettings, setShowSettings] = useState(false);
@@ -34,7 +31,6 @@ const ProfilePage: React.FC = () => {
 
   const isAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
   const [isAmbientMuted, setIsAmbientMuted] = useState(() => localStorage.getItem('zen-ambient-muted') === 'true');
-  const [showMusicMenu, setShowMusicMenu] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const fadeIntervalRef = useRef<any>(null);
   const [showStyleModal, setShowStyleModal] = useState(false);
@@ -422,7 +418,7 @@ const ProfilePage: React.FC = () => {
             <div className="relative group">
               <div className="w-32 h-32 rounded-[2rem] bg-slate-800 border-2 border-white/10 overflow-hidden flex items-center justify-center group-hover:border-sage-200/30 transition-all shadow-2xl">
                 {avatarUrl ? (
-                  <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                  <OptimizedImage src={avatarUrl} alt="Avatar" className="w-full h-full" />
                 ) : (
                   <span className="text-4xl font-display font-light text-white/40">{displayName.charAt(0).toUpperCase()}</span>
                 )}
@@ -484,52 +480,7 @@ const ProfilePage: React.FC = () => {
         <FocusActivityWidget streakDates={streakDates} />
       </motion.div>
 
-      {/* Admin Music Manager - Bottom Right */}
-      {isAdmin && (
-        <div className="fixed bottom-[43px] right-8 z-50 flex flex-col items-end gap-2 mb-14 sm:mb-0">
-          <AnimatePresence>
-            {showMusicMenu && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9, y: 10 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.9, y: 10 }}
-                className="w-56 bg-slate-950/80 backdrop-blur-2xl border border-white/10 rounded-2xl p-2 shadow-2xl mb-2"
-              >
-                <div className="flex items-center gap-2 px-3 py-2 border-b border-white/5 mb-1">
-                  <ListMusic className="w-3.5 h-3.5 text-sage-200" />
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-white/50">BGM</span>
-                </div>
-                <div className="space-y-1">
-                  {ADMIN_MUSIC.map((track) => {
-                    const isActive = profile?.unmuted_audio === track.url;
-                    return (
-                      <button
-                        key={track.id}
-                        onClick={() => handleUpdateMusic(track.url)}
-                        className={`w-full text-left px-3 py-2 rounded-xl text-[11px] transition-all flex items-center justify-between ${
-                          isActive ? 'bg-sage-200/15 text-sage-200 font-bold' : 'text-white/40 hover:bg-white/5 hover:text-white'
-                        }`}
-                      >
-                        {track.name}
-                        {isActive && <Check className="w-3 h-3 text-sage-200" />}
-                      </button>
-                    );
-                  })}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-          
-          <button
-            onClick={() => setShowMusicMenu(!showMusicMenu)}
-            className={`p-3 rounded-full border shadow-xl transition-all cursor-pointer ${
-              showMusicMenu ? 'bg-sage-200 text-slate-950 border-sage-200' : 'bg-white/5 border-white/10 text-white/40 hover:text-white hover:bg-white/10'
-            }`}
-          >
-            <Music className="w-5 h-5" />
-          </button>
-        </div>
-      )}
+      {/* Style customization is now handled by the Style button in the header */}
     </div>
 
     {settingsModal}

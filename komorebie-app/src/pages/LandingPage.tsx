@@ -9,6 +9,13 @@ import { ArrowRight, Leaf, Sparkles, Zap } from 'lucide-react';
 const LandingPage: React.FC = () => {
   const navigate = useNavigate();
 
+  const prefetchApp = () => {
+    // Proactively start loading chunks for the main app
+    import('../components/layout/AppLayout');
+    import('./TaskCapture');
+    import('../components/three/ZenEnvironment');
+  };
+
   return (
     <SmoothScroll>
       <div className="relative min-h-screen">
@@ -35,6 +42,7 @@ const LandingPage: React.FC = () => {
                 The premium sanctuary for deep work. Reclaim your focus in a digital zen garden.
               </p>
               <motion.button
+                onMouseEnter={prefetchApp}
                 onClick={() => {
                   localStorage.setItem('hasVisitedKomorebie', 'true');
                   navigate('/app');
