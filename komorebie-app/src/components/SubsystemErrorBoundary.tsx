@@ -80,7 +80,7 @@ class SubsystemErrorBoundary extends Component<Props, State> {
               {this.props.subsystem} Disrupted
             </h3>
             <p className="text-white/30 text-sm mb-4 leading-relaxed">
-              Something went wrong in the {this.props.subsystem.toLowerCase()} module.
+              Something went wrong in the {(this.props.subsystem || 'module').toLowerCase()} module.
               Your other tools are unaffected.
             </p>
             {this.state.error && (

@@ -357,3 +357,29 @@ export const fetchTodayFocusForUsers = async (userIds: string[]) => {
     return {};
   }
 };
+
+export const fetchWeeklyFocusForUsers = async (userIds: string[]) => {
+  if (!userIds || userIds.length === 0) return {};
+  
+  const lastWeek = new Date();
+  lastWeek.setDate(lastWeek.getDate() - 7);
+  const lastWeekStr = toLocalISO(lastWeek);
+
+  try {
+    const { data, error } = await supabase
+      .from('streaks')
+      .select('user_id, total_focus_seconds')
+      .in('user_id', userIds)
+      .gte('focus_date', lastWeekStr);
+    
+    if (error) throw error;
+    
+    return (data || []).reduce((acc: Record<string, number>, curr) => {
+      acc[curr.user_id] = (acc[curr.user_id] || 0) + curr.total_focus_seconds;
+      return acc;
+    }, {});
+  } catch (err) {
+    console.error('Error fetching weekly focus for users:', err);
+    return {};
+  }
+};

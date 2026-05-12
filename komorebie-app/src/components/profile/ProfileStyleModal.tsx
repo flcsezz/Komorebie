@@ -39,12 +39,17 @@ const ProfileStyleModal: React.FC<ProfileStyleModalProps> = ({
   const liveBgs = ALL_BACKGROUNDS.filter(bg => bg.type === 'video');
 
   const handleSelectBackground = async (bgUrl: string) => {
-    if (!isUnlocked) return;
+    // Allow clearing (syncing) even if locked as a reset mechanism
+    if (!isUnlocked && bgUrl !== '') {
+      console.warn('[ProfileStyle] Attempted to select background while locked');
+      return;
+    }
+    
     setSaving(bgUrl);
     try {
       const { error } = await supabase
         .from('profiles')
-        .update({ profile_bg: bgUrl })
+        .update({ profile_bg: bgUrl || null }) // Use null for sync
         .eq('id', userId);
       
       if (error) throw error;

@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Settings, Camera, Trophy, Flame, Clock, Target, X, Check, Loader2, AlertTriangle, Trash2, ShieldCheck, Image as ImageIcon, Volume2, VolumeX, Lock } from 'lucide-react';
 import GlassCard from '../components/ui/GlassCard';
 import FocusActivityWidget from '../components/analytics/FocusActivityWidget';
-import { useAnalytics } from '../hooks/useAnalytics';
+import { useDataSync } from '../context/DataSyncContext';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import { resizeImage } from '../lib/image-utils';
@@ -16,7 +16,9 @@ import OptimizedImage from '../components/ui/OptimizedImage';
 
 const ProfilePage: React.FC = () => {
   const { user } = useAuth();
-  const { stats, streakDates, profile, refresh } = useAnalytics();
+  const { stats, streakDates, profile, refresh } = useDataSync();
+
+  const totalHours = stats.totalSeconds / 3600;
   const { setBackground, resetBackground } = useBackground();
   const [showSettings, setShowSettings] = useState(false);
   const [settingsUsername, setSettingsUsername] = useState('');
@@ -29,7 +31,7 @@ const ProfilePage: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [now] = useState(() => Date.now());
 
-  const isAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+  const isAdmin = (user?.email || '').toLowerCase() === (ADMIN_EMAIL || '').toLowerCase() && (ADMIN_EMAIL || '') !== '';
   const [isAmbientMuted, setIsAmbientMuted] = useState(() => localStorage.getItem('zen-ambient-muted') === 'true');
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const fadeIntervalRef = useRef<any>(null);
@@ -37,10 +39,10 @@ const ProfilePage: React.FC = () => {
 
   // Sync background on load with safety logic
   useEffect(() => {
-    const { url, type } = resolveProfileDecoration(profile, stats.totalHours, isAdmin);
+    const { url, type } = resolveProfileDecoration(profile, totalHours, isAdmin);
     setBackground(url, type);
     return () => resetBackground();
-  }, [profile?.profile_bg, profile?.preferred_bg, stats.totalHours, isAdmin, setBackground, resetBackground]);
+  }, [profile, profile?.profile_bg, profile?.preferred_bg, totalHours, isAdmin, setBackground, resetBackground]);
 
   // Sync mute state
   useEffect(() => {
@@ -51,7 +53,7 @@ const ProfilePage: React.FC = () => {
   useEffect(() => {
     // Only play if it's the admin profile OR if the current user is admin
     const isTargetAdmin = profile?.username === ADMIN_USERNAME.replace('@', '');
-    const { audioUrl } = resolveProfileDecoration(profile, stats.totalHours, isAdmin);
+    const { audioUrl } = resolveProfileDecoration(profile, totalHours, isAdmin);
     
     if (audioUrl && isTargetAdmin && !isAmbientMuted) {
       if (!audioRef.current || audioRef.current.src !== audioUrl) {
@@ -115,7 +117,7 @@ const ProfilePage: React.FC = () => {
         }, 50);
       }
     };
-  }, [profile?.username, profile?.unmuted_audio, profile?.profile_bg, profile?.preferred_bg, isAmbientMuted]);
+  }, [profile, profile?.username, profile?.unmuted_audio, profile?.profile_bg, profile?.preferred_bg, isAmbientMuted, totalHours, isAdmin]);
 
   // handleUpdateMusic moved to ProfileStyleModal
 
@@ -226,7 +228,7 @@ const ProfilePage: React.FC = () => {
   };
 
 
-  const totalHoursFormatted = stats.totalHours >= 1 ? `${stats.totalHours}h` : `${Math.floor(stats.totalHours * 60)}m`;
+  const totalHoursFormatted = totalHours >= 1 ? `${Math.floor(totalHours)}h` : `${Math.floor(totalHours * 60)}m`;
 
   const settingsModal = showSettings && createPortal(
     <AnimatePresence>
@@ -406,7 +408,7 @@ const ProfilePage: React.FC = () => {
             >
               <ImageIcon className="w-4 h-4" />
               <span className="text-[10px] font-bold uppercase tracking-widest hidden sm:inline">Profile Style</span>
-              {stats.totalHours < 35 && !isAdmin && <Lock className="w-3 h-3 text-white/20" />}
+              {totalHours < 35 && !isAdmin && <Lock className="w-3 h-3 text-white/20" />}
             </button>
             <button onClick={openSettings} className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-white/40 hover:text-white hover:bg-white/10 transition-all cursor-pointer" title="Profile Settings">
               <Settings className="w-4 h-4" />
@@ -489,7 +491,7 @@ const ProfilePage: React.FC = () => {
       <ProfileStyleModal
         isOpen={showStyleModal}
         onClose={() => setShowStyleModal(false)}
-        totalHours={stats.totalHours}
+        totalHours={totalHours}
         isAdmin={isAdmin}
         currentBg={profile?.profile_bg || null}
         currentAudio={profile?.unmuted_audio || null}

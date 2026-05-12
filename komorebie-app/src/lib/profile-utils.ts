@@ -29,8 +29,8 @@ export const resolveProfileDecoration = (
   const rawAudioUrl = profile?.unmuted_audio;
 
   // 2. Resolve Background
-  let resolvedUrl = DEFAULT_PROFILE_BG;
-  let resolvedType: 'image' | 'video' = 'image';
+  let resolvedUrl: string;
+  let resolvedType: 'image' | 'video';
 
   if (isEligible) {
     const bgInfo = ALL_BACKGROUNDS.find(b => b.url === rawBgUrl);

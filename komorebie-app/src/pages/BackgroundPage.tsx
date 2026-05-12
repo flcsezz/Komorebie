@@ -15,54 +15,65 @@ import type { Background } from '../lib/backgrounds';
 import { useBackground } from '../context/BackgroundContext';
 import { supabase } from '../lib/supabase';
 import ResilientVideo from '../components/ui/ResilientVideo';
+import OptimizedImage from '../components/ui/OptimizedImage';
 
 const BackgroundPage: React.FC = () => {
   const { user } = useAuth();
   const { profile, refresh } = useAnalytics();
   const { setBackground: setGlobalBg } = useBackground();
-  const [selectedId, setSelectedId] = useState<string | null>(profile?.preferred_bg || null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
-  const [isUpdating, setIsUpdating] = useState(false);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+
+  // Sync selection with profile when it loads
+  React.useEffect(() => {
+    if (profile?.preferred_bg) {
+      setSelectedId(profile.preferred_bg);
+    }
+  }, [profile?.preferred_bg]);
   const [collectionType, setCollectionType] = useState<'standard' | 'live'>('standard');
 
   // Check for admin access
-  const isAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+  const isAdmin = (user?.email || '').toLowerCase() === (ADMIN_EMAIL || '').toLowerCase() && (ADMIN_EMAIL || '') !== '';
 
   const handleSelect = async (bg: Background, target: 'dashboard' | 'profile' = 'dashboard') => {
-    if (bg.isSpecial && !isAdmin) return;
+    if (!user) return;
     
-    // If it's a dashboard change, update UI instantly
-    if (target === 'dashboard') {
-      setSelectedId(bg.url);
-      setGlobalBg(bg.url, bg.type);
-    }
-    
-    setIsUpdating(true);
-    
-    try {
-      if (user) {
-        const updateData = target === 'dashboard' 
-          ? { preferred_bg: bg.url } 
-          : { profile_bg: bg.url };
+    // Check if background is locked for this user (not admin and has price/tier)
+    const isLocked = !isAdmin && (!!bg.price || !!bg.tier);
+    if (isLocked) return;
+    if (updatingId) return; // Prevent concurrent updates
 
-        const { error } = await supabase
-          .from('profiles')
-          .update(updateData)
-          .eq('id', user.id);
-          
-        if (error) throw error;
-        
-        if (target === 'dashboard') {
-          localStorage.setItem('komorebie-bg', bg.url);
-        }
-        
-        // Refresh analytics context to sync across app
-        await refresh();
+    setUpdatingId(bg.id);
+    try {
+      const updateData: any = { updated_at: new Date().toISOString() };
+      
+      if (target === 'dashboard') {
+        updateData.preferred_bg = bg.url;
+        // Update UI instantly for dashboard changes
+        setSelectedId(bg.url);
+        setGlobalBg(bg.url, bg.type);
+      } else {
+        updateData.profile_bg = bg.url;
       }
+
+      const { error } = await supabase
+        .from('profiles')
+        .update(updateData)
+        .eq('id', user.id);
+
+      if (error) throw error;
+      
+      // Update localStorage for immediate AppLayout sync
+      if (target === 'dashboard') {
+        localStorage.setItem('komorebie-bg', bg.url);
+      }
+      
+      await refresh();
     } catch (err) {
-      console.error(`Failed to update ${target} background:`, err);
+      console.error('Error updating background:', err);
     } finally {
-      setIsUpdating(false);
+      setUpdatingId(null);
     }
   };
 
@@ -125,7 +136,9 @@ const BackgroundPage: React.FC = () => {
         {/* Public Collection */}
         <section>
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xs uppercase tracking-[0.3em] font-bold text-white/20">Standard Collection</h2>
+            <h2 className="text-xs uppercase tracking-[0.3em] font-bold text-white/20">
+              {collectionType === 'standard' ? 'Atmospheric Series' : 'Motion Series'}
+            </h2>
             <div className="h-px flex-1 bg-white/5 mx-6" />
           </div>
           
@@ -142,11 +155,12 @@ const BackgroundPage: React.FC = () => {
                 isSelected={selectedId === bg.url || profile?.preferred_bg === bg.url}
                 isHovered={hoveredId === bg.id}
                 isAdmin={isAdmin}
+                isLocked={!isAdmin && (!!bg.price || !!bg.tier)}
                 currentProfileBg={profile?.profile_bg}
                 onHover={() => setHoveredId(bg.id)}
                 onLeave={() => setHoveredId(null)}
                 onSelect={(target) => handleSelect(bg, target)}
-                isUpdating={isUpdating && selectedId === bg.url}
+                isUpdating={updatingId === bg.id}
               />
             ))}
           </motion.div>
@@ -198,12 +212,13 @@ const BackgroundPage: React.FC = () => {
                   isSelected={selectedId === bg.url || profile?.preferred_bg === bg.url}
                   isHovered={hoveredId === bg.id}
                   isAdmin={isAdmin}
+                  isLocked={false} // Admins can access everything
                   currentProfileBg={profile?.profile_bg}
                   onHover={() => setHoveredId(bg.id)}
                   onLeave={() => setHoveredId(null)}
                   onSelect={(target) => handleSelect(bg, target)}
                   isSpecial
-                  isUpdating={isUpdating && selectedId === bg.url}
+                  isUpdating={updatingId === bg.id}
                 />
               ))}
             </motion.div>
@@ -264,14 +279,12 @@ const BackgroundCard: React.FC<BackgroundCardProps> = ({
   const isSelectedAsProfile = currentProfileBg === bg.url;
   return (
     <motion.div
-      layout
-      variants={{
-        hidden: { opacity: 0, scale: 0.95 },
-        visible: { opacity: 1, scale: 1 }
+      layoutId={`bg-card-${bg.id}`}
+      onHoverStart={onHover}
+      onHoverEnd={onLeave}
+      onClick={() => {
+        if (!isLocked) onSelect();
       }}
-      onMouseEnter={onHover}
-      onMouseLeave={onLeave}
-      onClick={() => onSelect()}
       className={`group relative aspect-[16/10] rounded-3xl overflow-hidden border cursor-pointer transition-all duration-500 bg-optimize-quality ${
         isSelected 
           ? (isSpecial ? 'border-amber-400/40 shadow-[0_0_30px_rgba(251,191,36,0.15)]' : 'border-sage-200/40 shadow-[0_0_30px_rgba(183,201,176,0.15)]') 
@@ -285,9 +298,11 @@ const BackgroundCard: React.FC<BackgroundCardProps> = ({
           className={`absolute inset-0 transition-transform duration-1000 ${isHovered ? 'scale-110' : 'scale-100'} ${isLocked ? 'blur-sm grayscale brightness-50' : ''}`}
         />
       ) : (
-        <div 
-          className={`absolute inset-0 bg-cover bg-center transition-transform duration-1000 bg-optimize-quality ${isHovered ? 'scale-110' : 'scale-100'} ${isLocked ? 'blur-sm grayscale brightness-50' : ''}`}
-          style={{ backgroundImage: `url(${bg.url})` }}
+        <OptimizedImage
+          src={bg.url}
+          alt={bg.name}
+          loading="lazy"
+          className={`absolute inset-0 transition-transform duration-1000 ${isHovered ? 'scale-110' : 'scale-100'} ${isLocked ? 'blur-sm grayscale brightness-50' : ''}`}
         />
       )}
       

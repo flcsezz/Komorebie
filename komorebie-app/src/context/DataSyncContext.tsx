@@ -137,7 +137,7 @@ export const DataSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         });
 
         if (res.ok) {
-          const stats = await res.json();
+          const stats = await res.json() as any;
           // We still set data to keep other components happy, but stats are pre-computed
           // The current SyncStats interface matches the output of the edge engine.
           // Note: we might need to adjust CachedAnalytics if we want to keep exact compatibility.

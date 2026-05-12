@@ -7,10 +7,11 @@ import {
   Settings, LogOut, Users,
   Crown, Bell, Palette, Menu, ChevronDown, Maximize, Minimize,
   Calendar, SlidersHorizontal, Music, Eye, Image as ImageIcon,
-  Trophy, MessageSquare, Share2, LifeBuoy, Clock, BarChart3, Loader2, Flame, Sparkles
+  Trophy, MessageSquare, Share2, LifeBuoy, Clock, BarChart3, Loader2, Flame, Sparkles, Check,
+  ListChecks
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { useAnalytics } from '../../hooks/useAnalytics';
+import { useDataSync } from '../../context/DataSyncContext';
 import { useDevice } from '../../hooks/useDevice';
 import InitialLoader from '../ui/InitialLoader';
 import ResilientVideo from '../ui/ResilientVideo';
@@ -20,6 +21,8 @@ import { supabase } from '../../lib/supabase';
 import { useBackground } from '../../context/BackgroundContext';
 import { getVisibleBackgrounds, ALL_BACKGROUNDS } from '../../lib/backgrounds';
 import OptimizedImage from '../ui/OptimizedImage';
+import { ADMIN_EMAIL } from '../../lib/backgrounds';
+import { TIERS, ADMIN_OVERRIDE_KEY, type TierKey } from '../../lib/leagues';
 
 // Spring configuration for animations
 const springConfig = { type: "spring" as const, stiffness: 300, damping: 35 };
@@ -162,7 +165,7 @@ const SidebarSection = ({ label, isCollapsed, children }: { label: string, isCol
 
 const AppLayout: React.FC = () => {
   const { user, loading: authLoading, signOut } = useAuth();
-  const { profile, stats, refresh } = useAnalytics();
+  const { profile, stats, refresh } = useDataSync();
   const { isMobile, isTouch } = useDevice();
   const location = useLocation();
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -457,6 +460,7 @@ const AppLayout: React.FC = () => {
             <SidebarLink to="/app" icon={LayoutDashboard} label="Dashboard" active={location.pathname === '/app'} isCollapsed={isCollapsed} />
             <SidebarLink to="/app/analytics" icon={BarChart3} label="Analytics" active={location.pathname === '/app/analytics'} isCollapsed={isCollapsed} />
             <SidebarLink to="/app/calendar" icon={Calendar} label="Calendar" active={location.pathname === '/app/calendar'} isCollapsed={isCollapsed} />
+            <SidebarLink to="/app/habits" icon={ListChecks} label="Habits" active={location.pathname === '/app/habits'} isCollapsed={isCollapsed} />
             <SidebarLink to="/app/flashcards" icon={Layers} label="Flashcards" active={location.pathname.startsWith('/app/flashcards')} isCollapsed={isCollapsed} />
 
             {/* Preferences */}
@@ -747,7 +751,90 @@ const AppLayout: React.FC = () => {
               </Link>
             </nav>
           )}
+
+          {/* Portal target for floating page controls (e.g. Previewers, Presence) */}
+          <div id="floating-page-controls" className="pointer-events-none" />
+
+          {/* Admin League Panel */}
+          {((user?.email || '').toLowerCase() === (ADMIN_EMAIL || '').toLowerCase() && (ADMIN_EMAIL || '') !== '') && (
+            <AdminLeaguePanel isSidebarCollapsed={isCollapsed} />
+          )}
         </div>
+    </div>
+  );
+};
+
+const AdminLeaguePanel = ({ isSidebarCollapsed }: { isSidebarCollapsed: boolean }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [leagueOverride, setLeagueOverride] = useState<TierKey | null>(() => {
+    return localStorage.getItem(ADMIN_OVERRIDE_KEY) as TierKey | null;
+  });
+
+  const handleSelect = (key: TierKey | null) => {
+    setLeagueOverride(key);
+    if (key) localStorage.setItem(ADMIN_OVERRIDE_KEY, key);
+    else localStorage.removeItem(ADMIN_OVERRIDE_KEY);
+    // Reload to apply changes globally
+    window.location.reload();
+  };
+
+  return (
+    <div 
+      className="fixed bottom-24 md:bottom-8 z-[100] transition-all duration-500 ease-[cubic-bezier(0.2,0,0,1)] pointer-events-auto"
+      style={{ left: isSidebarCollapsed ? '96px' : '276px' }}
+    >
+      <div className="relative">
+        <AnimatePresence>
+          {isOpen && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 10, x: -10 }}
+              animate={{ opacity: 1, scale: 1, y: 0, x: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 10, x: -10 }}
+              className="absolute bottom-full left-0 mb-4 p-3 bg-slate-950/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl min-w-[180px]"
+            >
+              <div className="flex flex-col gap-1">
+                <p className="text-[9px] uppercase tracking-[0.2em] text-white/30 font-bold px-2 py-1">Admin Overrides</p>
+                {TIERS.map((t) => (
+                  <button
+                    key={t.key}
+                    onClick={() => handleSelect(t.key)}
+                    className={`flex items-center justify-between px-3 py-2 rounded-xl text-[10px] uppercase tracking-widest font-bold transition-all cursor-pointer ${
+                      leagueOverride === t.key
+                        ? `${t.bgColor} ${t.textColor} border ${t.borderColor}`
+                        : 'text-white/40 hover:bg-white/5 hover:text-white'
+                    }`}
+                  >
+                    {t.name}
+                    {leagueOverride === t.key && <Check className="w-3 h-3" />}
+                  </button>
+                ))}
+                <div className="h-px bg-white/5 my-1" />
+                <button
+                  onClick={() => handleSelect(null)}
+                  className={`px-3 py-2 rounded-xl text-[10px] uppercase tracking-widest font-bold transition-all cursor-pointer ${
+                    !leagueOverride
+                      ? 'bg-white/10 text-white'
+                      : 'text-white/40 hover:bg-white/5 hover:text-white'
+                  }`}
+                >
+                  Reset (Auto)
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 shadow-xl border cursor-pointer ${
+            isOpen 
+              ? 'bg-sage-200 border-sage-200 text-slate-900 rotate-90' 
+              : 'bg-slate-900/80 backdrop-blur-md border-white/10 text-white/40 hover:text-sage-200 hover:border-sage-200/50'
+          }`}
+        >
+          <Sparkles className="w-5 h-5" />
+        </button>
+      </div>
     </div>
   );
 };

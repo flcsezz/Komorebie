@@ -101,20 +101,26 @@ const TaskItem: React.FC<TaskItemProps> = ({
 
       <div className="flex-1 flex flex-col gap-0.5 overflow-hidden">
         {isEditing ? (
-          <input
-            ref={inputRef}
-            type="text"
-            value={editTitle}
-            onChange={(e) => setEditTitle(e.target.value)}
-            onBlur={handleEditSubmit}
-            onKeyDown={handleKeyDown}
-            onPointerDown={(e) => e.stopPropagation()}
-            className="w-full bg-black/20 border border-white/10 rounded px-2 py-1 text-xs font-light text-white focus:outline-none focus:border-sage-200/50"
-          />
+          <div className="relative">
+            <input
+              ref={inputRef}
+              type="text"
+              value={editTitle}
+              maxLength={35}
+              onChange={(e) => setEditTitle(e.target.value)}
+              onBlur={handleEditSubmit}
+              onKeyDown={handleKeyDown}
+              onPointerDown={(e) => e.stopPropagation()}
+              className="w-full bg-black/20 border border-white/10 rounded px-2 py-1.5 text-xs font-light text-white focus:outline-none focus:border-sage-200/50 pr-10"
+            />
+            <div className="absolute right-2 top-1/2 -translate-y-1/2 text-[8px] text-white/20">
+              {editTitle.length}/35
+            </div>
+          </div>
         ) : (
           <span 
             onDoubleClick={(e) => { e.stopPropagation(); setIsEditing(true); }}
-            className={`text-[13px] font-medium transition-all duration-500 truncate ${task.isCompleted ? 'line-through text-white/30' : 'text-white/95'}`}
+            className={`text-[13px] font-medium transition-all duration-500 break-words whitespace-normal leading-snug ${task.isCompleted ? 'line-through text-white/30' : 'text-white/95'}`}
           >
             {task.title}
           </span>

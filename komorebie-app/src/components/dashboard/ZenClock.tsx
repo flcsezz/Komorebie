@@ -90,8 +90,7 @@ const ZenClock: React.FC = () => {
     const absSeconds = Math.abs(timeLeft);
     const mins = Math.floor(absSeconds / 60);
     const secs = absSeconds % 60;
-    const prefix = timeLeft < 0 ? '+' : '';
-    return `${prefix}${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
   const getThemeColor = () => {

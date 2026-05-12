@@ -2,7 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Target, Clock, CheckCircle2, BarChart3, Settings, X, Loader2 } from 'lucide-react';
 import GlassCard from '../ui/GlassCard';
-import { useAnalytics } from '../../hooks/useAnalytics';
+import { useDataSync } from '../../context/DataSyncContext';
 import { useDevice } from '../../hooks/useDevice';
 import { supabase } from '../../lib/supabase';
 
@@ -20,7 +20,7 @@ const itemVariants = {
 };
 
 const DashboardStats: React.FC = () => {
-  const { stats, profile, refresh } = useAnalytics();
+  const { stats, profile, refresh } = useDataSync();
   const { isTouch } = useDevice();
   const [isSettingsOpen, setIsSettingsOpen] = React.useState(false);
   const [activeTooltip, setActiveTooltip] = React.useState<number | null>(null);

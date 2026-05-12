@@ -10,10 +10,10 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          'vendor-three': ['three', '@react-three/fiber', '@react-three/drei'],
-          'vendor-ui': ['framer-motion', 'lucide-react', 'lenis'],
-          'vendor-utils': ['@supabase/supabase-js', 'date-fns'],
+        manualChunks(id) {
+          if (id.includes('three') || id.includes('@react-three')) return 'vendor-three';
+          if (id.includes('framer-motion') || id.includes('lucide-react') || id.includes('lenis')) return 'vendor-ui';
+          if (id.includes('@supabase') || id.includes('date-fns')) return 'vendor-utils';
         },
       },
     },

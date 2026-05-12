@@ -15,6 +15,11 @@ import { getProfileByUsername, getFriendshipStatus, sendFriendRequest, removeFri
 import { usePresence } from '../hooks/usePresence';
 import { ALL_BACKGROUNDS, ADMIN_USERNAME } from '../lib/backgrounds';
 import { resolveProfileDecoration } from '../lib/profile-utils';
+import { useUserRanking } from '../hooks/useUserRanking';
+import { getTierForSeconds } from '../lib/leagues';
+import LeagueBadge from '../components/leaderboard/LeagueBadge';
+import { Medal, Crown } from 'lucide-react';
+import FocusRing from '../components/leaderboard/FocusRing';
 
 
 const FriendProfilePage: React.FC = () => {
@@ -22,6 +27,10 @@ const FriendProfilePage: React.FC = () => {
   const navigate = useNavigate();
   const { user: currentUser } = useAuth();
   const { setBackground, resetBackground } = useBackground();
+
+  // Handle optional @ prefix from URL and determine if visiting admin
+  const cleanUsername = username?.startsWith('@') ? username.slice(1) : username;
+  const isTargetAdmin = cleanUsername === ADMIN_USERNAME.replace('@', '') || cleanUsername === ADMIN_USERNAME;
   
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -32,11 +41,24 @@ const FriendProfilePage: React.FC = () => {
   
   // Fetch profile stats
   // Pass null explicitly if profile isn't loaded yet to avoid defaulting to current user
-  const { stats, streakDates, loading: statsLoading, profile: cachedProfile } = useAnalytics(profile?.id || undefined);
+  const { stats, streakDates, loading: statsLoading, profile: cachedProfile } = useAnalytics(profile ? profile.id : null);
+  const { topRankings, loading: rankLoading } = useUserRanking(profile?.id);
   const { presences } = usePresence();
 
+  // Safety timeout for loading state (8s)
+  const [showAnyway, setShowAnyway] = useState(false);
+  useEffect(() => {
+    if (profile && statsLoading) {
+      const timer = setTimeout(() => setShowAnyway(true), 8000);
+      return () => clearTimeout(timer);
+    } else {
+      setShowAnyway(false);
+    }
+  }, [profile, statsLoading]);
+
+  const friendTier = getTierForSeconds(stats.weekSeconds);
+
   const displayProfile = cachedProfile || profile;
-  const isTargetAdmin = profile?.username === ADMIN_USERNAME.replace('@', '');
   const isFocusing = profile && presences[profile.id]?.is_active;
   const fadeIntervalRef = useRef<any>(null);
 
@@ -103,23 +125,23 @@ const FriendProfilePage: React.FC = () => {
         }, 50);
       }
     };
-  }, [profile?.username, profile?.unmuted_audio, profile?.profile_bg, profile?.preferred_bg, isAmbientMuted, loading, statsLoading]);
+  }, [profile, profile?.username, profile?.unmuted_audio, profile?.profile_bg, profile?.preferred_bg, isAmbientMuted, loading, statsLoading, stats.totalHours, isTargetAdmin]);
 
   useEffect(() => {
     let active = true;
 
     async function load() {
-      if (!username) return;
+      if (!cleanUsername) return;
       
       setProfile(null); // Reset profile when username changes to avoid showing previous friend's data
       setLoading(true);
       
       try {
-        const p = await getProfileByUsername(username);
+        const p = await getProfileByUsername(cleanUsername);
         if (p && active) {
           setProfile(p);
           // Prioritize profile_bg for the friend's profile page view with safety checks
-          const { url, type } = resolveProfileDecoration(p, 0, isTargetAdmin); // Note: we'll update stats once loaded, starting with 0 or fallback
+          const { url, type } = resolveProfileDecoration(p, 0, isTargetAdmin); 
           setBackground(url, type);
           
           if (currentUser) {
@@ -138,10 +160,8 @@ const FriendProfilePage: React.FC = () => {
 
     return () => {
       active = false;
-      // We don't reset immediately here to avoid flickering when switching between friends.
-      // The next load() call will either set a new background or reset it.
     };
-  }, [username, setBackground, resetBackground, currentUser]);
+  }, [cleanUsername, setBackground, currentUser, isTargetAdmin]);
 
   // Global reset only when leaving the friend profile view entirely
   useEffect(() => {
@@ -179,7 +199,10 @@ const FriendProfilePage: React.FC = () => {
 
 
 
-  if (loading || (profile && statsLoading)) {
+  // Final loading state logic
+  const isActuallyLoading = loading || (profile && statsLoading && !showAnyway);
+  
+  if (isActuallyLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh]">
         <Loader2 className="w-8 h-8 text-sage-200/40 animate-spin mb-4" />
@@ -225,42 +248,49 @@ const FriendProfilePage: React.FC = () => {
           <div className="flex flex-col sm:flex-row items-center justify-between gap-6 relative z-5">
             <div className="flex flex-col sm:flex-row items-center gap-6">
               {/* Avatar */}
-              <div className="w-32 h-32 rounded-[2rem] bg-slate-800 border-2 border-white/10 overflow-hidden flex items-center justify-center shadow-2xl relative">
-                {displayProfile?.avatar_url ? (
-                  <img src={displayProfile.avatar_url} alt={displayProfile.display_name} className="w-full h-full object-cover" />
-                ) : (
-                  <span className="text-4xl font-display font-light text-white/40">
-                    {(displayProfile?.display_name || displayProfile?.username || '?').charAt(0).toUpperCase()}
-                  </span>
-                )}
-                
-                {/* Friend Ambient Toggle */}
-                {(profile?.unmuted_audio || ALL_BACKGROUNDS.find(b => b.url === (profile?.profile_bg || profile?.preferred_bg))?.unmutedAudio || ALL_BACKGROUNDS.find(b => b.url === (profile?.profile_bg || profile?.preferred_bg))?.ambientAudio) && isTargetAdmin && (
-                  <button 
-                    onClick={() => setIsAmbientMuted(!isAmbientMuted)} 
-                    className={`absolute -bottom-2 -right-2 p-2 rounded-xl border transition-all cursor-pointer flex items-center justify-center z-20 ${
-                      isAmbientMuted 
-                        ? 'bg-red-500/80 border-red-500/30 text-white backdrop-blur-md' 
-                        : 'bg-sage-200/80 border-sage-200/30 text-slate-950 backdrop-blur-md'
-                    }`}
-                    title={isAmbientMuted ? "Unmute Ambient" : "Mute Ambient"}
-                  >
-                    {isAmbientMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
-                  </button>
-                )}
-              </div>
+              <FocusRing isFocusing={isFocusing} tier={friendTier}>
+                <div className="w-32 h-32 rounded-full bg-slate-800 border-2 border-white/10 overflow-hidden flex items-center justify-center shadow-2xl relative">
+                  {displayProfile?.avatar_url ? (
+                    <img src={displayProfile.avatar_url} alt={displayProfile.display_name} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-4xl font-display font-light text-white/40">
+                      {(displayProfile?.display_name || displayProfile?.username || '?').charAt(0).toUpperCase()}
+                    </span>
+                  )}
+                  
+                  {/* Friend Ambient Toggle */}
+                  {(profile?.unmuted_audio || ALL_BACKGROUNDS.find(b => b.url === (profile?.profile_bg || profile?.preferred_bg))?.unmutedAudio || ALL_BACKGROUNDS.find(b => b.url === (profile?.profile_bg || profile?.preferred_bg))?.ambientAudio) && isTargetAdmin && (
+                    <button 
+                      onClick={() => setIsAmbientMuted(!isAmbientMuted)} 
+                      className={`absolute -bottom-2 -right-2 p-2 rounded-xl border transition-all cursor-pointer flex items-center justify-center z-20 ${
+                        isAmbientMuted 
+                          ? 'bg-red-500/80 border-red-500/30 text-white backdrop-blur-md' 
+                          : 'bg-sage-200/80 border-sage-200/30 text-slate-950 backdrop-blur-md'
+                      }`}
+                      title={isAmbientMuted ? "Unmute Ambient" : "Mute Ambient"}
+                    >
+                      {isAmbientMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                    </button>
+                  )}
+                </div>
+              </FocusRing>
 
               {/* Info */}
               <div className="text-center sm:text-left flex-1">
-                <h1 className="text-3xl font-display font-light text-white mb-1 tracking-tight">{displayProfile?.display_name || displayProfile?.username}</h1>
-                <div className="flex items-center gap-3 mb-4">
-                  <p className="text-sm text-white/30 font-medium">@{displayProfile?.username}</p>
-                  {isFocusing && (
-                    <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-green-500/10 border border-green-500/20 text-green-400 text-[9px] uppercase tracking-widest font-bold animate-pulse">
-                      <span className="w-1.5 h-1.5 rounded-full bg-green-400" />
-                      Focusing Now
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-1">
+                  <h1 className="text-3xl font-display font-light text-white tracking-tight">
+                    {displayProfile?.display_name || displayProfile?.username}
+                  </h1>
+                  <div className="flex items-center justify-center sm:justify-start gap-2">
+                    <LeagueBadge tier={friendTier} size="sm" />
+                    <span className={`text-[10px] font-bold uppercase tracking-widest ${friendTier.textColor}`}>
+                      {friendTier.name} League
                     </span>
-                  )}
+                  </div>
+                </div>
+                
+                <div className="flex items-center justify-center sm:justify-start gap-3 mb-4">
+                  <p className="text-sm text-white/30 font-medium">@{displayProfile?.username}</p>
                 </div>
                 
                 <div className="max-w-md">
@@ -274,6 +304,46 @@ const FriendProfilePage: React.FC = () => {
                 </div>
               </div>
             </div>
+
+            {/* Ranking Cards for Top 3 */}
+            {!rankLoading && topRankings.length > 0 && (
+              <div className="mt-8 flex flex-wrap justify-center sm:justify-start gap-3">
+                {topRankings.map((r, i) => (
+                  <motion.div
+                    key={`${r.timeRange}-${r.rank}`}
+                    initial={{ opacity: 0, scale: 0.9, y: 10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    transition={{ delay: 0.3 + i * 0.1 }}
+                  >
+                    <GlassCard 
+                      variant="icy" 
+                      className={`px-4 py-2 flex items-center gap-3 border shadow-lg ${
+                        r.rank === 1 ? 'border-amber-400/40 bg-amber-400/5' : 
+                        r.rank === 2 ? 'border-slate-300/40 bg-slate-300/5' : 
+                        'border-orange-400/40 bg-orange-400/5'
+                      }`}
+                    >
+                      <div className={`p-1.5 rounded-lg ${
+                        r.rank === 1 ? 'bg-amber-400/20 text-amber-300' : 
+                        r.rank === 2 ? 'bg-slate-300/20 text-slate-200' : 
+                        'bg-orange-400/20 text-orange-300'
+                      }`}>
+                        {r.rank === 1 ? <Crown className="w-3.5 h-3.5" /> : <Medal className="w-3.5 h-3.5" />}
+                      </div>
+                      <div>
+                        <div className="text-[10px] font-bold uppercase tracking-widest text-white/90">
+                          #{r.rank} {r.timeRange}
+                        </div>
+                        <div className="text-[8px] uppercase tracking-widest text-white/30 font-medium">
+                          Global Leaderboard
+                        </div>
+                      </div>
+                    </GlassCard>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+
 
             {/* Relationship Action */}
             {currentUser && currentUser.id !== profile.id && (
@@ -319,7 +389,7 @@ const FriendProfilePage: React.FC = () => {
         {[
           { icon: Flame, label: 'Current Streak', value: `${displayProfile?.current_streak || 0}`, sub: 'days', color: 'text-amber-300 bg-amber-500/10 border-amber-500/20' },
           { icon: Trophy, label: 'Best Streak', value: `${displayProfile?.best_streak || 0}`, sub: 'days', color: 'text-purple-300 bg-purple-500/10 border-purple-500/20' },
-          { icon: Clock, label: 'All-time Focus', value: stats.totalHours >= 1 ? `${stats.totalHours.toFixed(1)}h` : `${Math.floor(stats.totalSeconds / 60)}m`, sub: 'total', color: 'text-sage-200 bg-sage-200/10 border-sage-200/20' },
+          { icon: Clock, label: 'All-time Focus', value: stats.totalHours >= 1 ? `${Math.floor(stats.totalHours)}h` : `${Math.floor(stats.totalSeconds / 60)}m`, sub: 'total', color: 'text-sage-200 bg-sage-200/10 border-sage-200/20' },
           { icon: Target, label: 'All-time Sessions', value: `${stats.totalSessions}`, sub: 'total', color: 'text-blue-300 bg-blue-500/10 border-blue-500/20' },
         ].map((stat, i) => (
           <motion.div key={stat.label} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2 + i * 0.05 }}>
@@ -348,6 +418,7 @@ const FriendProfilePage: React.FC = () => {
       >
         <FocusActivityWidget streakDates={streakDates} />
       </motion.div>
+
     </div>
   );
 };
@@ -358,7 +429,7 @@ const FriendBackgroundSync: React.FC<{ profile: any, stats: any, isTargetAdmin: 
     if (!profile) return;
     const { url, type } = resolveProfileDecoration(profile, stats.totalHours, isTargetAdmin);
     setBackground(url, type);
-  }, [profile?.id, profile?.profile_bg, profile?.preferred_bg, stats.totalHours, isTargetAdmin, setBackground]);
+  }, [profile, profile?.id, profile?.profile_bg, profile?.preferred_bg, stats.totalHours, isTargetAdmin, setBackground]);
 
   return null;
 };

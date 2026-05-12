@@ -21,6 +21,7 @@ const FriendsPage = lazy(() => import('./pages/FriendsPage'));
 const FriendProfilePage = lazy(() => import('./pages/FriendProfilePage'));
 const BackgroundPage = lazy(() => import('./pages/BackgroundPage'));
 const LeaderboardPage = lazy(() => import('./pages/LeaderboardPage'));
+const HabitsPage = lazy(() => import('./pages/HabitsPage'));
 
 // Placeholders
 import { TasksPage, RoomPage, SocialPage, PlaceholderPage } from './pages/Placeholders';
@@ -31,6 +32,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import SubsystemErrorBoundary from './components/SubsystemErrorBoundary';
 import { ZenClockProvider } from './context/ZenClockContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { DataSyncProvider } from './context/DataSyncContext';
 import { SoundscapeProvider } from './context/SoundscapeContext';
 import { BackgroundProvider } from './context/BackgroundContext';
 import AuthGateway from './pages/AuthGateway';
@@ -81,6 +83,7 @@ function App() {
       <Suspense fallback={<InitialLoader show={true} minDuration={500} />}>
         <ErrorBoundary>
         <AuthProvider>
+          <DataSyncProvider>
           <ZenClockProvider>
             <BackgroundProvider>
               <SoundscapeProvider>
@@ -107,6 +110,7 @@ function App() {
                   <Route path="music" element={<PlaceholderPage title="Music" description="Manage your lo-fi beats and ambient soundscapes." />} />
                   <Route path="background" element={<BackgroundPage />} />
                   <Route path="leaderboard" element={<LeaderboardPage />} />
+                  <Route path="habits" element={<HabitsPage />} />
                   <Route path="friends" element={<FriendsPage />} />
                   <Route path="friends/:username" element={<FriendProfilePage />} />
                   <Route path="contact" element={<PlaceholderPage title="Contact Us" description="Get in touch with the Komorebie support team." />} />
@@ -125,6 +129,7 @@ function App() {
             </SoundscapeProvider>
           </BackgroundProvider>
         </ZenClockProvider>
+        </DataSyncProvider>
       </AuthProvider>
         </ErrorBoundary>
       </Suspense>

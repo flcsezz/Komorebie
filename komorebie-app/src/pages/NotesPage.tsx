@@ -36,9 +36,13 @@ const NotesPage: React.FC = () => {
   }, [notes]);
 
   const filteredNotes = useMemo(() => {
-    return notes.filter(n => {
-      const matchesSearch = n.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                           n.content.toLowerCase().includes(searchQuery.toLowerCase());
+    return notes.filter((n) => {
+      const title = n.title || '';
+      const content = n.content || '';
+      const query = (searchQuery || '').toLowerCase();
+
+      const matchesSearch = title.toLowerCase().includes(query) || 
+                           content.toLowerCase().includes(query);
       const matchesFolder = activeFolder === 'All' || 
                            (activeFolder === 'Favorites' ? n.is_favorite : n.folder === activeFolder);
       return matchesSearch && matchesFolder;

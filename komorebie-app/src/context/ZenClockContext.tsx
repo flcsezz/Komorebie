@@ -145,7 +145,7 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         });
         
         if (!response.ok) return;
-        const data = await response.json();
+        const data = await response.json() as any;
         if (!data) return;
 
         const isActive = !!data.is_active;

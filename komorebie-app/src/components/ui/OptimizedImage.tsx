@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 
 interface OptimizedImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   src: string;
@@ -30,6 +30,23 @@ const OptimizedImage: React.FC<OptimizedImageProps> = ({
   const [isLoaded, setIsLoaded] = useState(false);
   const [error, setError] = useState(false);
   const [currentSrc, setCurrentSrc] = useState(src);
+  const imgRef = useRef<HTMLImageElement>(null);
+
+  const handleLoad = useCallback(() => {
+    if (!isLoaded) {
+      setIsLoaded(true);
+      if (onLoadComplete) onLoadComplete();
+    }
+  }, [isLoaded, onLoadComplete]);
+
+  const handleError = useCallback(() => {
+    if (!error && fallbackSrc) {
+      setCurrentSrc(fallbackSrc);
+      setError(true);
+    } else {
+      setIsLoaded(true);
+    }
+  }, [error, fallbackSrc]);
 
   useEffect(() => {
     setCurrentSrc(src);
@@ -37,17 +54,11 @@ const OptimizedImage: React.FC<OptimizedImageProps> = ({
     setError(false);
   }, [src]);
 
-  const handleLoad = () => {
-    setIsLoaded(true);
-    if (onLoadComplete) onLoadComplete();
-  };
-
-  const handleError = () => {
-    if (!error && fallbackSrc) {
-      setCurrentSrc(fallbackSrc);
-      setError(true);
+  useEffect(() => {
+    if (imgRef.current && imgRef.current.complete) {
+      handleLoad();
     }
-  };
+  }, [currentSrc, handleLoad]);
 
   return (
     <div 
@@ -60,6 +71,7 @@ const OptimizedImage: React.FC<OptimizedImageProps> = ({
       )}
 
       <img
+        ref={imgRef}
         src={currentSrc}
         alt={alt}
         loading={loading}

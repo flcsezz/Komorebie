@@ -50,7 +50,7 @@ const FriendsPage: React.FC = () => {
   const navigate = useNavigate();
   const {
     friends, incomingRequests, outgoingRequests, requestCount,
-    loading, searching, searchResults, focusTimes,
+    loading, searching, searchResults, focusTimes, weeklyFocusTimes,
     handleSearch, sendRequest, acceptRequest, rejectRequest, cancelRequest, removeFriend,
   } = useFriends();
   const { presences } = usePresence();
@@ -194,6 +194,7 @@ const FriendsPage: React.FC = () => {
                             key={f.friendship_id}
                             friendship={f}
                             todayFocusSeconds={focusTimes[f.friend.id] || 0}
+                            weeklyFocusSeconds={weeklyFocusTimes[f.friend.id] || 0}
                             presence={presences[f.friend.id]}
                             onRemove={removeFriend}
                             onViewProfile={(f: FriendWithProfile) => navigate(`/app/friends/${f.friend.username}`)}

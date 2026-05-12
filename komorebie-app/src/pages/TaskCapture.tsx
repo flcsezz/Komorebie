@@ -10,15 +10,14 @@ import StreakWidget from '../components/dashboard/StreakWidget';
 import SoundscapeSelector from '../components/dashboard/SoundscapeSelector';
 import ThePathWidget from '../components/dashboard/ThePathWidget';
 import ZenClock from '../components/dashboard/ZenClock';
-import AmbientPresence from '../components/dashboard/AmbientPresence';
 import { useZenClock } from '../context/ZenClockContext';
-import { useAnalytics } from '../hooks/useAnalytics';
+import { useDataSync } from '../context/DataSyncContext';
 import { useDevice } from '../hooks/useDevice';
 import { useAuth } from '../context/AuthContext';
 import { createDeadline, deleteDeadline } from '../lib/analytics';
 
 const TaskCapture: React.FC = () => {
-  const { stats, streakDates, deadlines, refresh } = useAnalytics();
+  const { stats, streakDates, deadlines, refresh } = useDataSync();
   const { isActive } = useZenClock();
   const { user } = useAuth();
   const { isTouch } = useDevice();
@@ -143,15 +142,15 @@ const TaskCapture: React.FC = () => {
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, x: -20 }}
                         layout
-                        className={`p-3 ${colors.bg} border ${colors.border} rounded-xl flex justify-between items-center group/item cursor-pointer transition-all hover:scale-[1.01]`}
+                        className={`p-3 ${colors.bg} border ${colors.border} rounded-xl flex justify-between items-start group/item cursor-pointer transition-all hover:scale-[1.01]`}
                       >
-                        <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-                          <span className={`text-[10px] ${colors.text} font-medium truncate`}>{d.title}</span>
-                          <span className={`text-[8px] ${colors.sub} uppercase tracking-widest font-bold`}>
+                        <div className="flex flex-col gap-0.5 flex-1 min-w-0 pr-2">
+                          <span className={`text-[12px] leading-tight ${colors.text} font-semibold break-words`}>{d.title}</span>
+                          <span className={`text-[10px] ${colors.sub} uppercase tracking-widest font-bold`}>
                             {getDaysUntil(d.deadline_date)}
                           </span>
                         </div>
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 pt-0.5">
                           <button 
                             onClick={(e) => { e.stopPropagation(); handleDeleteDeadline(d.id); }}
                             className={`p-1 rounded-lg text-white/10 hover:text-red-400/60 hover:bg-red-400/5 transition-all cursor-pointer ${isTouch ? 'opacity-100' : 'opacity-0 group-hover/item:opacity-100'}`}
@@ -189,7 +188,6 @@ const TaskCapture: React.FC = () => {
 
       </div>
       
-      <AmbientPresence />
     </div>
 
     {/* Deadline Creation Modal */}
@@ -226,10 +224,14 @@ const TaskCapture: React.FC = () => {
                       autoFocus
                       type="text" 
                       value={deadlineTitle}
+                      maxLength={35}
                       onChange={e => setDeadlineTitle(e.target.value)}
                       className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm placeholder-white/20 focus:outline-none focus:border-sage-200/40 transition-colors"
                       placeholder="e.g., Midterm: CS201"
                     />
+                    <div className="flex justify-end mt-1">
+                      <span className="text-[9px] text-white/20">{deadlineTitle.length}/35</span>
+                    </div>
                   </div>
 
                   <div>
@@ -237,6 +239,7 @@ const TaskCapture: React.FC = () => {
                     <input 
                       type="date" 
                       value={deadlineDate}
+                      min={new Date().toISOString().split('T')[0]}
                       style={{ colorScheme: 'dark' }}
                       onChange={e => setDeadlineDate(e.target.value)}
                       className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-sage-200/40 transition-colors cursor-pointer"
@@ -247,10 +250,14 @@ const TaskCapture: React.FC = () => {
                     <label className="block text-[10px] text-white/40 uppercase tracking-wider mb-1.5 font-bold">Description (Optional)</label>
                     <textarea 
                       value={deadlineDesc}
+                      maxLength={200}
                       onChange={e => setDeadlineDesc(e.target.value)}
                       className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm placeholder-white/20 focus:outline-none focus:border-sage-200/40 transition-colors resize-none h-20"
                       placeholder="Add notes..."
                     />
+                    <div className="flex justify-end mt-1">
+                      <span className="text-[9px] text-white/20">{deadlineDesc.length}/200</span>
+                    </div>
                   </div>
 
                   <div className="flex gap-3 pt-2">

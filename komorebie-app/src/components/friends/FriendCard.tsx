@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Flame, Clock, UserMinus, ExternalLink } from 'lucide-react';
 import GlassCard from '../ui/GlassCard';
+import FocusRing from '../leaderboard/FocusRing';
+import { getTierForSeconds } from '../../lib/leagues';
 import type { FriendWithProfile } from '../../lib/friends';
 import type { PresenceState } from '../../hooks/usePresence';
 
@@ -10,14 +12,16 @@ interface FriendCardProps {
   onRemove: (friendshipId: string) => void;
   onViewProfile?: (friend: FriendWithProfile) => void;
   todayFocusSeconds?: number;
+  weeklyFocusSeconds?: number;
   presence?: PresenceState;
 }
 
-const FriendCard: React.FC<FriendCardProps> = ({ friendship, onRemove, onViewProfile, todayFocusSeconds = 0, presence }) => {
+const FriendCard: React.FC<FriendCardProps> = ({ friendship, onRemove, onViewProfile, todayFocusSeconds = 0, weeklyFocusSeconds = 0, presence }) => {
   const isFocusing = presence?.is_active;
   const { friend, since, friendship_id } = friendship;
   const [confirmRemove, setConfirmRemove] = useState(false);
 
+  const tier = getTierForSeconds(weeklyFocusSeconds);
   const sinceDate = new Date(since);
   const friendsSince = sinceDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
 
@@ -46,19 +50,17 @@ const FriendCard: React.FC<FriendCardProps> = ({ friendship, onRemove, onViewPro
         className="relative mt-4 cursor-pointer"
         onClick={() => onViewProfile?.(friendship)}
       >
-        <div className={`w-20 h-20 rounded-[2rem] bg-slate-800 border-2 border-white/5 overflow-hidden flex items-center justify-center shadow-xl group-hover:border-sage-200/30 transition-all duration-500 ${isFocusing ? 'border-green-400/30' : ''}`}>
-          {friend.avatar_url ? (
-            <img src={friend.avatar_url} alt={friend.display_name} className="w-full h-full object-cover" />
-          ) : (
-            <span className="text-3xl font-display font-light text-white/40">
-              {(friend.display_name || friend.username || '?').charAt(0).toUpperCase()}
-            </span>
-          )}
-        </div>
-        {/* Presence Indicator */}
-        <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-slate-950 flex items-center justify-center">
-          <div className={`w-3 h-3 rounded-full shadow-[0_0_10px_rgba(183,201,176,0.4)] ${isFocusing ? 'bg-green-400 animate-pulse' : 'bg-sage-200/60'}`} />
-        </div>
+        <FocusRing isFocusing={isFocusing} tier={tier}>
+          <div className={`w-20 h-20 rounded-full bg-slate-800 border-2 border-white/5 overflow-hidden flex items-center justify-center shadow-xl group-hover:border-sage-200/30 transition-all duration-500 ${isFocusing ? 'border-green-400/30' : ''}`}>
+            {friend.avatar_url ? (
+              <img src={friend.avatar_url} alt={friend.display_name} className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-3xl font-display font-light text-white/40">
+                {(friend.display_name || friend.username || '?').charAt(0).toUpperCase()}
+              </span>
+            )}
+          </div>
+        </FocusRing>
       </div>
 
       {/* Content */}

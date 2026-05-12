@@ -20,7 +20,7 @@ async function fix() {
   }
   let count = 0;
   for (const user of data) {
-    let updates: any = {};
+    const updates: any = {};
     if (user.profile_bg && user.profile_bg.includes('adminback.webm')) {
       updates.profile_bg = user.profile_bg.replace('adminback.webm', 'adminback.mp4');
     }

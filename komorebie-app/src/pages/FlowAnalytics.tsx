@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { useAnalytics } from '../hooks/useAnalytics';
+import { useDataSync } from '../context/DataSyncContext';
 import GlassCard from '../components/ui/GlassCard';
 import { motion } from 'framer-motion';
 import { 
@@ -12,7 +12,10 @@ import {
 } from 'lucide-react';
 
 const FlowAnalytics: React.FC = () => {
-  const { stats, streakDates } = useAnalytics();
+  const { stats, streakDates } = useDataSync();
+
+  const totalHours = stats.totalSeconds / 3600;
+  const weekHours = stats.weekSeconds / 3600;
   const [viewMode, setViewMode] = React.useState<'today' | 'total'>('today');
 
   // Map streaks to garden grid (49 cells = 7 weeks)
@@ -42,8 +45,8 @@ const FlowAnalytics: React.FC = () => {
     }));
   }, [stats.weeklyData]);
 
-  const totalHoursFormatted = stats.totalHours >= 1 ? `${stats.totalHours}h` : `${Math.floor(stats.totalSeconds / 60)}m`;
-  const weekHoursFormatted = stats.weekHours >= 1 ? `${stats.weekHours}h` : `${Math.floor(stats.weekSeconds / 60)}m`;
+  const totalHoursFormatted = totalHours >= 1 ? `${Math.floor(totalHours)}h` : `${Math.floor(stats.totalSeconds / 60)}m`;
+  const weekHoursFormatted = weekHours >= 1 ? `${Math.floor(weekHours)}h` : `${Math.floor(stats.weekSeconds / 60)}m`;
   const todayHours = stats.todayFocusSeconds / 3600;
   const todayFocusFormatted = todayHours >= 1 ? `${todayHours.toFixed(1)}h` : `${Math.floor(stats.todayFocusSeconds / 60)}m`;
 

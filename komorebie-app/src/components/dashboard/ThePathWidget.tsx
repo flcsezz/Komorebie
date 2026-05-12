@@ -27,6 +27,7 @@ import TaskItem, { type Task, type TaskStatus } from './TaskItem';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { analyticsCache } from '../../lib/analyticsCache';
+import { edgeUpdate, edgeFetchAll } from '../../lib/edge';
 import { AnimatePresence, motion } from 'framer-motion';
 
 const DroppableArea: React.FC<{ id: string; children: React.ReactNode; className?: string; isOver?: boolean }> = ({ id, children, className, isOver }) => {
@@ -57,24 +58,44 @@ const ThePathWidget: React.FC = () => {
     if (!user) return;
     
     setLoading(true);
-    const { data, error } = await supabase
-      .from('tasks')
-      .select('*')
-      .order('sort_order', { ascending: true })
-      .order('created_at', { ascending: false });
+    try {
+      // Try edge first
+      const edgeData = await edgeFetchAll() as any[];
+      const tasksRow = edgeData.find((d: any) => d.data_type === 'tasks');
+      
+      if (tasksRow && tasksRow.payload) {
+        const mappedTasks: Task[] = tasksRow.payload.map((t: any) => ({
+          id: t.id,
+          title: t.title,
+          category: t.category || 'General',
+          status: t.status as TaskStatus,
+          isCompleted: t.is_completed
+        }));
+        setTasks(mappedTasks);
+        setLoading(false);
+        return;
+      }
 
-    if (error) {
-      console.error('Error fetching tasks:', error);
-    } else if (data) {
-      // Map Supabase fields to our local Task type
-      const mappedTasks: Task[] = data.map(t => ({
-        id: t.id,
-        title: t.title,
-        category: t.category || 'General',
-        status: t.status as TaskStatus,
-        isCompleted: t.is_completed
-      }));
-      setTasks(mappedTasks);
+      // Fallback
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('*')
+        .order('sort_order', { ascending: true })
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      if (data) {
+        const mappedTasks: Task[] = data.map(t => ({
+          id: t.id,
+          title: t.title,
+          category: t.category || 'General',
+          status: t.status as TaskStatus,
+          isCompleted: t.is_completed
+        }));
+        setTasks(mappedTasks);
+      }
+    } catch (err) {
+      console.error('Error fetching tasks:', err);
     }
     setLoading(false);
   }, [user]);
@@ -112,31 +133,34 @@ const ThePathWidget: React.FC = () => {
     setNewTaskTitle('');
     setIsAdding(false);
 
-    const { data, error } = await supabase
-      .from('tasks')
-      .insert([
-        { 
-          user_id: user.id,
-          title, 
-          status: 'todo',
-          category: 'General',
-          sort_order: 0 // New tasks go to top
-        }
-      ])
-      .select()
-      .single();
+    try {
+      // Generate temp ID for edge write if we had one, 
+      // but here we let the edge handle it or we use a UUID
+      const tempId = crypto.randomUUID();
+      const payload = { 
+        id: tempId,
+        user_id: user.id,
+        title, 
+        status: 'todo',
+        category: 'General',
+        sort_order: 0,
+        is_completed: false,
+        created_at: new Date().toISOString()
+      };
 
-    if (error) {
-      console.error('Error adding task:', error);
-    } else if (data) {
+      await edgeUpdate('tasks', payload);
+      
       const newTask: Task = {
-        id: data.id,
-        title: data.title,
-        category: data.category || 'General',
-        status: data.status as TaskStatus,
-        isCompleted: data.is_completed
+        id: tempId,
+        title,
+        category: 'General',
+        status: 'todo',
+        isCompleted: false
       };
       setTasks([newTask, ...tasks]);
+    } catch (err) {
+      console.error('Error adding task via edge:', err);
+      fetchTasks();
     }
   };
 
@@ -150,21 +174,18 @@ const ThePathWidget: React.FC = () => {
     // Optimistic update
     setTasks(tasks.map(t => t.id === id ? { ...t, isCompleted: nextState } : t));
 
-    const { error } = await supabase
-      .from('tasks')
-      .update({ 
+    try {
+      await edgeUpdate('tasks', { 
+        id,
         is_completed: nextState,
         completed_at: completedAt
-      })
-      .eq('id', id);
-
-    if (error) {
-      console.error('Error toggling task:', error);
+      });
+      
+      if (user) analyticsCache.invalidate(user.id);
+    } catch (err) {
+      console.error('Error toggling task via edge:', err);
       // Rollback on error
       setTasks(tasks.map(t => t.id === id ? { ...t, isCompleted: !nextState } : t));
-    } else if (user) {
-      // Refresh analytics cache to update "Tasks Done" stat
-      analyticsCache.invalidate(user.id);
     }
   };
 
@@ -339,13 +360,12 @@ const ThePathWidget: React.FC = () => {
       is_completed: t.isCompleted
     }));
 
-    const { error } = await supabase
-      .from('tasks')
-      .upsert(updates);
-
-    if (error) {
-      console.error('Error syncing task order:', error);
+    try {
+      await edgeUpdate('tasks', updates);
+    } catch (err) {
+      console.error('Error syncing task order via edge:', err);
     }
+
   };
 
   // Custom collision detection: prefer droppable containers when not directly over a task
@@ -382,15 +402,21 @@ const ThePathWidget: React.FC = () => {
 
       {isAdding && (
         <form onSubmit={handleAddTask} className="mb-4 px-1">
-          <input
-            autoFocus
-            type="text"
-            value={newTaskTitle}
-            onChange={(e) => setNewTaskTitle(e.target.value)}
-            onBlur={() => { if(!newTaskTitle) setIsAdding(false); }}
-            placeholder="Type task and press Enter..."
-            className="w-full bg-white/5 border border-sage-200/30 rounded-xl px-4 py-3 text-xs font-light text-white focus:outline-none focus:bg-white/10 transition-all"
-          />
+          <div className="relative">
+            <input
+              autoFocus
+              type="text"
+              value={newTaskTitle}
+              maxLength={35}
+              onChange={(e) => setNewTaskTitle(e.target.value)}
+              onBlur={() => { if(!newTaskTitle) setIsAdding(false); }}
+              placeholder="Type task and press Enter..."
+              className="w-full bg-white/5 border border-sage-200/30 rounded-xl px-4 py-3 text-xs font-light text-white focus:outline-none focus:bg-white/10 transition-all pr-12"
+            />
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[9px] text-white/20">
+              {newTaskTitle.length}/35
+            </div>
+          </div>
         </form>
       )}
       <DndContext

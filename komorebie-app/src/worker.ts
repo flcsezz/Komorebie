@@ -1,3 +1,4 @@
+import { createClient } from '@supabase/supabase-js';
 import postgres from 'postgres';
 
 export interface Env {
@@ -91,115 +92,11 @@ export default {
             }
           }
 
-          // Fetch from Supabase via Hyperdrive
-          const sql = postgres(env.HYPERDRIVE.connectionString);
-          
-          try {
-            const [profile, sessions, streaks, deadlines, tasks] = await Promise.all([
-              sql`SELECT * FROM profiles WHERE id = ${user.id} LIMIT 1`,
-              sql`SELECT id, status, elapsed_seconds, started_at FROM focus_sessions WHERE user_id = ${user.id} ORDER BY started_at DESC LIMIT 500`,
-              sql`SELECT focus_date, total_focus_seconds, sessions_count, streak_qualified FROM streaks WHERE user_id = ${user.id} ORDER BY focus_date DESC LIMIT 365`,
-              sql`SELECT id, deadline_date, title FROM deadlines WHERE user_id = ${user.id} ORDER BY deadline_date ASC`,
-              sql`SELECT id, is_completed, completed_at FROM tasks WHERE user_id = ${user.id} AND is_completed = true ORDER BY completed_at DESC`
-            ]);
-
-            // Ported computeStats logic
-            const validSessions = sessions.filter((s: any) => s.status === 'completed' || (s.elapsed_seconds || 0) >= 300);
-            const totalSeconds = validSessions.reduce((acc: number, s: any) => acc + (s.elapsed_seconds || 0), 0);
-            const totalHours = Math.round((totalSeconds / 3600) * 10) / 10;
-            const today = new Date().toISOString().split('T')[0];
-
-            const sessionsTodayList = validSessions.filter((s: any) => s.started_at.startsWith(today));
-            const todayFocusSeconds = sessionsTodayList.reduce((acc: number, s: any) => acc + (s.elapsed_seconds || 0), 0);
-            const sessionsToday = sessions.filter((s: any) => s.started_at.startsWith(today)).length;
-            const completedToday = sessions.filter((s: any) => s.status === 'completed' && s.started_at.startsWith(today)).length;
-            
-            const tasksDone = tasks.length;
-            const tasksDoneToday = tasks.filter((t: any) => t.completed_at && t.completed_at.startsWith(today)).length;
-
-            const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-            const weeklyData = [];
-            for (let i = 6; i >= 0; i--) {
-              const d = new Date();
-              d.setDate(d.getDate() - i);
-              const dStr = d.toISOString().split('T')[0];
-              const entry = streaks.find((s: any) => s.focus_date === dStr);
-              weeklyData.push({
-                date: dStr,
-                day: dayNames[d.getDay()],
-                focusSeconds: entry ? entry.total_focus_seconds : 0,
-                sessionsCount: entry ? entry.sessions_count : 0,
-                tasksDone: tasks.filter((t: any) => t.completed_at && t.completed_at.startsWith(dStr)).length
-              });
-            }
-
-            const now = new Date();
-            const day = now.getDay(); 
-            const diffToMonday = day === 0 ? 6 : day - 1;
-            const monday = new Date(now);
-            monday.setDate(now.getDate() - diffToMonday);
-            const mondayStr = monday.toISOString().split('T')[0];
-            const weekSeconds = streaks
-              .filter((s: any) => s.focus_date >= mondayStr)
-              .reduce((acc: number, s: any) => acc + (s.total_focus_seconds || 0), 0);
-
-            const userProfile = profile[0] || {};
-            let currentStreak = 0;
-            const qualifiedDates = new Set(streaks.filter((s: any) => s.streak_qualified).map((s: any) => s.focus_date));
-            if (qualifiedDates.size > 0) {
-              const yesterday = new Date();
-              yesterday.setDate(yesterday.getDate() - 1);
-              const yesterdayStr = yesterday.toISOString().split('T')[0];
-              const isAlive = qualifiedDates.has(today) || qualifiedDates.has(yesterdayStr);
-              if (isAlive) {
-                const checkDate = qualifiedDates.has(today) ? new Date() : yesterday;
-                while (qualifiedDates.has(checkDate.toISOString().split('T')[0])) {
-                  currentStreak++;
-                  checkDate.setDate(checkDate.getDate() - 1);
-                }
-                currentStreak = Math.max(currentStreak, userProfile.current_streak || 0);
-              }
-            }
-
-            const stats = {
-              totalSeconds,
-              totalHours,
-              totalSessions: validSessions.length,
-              sessionsToday,
-              completedToday,
-              tasksDone,
-              tasksDoneToday,
-              currentStreak,
-              bestStreak: Math.max(currentStreak, userProfile.best_streak || 0),
-              mana: userProfile.mana_points || 0,
-              todayFocusSeconds,
-              weeklyData,
-              weekSeconds,
-              weekHours: Math.round((weekSeconds / 3600) * 10) / 10,
-              profile: userProfile,
-              deadlines: deadlines
-            };
-
-            const payload = JSON.stringify(stats);
-
-            // Update D1 Cache
-            await env.komorebie_db.prepare(`
-              INSERT INTO data_cache (user_id, data_type, payload, updated_at)
-              VALUES (?, ?, ?, ?)
-              ON CONFLICT (user_id, data_type) DO UPDATE SET
-                payload = excluded.payload,
-                updated_at = excluded.updated_at
-            `).bind(user.id, 'analytics_stats', payload, new Date().toISOString()).run();
-
-            return new Response(payload, {
-              headers: { 'Content-Type': 'application/json', 'X-Cache': 'MISS' }
-            });
-          } catch (err: any) {
-             console.error('Analytics Engine Error:', err);
-             return new Response(JSON.stringify({ error: err.message }), { status: 500 });
-          } finally {
-            await sql.end();
-          }
+          // Compute and return
+          const stats = await computeAndStoreStats(user.id, env);
+          return new Response(JSON.stringify(stats), {
+            headers: { 'Content-Type': 'application/json', 'X-Cache': 'MISS' }
+          });
         }
 
         // Unified Data Sync: Read all
@@ -270,5 +167,169 @@ export default {
 
     // Fallthrough for other requests (static assets handled by wrangler assets)
     return new Response('Not Found', { status: 404 });
+  },
+
+  // Cron Background Sync (BE-CF-07)
+  async scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContext) {
+    const sql = postgres(env.HYPERDRIVE.connectionString);
+    
+    try {
+      // 1. Fetch active users (e.g. active in last 7 days)
+      const users = await sql`
+        SELECT id FROM profiles 
+        WHERE last_seen_at > (now() - interval '7 days')
+        OR id IN (SELECT user_id FROM focus_sessions WHERE started_at > (now() - interval '24 hours'))
+      `;
+
+      console.log(`[Cron] Starting background sync for ${users.length} active users`);
+
+      // 2. Process in parallel with concurrency control if needed
+      // For 7 users, direct parallel is fine.
+      await Promise.all(users.map(async (u: any) => {
+        try {
+          console.log(`[Cron] Syncing data for user: ${u.id}`);
+          
+          // Refresh data buckets in D1
+          const [tasks, habits, habitLogs, deadlines] = await Promise.all([
+            sql`SELECT * FROM tasks WHERE user_id = ${u.id} ORDER BY created_at DESC`,
+            sql`SELECT * FROM habits WHERE user_id = ${u.id} ORDER BY created_at ASC`,
+            sql`SELECT * FROM habit_logs WHERE user_id = ${u.id} AND log_date > (now() - interval '90 days')`,
+            sql`SELECT * FROM deadlines WHERE user_id = ${u.id} ORDER BY deadline_date ASC`
+          ]);
+
+          // Store in D1
+          const syncTasks = env.komorebie_db.batch([
+            env.komorebie_db.prepare('INSERT INTO data_cache (user_id, data_type, payload, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT DO UPDATE SET payload=excluded.payload, updated_at=excluded.updated_at')
+              .bind(u.id, 'tasks', JSON.stringify(tasks), new Date().toISOString()),
+            env.komorebie_db.prepare('INSERT INTO data_cache (user_id, data_type, payload, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT DO UPDATE SET payload=excluded.payload, updated_at=excluded.updated_at')
+              .bind(u.id, 'habits', JSON.stringify(habits), new Date().toISOString()),
+            env.komorebie_db.prepare('INSERT INTO data_cache (user_id, data_type, payload, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT DO UPDATE SET payload=excluded.payload, updated_at=excluded.updated_at')
+              .bind(u.id, 'habit_logs', JSON.stringify(habitLogs), new Date().toISOString()),
+            env.komorebie_db.prepare('INSERT INTO data_cache (user_id, data_type, payload, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT DO UPDATE SET payload=excluded.payload, updated_at=excluded.updated_at')
+              .bind(u.id, 'deadlines', JSON.stringify(deadlines), new Date().toISOString())
+          ]);
+
+          await syncTasks;
+
+          // Finally, re-compute analytics stats to warm the cache
+          await computeAndStoreStats(u.id, env);
+          
+          console.log(`[Cron] Successfully synced user: ${u.id}`);
+        } catch (err) {
+          console.error(`[Cron] Failed to sync user ${u.id}:`, err);
+        }
+      }));
+
+    } catch (err) {
+      console.error('[Cron] Background sync failed:', err);
+    } finally {
+      await sql.end();
+    }
   }
 };
+
+/**
+ * Reusable analytics engine logic
+ */
+async function computeAndStoreStats(userId: string, env: Env) {
+  const sql = postgres(env.HYPERDRIVE.connectionString);
+  try {
+    const [profile, sessions, streaks, deadlines, tasks] = await Promise.all([
+      sql`SELECT * FROM profiles WHERE id = ${userId} LIMIT 1`,
+      sql`SELECT id, status, elapsed_seconds, started_at FROM focus_sessions WHERE user_id = ${userId} ORDER BY started_at DESC LIMIT 500`,
+      sql`SELECT focus_date, total_focus_seconds, sessions_count, streak_qualified FROM streaks WHERE user_id = ${userId} ORDER BY focus_date DESC LIMIT 365`,
+      sql`SELECT id, deadline_date, title FROM deadlines WHERE user_id = ${userId} ORDER BY deadline_date ASC`,
+      sql`SELECT id, is_completed, completed_at FROM tasks WHERE user_id = ${userId} AND is_completed = true ORDER BY completed_at DESC`
+    ]);
+
+    const validSessions = sessions.filter((s: any) => s.status === 'completed' || (s.elapsed_seconds || 0) >= 300);
+    const totalSeconds = validSessions.reduce((acc: number, s: any) => acc + (s.elapsed_seconds || 0), 0);
+    const totalHours = Math.round((totalSeconds / 3600) * 10) / 10;
+    const today = new Date().toISOString().split('T')[0];
+
+    const sessionsTodayList = validSessions.filter((s: any) => s.started_at.startsWith(today));
+    const todayFocusSeconds = sessionsTodayList.reduce((acc: number, s: any) => acc + (s.elapsed_seconds || 0), 0);
+    const sessionsToday = sessions.filter((s: any) => s.started_at.startsWith(today)).length;
+    const completedToday = sessions.filter((s: any) => s.status === 'completed' && s.started_at.startsWith(today)).length;
+    
+    const tasksDone = tasks.length;
+    const tasksDoneToday = tasks.filter((t: any) => t.completed_at && t.completed_at.startsWith(today)).length;
+
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const weeklyData = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dStr = d.toISOString().split('T')[0];
+      const entry = streaks.find((s: any) => s.focus_date === dStr);
+      weeklyData.push({
+        date: dStr,
+        day: dayNames[d.getDay()],
+        focusSeconds: entry ? entry.total_focus_seconds : 0,
+        sessionsCount: entry ? entry.sessions_count : 0,
+        tasksDone: tasks.filter((t: any) => t.completed_at && t.completed_at.startsWith(dStr)).length
+      });
+    }
+
+    const now = new Date();
+    const day = now.getDay(); 
+    const diffToMonday = day === 0 ? 6 : day - 1;
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - diffToMonday);
+    const mondayStr = monday.toISOString().split('T')[0];
+    const weekSeconds = streaks
+      .filter((s: any) => s.focus_date >= mondayStr)
+      .reduce((acc: number, s: any) => acc + (s.total_focus_seconds || 0), 0);
+
+    const userProfile = profile[0] || {};
+    let currentStreak = 0;
+    const qualifiedDates = new Set(streaks.filter((s: any) => s.streak_qualified).map((s: any) => s.focus_date));
+    if (qualifiedDates.size > 0) {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStr = yesterday.toISOString().split('T')[0];
+      const isAlive = qualifiedDates.has(today) || qualifiedDates.has(yesterdayStr);
+      if (isAlive) {
+        const checkDate = qualifiedDates.has(today) ? new Date() : yesterday;
+        while (qualifiedDates.has(checkDate.toISOString().split('T')[0])) {
+          currentStreak++;
+          checkDate.setDate(checkDate.getDate() - 1);
+        }
+        currentStreak = Math.max(currentStreak, userProfile.current_streak || 0);
+      }
+    }
+
+    const stats = {
+      totalSeconds,
+      totalHours,
+      totalSessions: validSessions.length,
+      sessionsToday,
+      completedToday,
+      tasksDone,
+      tasksDoneToday,
+      currentStreak,
+      bestStreak: Math.max(currentStreak, userProfile.best_streak || 0),
+      mana: userProfile.mana_points || 0,
+      todayFocusSeconds,
+      weeklyData,
+      weekSeconds,
+      weekHours: Math.round((weekSeconds / 3600) * 10) / 10,
+      profile: userProfile,
+      deadlines: deadlines
+    };
+
+    const payload = JSON.stringify(stats);
+
+    await env.komorebie_db.prepare(`
+      INSERT INTO data_cache (user_id, data_type, payload, updated_at)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT (user_id, data_type) DO UPDATE SET
+        payload = excluded.payload,
+        updated_at = excluded.updated_at
+    `).bind(userId, 'analytics_stats', payload, new Date().toISOString()).run();
+
+    return stats;
+  } finally {
+    await sql.end();
+  }
+}
