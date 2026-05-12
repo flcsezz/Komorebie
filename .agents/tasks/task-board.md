@@ -48,6 +48,16 @@
 | UI-05     | done   | Antigravity | Increase text sizes and contrast for Dashboard widgets and Analytics          | none         | High-legibility Zen Dashboard   |
 | FE-07     | done   | Antigravity | Implement Leaderboard with 7-day/All-time views and Podium UI                | BE-01        | Premium Leaderboard Page        |
 | FE-09     | done   | Antigravity | Profile Decoration System (35h lock, Premium BGM, Safe Fallbacks)            | BE-01, BE-02 | Unlocked profile customization  |
+| FE-10     | done   | Antigravity | Refine Background Selection System (OptimizedImage, Granular Feedback)       | FE-09        | Production-ready BackgroundPage |
+| BE-CF-01  | done   | Antigravity | Provision D1 & Configure Wrangler (Complexity: LOW)                           | none         | D1 binding in wrangler.jsonc    |
+| BE-CF-02  | done   | Antigravity | Edge Timer Sync Worker (Complexity: MEDIUM)                                  | BE-CF-01     | /api/timer/sync endpoint        |
+| FE-CF-01  | todo   | unassigned  | Zen Clock Edge Integration (Complexity: MEDIUM)                              | BE-CF-02     | Heartbeats offloaded from SB    |
+| BE-CF-03  | todo   | unassigned  | Edge Analytics Cache Engine (Complexity: HIGH)                               | BE-CF-01     | /api/analytics/stats endpoint   |
+| FE-CF-02  | todo   | unassigned  | Edge-Aware Data Synchronization (Complexity: MEDIUM)                         | BE-CF-03     | Edge-fast dashboard load        |
+| BE-CF-04  | todo   | unassigned  | Configure Cloudflare Hyperdrive (Complexity: LOW)                             | none         | Pooled DB connections           |
+| BE-CF-05  | done   | Antigravity | Expand D1 Schema for App Data (Complexity: LOW)                              | BE-CF-01     | data_cache table in D1         |
+| BE-CF-06  | todo   | unassigned  | Edge Unified Data Sync (Complexity: MEDIUM)                                  | BE-CF-05     | /api/data/all endpoint         |
+| BE-CF-07  | todo   | unassigned  | Cron Background Sync (Complexity: HIGH)                                      | BE-CF-06     | Hourly D1/Supabase refresh     |
 
 
 
