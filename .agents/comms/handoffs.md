@@ -57,3 +57,13 @@
     - Applied migration to local D1 instance and verified table existence.
 - Decisions made: Used a composite primary key to allow multiple data types per user while ensuring uniqueness and fast retrieval.
 - Next recommended action: Implement `BE-CF-06` (Edge Unified Data Sync) to start utilizing this new cache table for tasks, habits, and other app data.
+
+## 2026-05-12 18:19 IST | Antigravity
+- Task: Configure Cloudflare Hyperdrive (BE-CF-04)
+- Status: done
+- What changed:
+    - Created Hyperdrive PostgreSQL configuration `komorebie-db-pool` pointing to Supabase Direct connection (port 5432).
+    - ID: `347fda685a87480f88ff90d3196c3508`
+    - Bound `HYPERDRIVE` to the Cloudflare Worker in `wrangler.jsonc`.
+- Decisions made: Used Direct Connection (IPv6) instead of Supabase pooler to allow Hyperdrive to handle pooling globally for maximum performance gain.
+- Next recommended action: Update `worker.ts` to use the Hyperdrive connection for Supabase queries instead of the standard REST client where performance is critical.
