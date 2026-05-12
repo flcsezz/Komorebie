@@ -467,7 +467,6 @@ const AppLayout: React.FC = () => {
             <SidebarSection label="Preferences" isCollapsed={isCollapsed}>
               <SidebarLink to="/app/customize" icon={SlidersHorizontal} label="Customize" active={location.pathname === '/app/customize'} isCollapsed={isCollapsed} />
               <SidebarLink to="/app/music" icon={Music} label="Music" active={location.pathname === '/app/music'} isCollapsed={isCollapsed} />
-              <SidebarLink to="/app/focus" icon={Eye} label="Focus Mode" active={location.pathname === '/app/focus'} isCollapsed={isCollapsed} />
               <SidebarLink to="/app/background" icon={ImageIcon} label="Background" active={location.pathname === '/app/background'} isCollapsed={isCollapsed} />
             </SidebarSection>
 
@@ -476,21 +475,6 @@ const AppLayout: React.FC = () => {
               <SidebarLink to="/app/leaderboard" icon={Trophy} label="Leaderboard" active={location.pathname === '/app/leaderboard'} isCollapsed={isCollapsed} />
               <SidebarLink to="/app/friends" icon={Users} label="Friends" active={location.pathname === '/app/friends'} isCollapsed={isCollapsed} badge={friendRequestBadge} />
             </SidebarSection>
-
-            {/* Join Our Gang */}
-            {!isCollapsed && (
-              <div className="mt-12 p-4 text-center">
-                <p className="text-[11px] font-black text-amber-400 uppercase tracking-[0.2em] mb-4 shadow-[0_0_10px_rgba(251,191,36,0.2)]">Join Our Gang!</p>
-                <div className="flex justify-center gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-[#5865F2] flex items-center justify-center cursor-pointer hover:scale-110 transition-transform shadow-lg shadow-[#5865F2]/20">
-                    <MessageSquare className="w-5 h-5 text-white" fill="currentColor" />
-                  </div>
-                  <div className="w-10 h-10 rounded-xl bg-[#FF4500] flex items-center justify-center cursor-pointer hover:scale-110 transition-transform shadow-lg shadow-[#FF4500]/20">
-                    <Share2 className="w-5 h-5 text-white" />
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Footer */}

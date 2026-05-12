@@ -58,11 +58,11 @@
 | BE-CF-05  | done   | Antigravity | Expand D1 Schema for App Data (Complexity: LOW)                              | BE-CF-01     | data_cache table in D1         |
 | BE-CF-06  | done   | Antigravity | Edge Unified Data Sync (Complexity: MEDIUM)                                  | BE-CF-05     | /api/data/all endpoint         |
 | BE-CF-07  | done   | Antigravity | Cron Background Sync (Complexity: HIGH)                                      | BE-CF-06     | Hourly D1/Supabase refresh     |
-| SEC-01    | todo   | unassigned  | Hardening SQL Function Permissions                                           | none         | Restricted RPC access          |
-| SEC-02    | todo   | unassigned  | Revoke RPC Access for Internal Triggers                                      | none         | Trigger security               |
-| SEC-03    | todo   | unassigned  | SQL Function Search Path Security                                            | none         | Schema injection protection    |
-| SEC-04    | todo   | unassigned  | Worker Endpoint Input Validation                                             | none         | API data-type whitelist        |
-| SEC-05    | todo   | unassigned  | Storage Bucket Privacy Hardening                                             | none         | Restricted bucket listing      |
+| SEC-01    | done   | Antigravity | Hardening SQL Function Permissions                                           | none         | Restricted RPC access          |
+| SEC-02    | done   | Antigravity | Revoke RPC Access for Internal Triggers                                      | none         | Trigger security               |
+| SEC-03    | done   | Antigravity | SQL Function Search Path Security                                            | none         | Schema injection protection    |
+| SEC-04    | done   | Antigravity | Worker Endpoint Input Validation                                             | none         | API data-type whitelist        |
+| SEC-05    | done   | Antigravity | Storage Bucket Privacy Hardening                                             | none         | Restricted bucket listing      |
 | STB-01    | todo   | unassigned  | Fix Hyperdrive Connection Leak in Worker                                     | none         | Optimized edge connection pool |
 | STB-02    | todo   | unassigned  | Fix DataSyncContext Streak Approximation                                     | none         | Accurate dashboard heatmap     |
 | FE-11     | todo   | unassigned  | Implement App Settings Page                                                  | none         | Functional preferences UI      |

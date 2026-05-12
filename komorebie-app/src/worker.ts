@@ -126,6 +126,26 @@ export default {
               return new Response('Bad Request', { status: 400 });
             }
 
+            // SEC-04: Whitelist allowed data types
+            const ALLOWED_DATA_TYPES = [
+              'tasks', 
+              'habits', 
+              'habit_logs', 
+              'deadlines', 
+              'user_preferences',
+              'notes',
+              'flashcard_decks',
+              'flashcard_cards',
+              'flashcard_study_sessions'
+            ];
+
+            if (!ALLOWED_DATA_TYPES.includes(body.data_type)) {
+              return new Response(JSON.stringify({ error: `Unauthorized data type: ${body.data_type}` }), { 
+                status: 400,
+                headers: { 'Content-Type': 'application/json' }
+              });
+            }
+
             const payloadStr = typeof body.payload === 'string' ? body.payload : JSON.stringify(body.payload);
 
             // 1. Dual-write: D1 First
@@ -212,7 +232,7 @@ export default {
           await syncTasks;
 
           // Finally, re-compute analytics stats to warm the cache
-          await computeAndStoreStats(u.id, env);
+          await computeAndStoreStats(u.id, env, sql);
           
           console.log(`[Cron] Successfully synced user: ${u.id}`);
         } catch (err) {
@@ -231,8 +251,8 @@ export default {
 /**
  * Reusable analytics engine logic
  */
-async function computeAndStoreStats(userId: string, env: Env) {
-  const sql = postgres(env.HYPERDRIVE.connectionString);
+async function computeAndStoreStats(userId: string, env: Env, providedSql?: any) {
+  const sql = providedSql || postgres(env.HYPERDRIVE.connectionString);
   try {
     const [profile, sessions, streaks, deadlines, tasks] = await Promise.all([
       sql`SELECT * FROM profiles WHERE id = ${userId} LIMIT 1`,
@@ -267,6 +287,7 @@ async function computeAndStoreStats(userId: string, env: Env) {
         day: dayNames[d.getDay()],
         focusSeconds: entry ? entry.total_focus_seconds : 0,
         sessionsCount: entry ? entry.sessions_count : 0,
+        streakQualified: entry ? entry.streak_qualified : false,
         tasksDone: tasks.filter((t: any) => t.completed_at && t.completed_at.startsWith(dStr)).length
       });
     }
@@ -330,6 +351,8 @@ async function computeAndStoreStats(userId: string, env: Env) {
 
     return stats;
   } finally {
-    await sql.end();
+    if (!providedSql) {
+      await sql.end();
+    }
   }
 }

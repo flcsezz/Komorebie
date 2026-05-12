@@ -150,7 +150,7 @@ export const DataSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               focus_date: d.date,
               total_focus_seconds: d.focusSeconds,
               sessions_count: d.sessionsCount,
-              streak_qualified: true // Approximation
+              streak_qualified: d.streakQualified || false // Actual value instead of Approximation
             })),
             deadlines: stats.deadlines,
             tasks: [], // Tasks are also pre-computed in stats
