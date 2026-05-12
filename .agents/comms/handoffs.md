@@ -67,3 +67,17 @@
     - Bound `HYPERDRIVE` to the Cloudflare Worker in `wrangler.jsonc`.
 - Decisions made: Used Direct Connection (IPv6) instead of Supabase pooler to allow Hyperdrive to handle pooling globally for maximum performance gain.
 - Next recommended action: Update `worker.ts` to use the Hyperdrive connection for Supabase queries instead of the standard REST client where performance is critical.
+
+## 2026-05-12 18:23 IST | Antigravity
+- Task: Edge Analytics Cache Engine & Data Sync (BE-CF-03, FE-CF-02)
+- Status: done
+- What changed:
+    - Implemented `/api/analytics/stats` in `worker.ts`.
+    - Integrated `postgres` library with Hyperdrive for sub-100ms SQL queries.
+    - Ported heavy computation logic (streaks, focus time, weekly data) to the edge.
+    - Implemented D1 caching for computed results (2-minute TTL).
+    - Updated `DataSyncContext.tsx` to prefer edge stats with fallback to legacy Supabase fetch.
+- Decisions made: 
+    - Used Hyperdrive for SQL access instead of REST to minimize latency and connection overhead.
+    - Simplified "Today" logic to UTC in the worker for global consistency.
+- Next recommended action: Implement `BE-CF-07` (Cron Background Sync) to proactively warm the D1 cache for all users, further reducing "Cold Start" analytics lag.
