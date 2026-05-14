@@ -115,7 +115,9 @@ export const DataSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const globalRank = (higherRanked || 0) + 1;
 
       // 3. League rank
+      console.log('DataSync: Calling get_leaderboard_weekly RPC...');
       const { data: weeklyLB } = await supabase.rpc('get_leaderboard_weekly');
+      console.log('DataSync: get_leaderboard_weekly RPC result:', weeklyLB ? 'success' : 'empty');
       const lb = weeklyLB as any[] || [];
       const myLBEntry = lb.find(u => u.id === userId);
       const weeklyRank = myLBEntry ? lb.indexOf(myLBEntry) + 1 : null;
@@ -138,22 +140,36 @@ export const DataSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       return;
     }
 
-    setLoading(true);
+    // Only show the loading screen if we have no data yet or it's a forced refresh
+    const shouldShowLoader = !data || force;
+    if (shouldShowLoader) {
+      console.log('DataSync: refresh() called, showing loader. force:', force);
+      setLoading(true);
+    } else {
+      console.log('DataSync: refresh() called in background...');
+    }
     try {
       const session = await supabase.auth.getSession();
       const token = session.data.session?.access_token;
 
       if (token) {
-        // Try Edge Analytics Engine first (BE-CF-03)
+        console.log('DataSync: Attempting edge fetch with timeout...');
+        
+        // 10 second timeout for edge fetch
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+
         const res = await fetch(`/api/analytics/stats${force ? '?force=true' : ''}`, {
           headers: {
             'Authorization': `Bearer ${token}`
-          }
+          },
+          signal: controller.signal
         });
+        clearTimeout(timeoutId);
 
         if (res.ok) {
           const statsPayload = await res.json() as any;
-          setEdgeStats(statsPayload);
+          console.log('DataSync: Stats fetched from edge successfully', statsPayload);
           
           setData({
             profile: statsPayload.profile,
@@ -170,15 +186,22 @@ export const DataSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           } as any);
 
           // We still need rankings, which aren't in the edge stats yet
-          await fetchRankings(user.id, statsPayload.totalSeconds);
+          // We fire this off but don't block the initial loading state for it
+          console.log('DataSync: Calling fetchRankings (async)...');
+          fetchRankings(user.id, statsPayload.totalSeconds).then(() => {
+            console.log('DataSync: fetchRankings finished');
+          });
+          
+          console.log('DataSync: Early return from refresh (edge success)');
           return;
         }
       }
 
-      // Fallback to legacy browser computation
+      console.log('DataSync: Edge fetch failed or not ok, falling back to legacy fetch...');
       const result = force 
         ? await analyticsCache.invalidate(user.id)
         : await analyticsCache.fetch(user.id);
+      console.log('DataSync: Legacy fetch result:', result ? 'success' : 'failed');
       
       if (result) {
         setData(result);
@@ -191,6 +214,7 @@ export const DataSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const result = await analyticsCache.fetch(user.id);
       if (result) setData(result);
     } finally {
+      console.log('DataSync: refresh() finished, setting loading to false');
       setLoading(false);
     }
   }, [user, fetchRankings]);

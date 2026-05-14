@@ -113,7 +113,9 @@ export default {
           }
 
           // Compute and return
+          console.log(`[Worker] Computing stats for user: ${user.id}`);
           const stats = await computeAndStoreStats(user.id, env);
+          console.log(`[Worker] Stats computation complete for user: ${user.id}`);
           return new Response(JSON.stringify(stats), {
             headers: { 'Content-Type': 'application/json', 'X-Cache': 'MISS' }
           });
@@ -278,13 +280,19 @@ async function computeAndStoreStats(userId: string, env: Env, providedSql?: any)
   }
   const sql = providedSql || sqlClient;
   try {
+    console.log(`[Worker] Starting DB queries for user: ${userId}`);
+    const start = Date.now();
+    
+    // Individual timeouts for queries to avoid global hang
     const [profile, sessions, streaks, deadlines, tasks] = await Promise.all([
-      sql`SELECT * FROM profiles WHERE id = ${userId} LIMIT 1`,
-      sql`SELECT id, status, elapsed_seconds, started_at FROM focus_sessions WHERE user_id = ${userId} ORDER BY started_at DESC LIMIT 500`,
-      sql`SELECT focus_date, total_focus_seconds, sessions_count, streak_qualified FROM streaks WHERE user_id = ${userId} ORDER BY focus_date DESC LIMIT 365`,
-      sql`SELECT id, deadline_date, title FROM deadlines WHERE user_id = ${userId} ORDER BY deadline_date ASC`,
-      sql`SELECT id, is_completed, completed_at FROM tasks WHERE user_id = ${userId} AND is_completed = true ORDER BY completed_at DESC`
+      sql`SELECT * FROM profiles WHERE id = ${userId} LIMIT 1`.timeout(4000),
+      sql`SELECT id, status, elapsed_seconds, started_at FROM focus_sessions WHERE user_id = ${userId} ORDER BY started_at DESC LIMIT 500`.timeout(4000),
+      sql`SELECT focus_date, total_focus_seconds, sessions_count, streak_qualified FROM streaks WHERE user_id = ${userId} ORDER BY focus_date DESC LIMIT 365`.timeout(4000),
+      sql`SELECT id, deadline_date, title FROM deadlines WHERE user_id = ${userId} ORDER BY deadline_date ASC`.timeout(4000),
+      sql`SELECT id, is_completed, completed_at FROM tasks WHERE user_id = ${userId} AND is_completed = true ORDER BY completed_at DESC`.timeout(4000)
     ]);
+    
+    console.log(`[Worker] DB queries finished in ${Date.now() - start}ms. Sessions: ${sessions.length}`);
 
     const validSessions = sessions.filter((s: any) => s.status === 'completed' || (s.elapsed_seconds || 0) >= 300);
     const totalSeconds = validSessions.reduce((acc: number, s: any) => acc + (s.elapsed_seconds || 0), 0);
@@ -366,6 +374,7 @@ async function computeAndStoreStats(userId: string, env: Env, providedSql?: any)
 
     const payload = JSON.stringify(stats);
 
+    console.log(`[Worker] Storing stats in D1 for user: ${userId}`);
     await env.komorebie_db.prepare(`
       INSERT INTO data_cache (user_id, data_type, payload, updated_at)
       VALUES (?, ?, ?, ?)
@@ -373,6 +382,7 @@ async function computeAndStoreStats(userId: string, env: Env, providedSql?: any)
         payload = excluded.payload,
         updated_at = excluded.updated_at
     `).bind(userId, 'analytics_stats', payload, new Date().toISOString()).run();
+    console.log(`[Worker] Stats stored in D1 for user: ${userId}`);
 
     return stats;
   } catch (err) {

@@ -7,7 +7,7 @@ import {
   Settings, LogOut, Users,
   Crown, Bell, Palette, Menu, ChevronDown, Maximize, Minimize,
   Calendar, SlidersHorizontal, Music, Image as ImageIcon,
-  Trophy, LifeBuoy, Clock, BarChart3, Loader2, Flame, Sparkles, Check,
+  Trophy, LifeBuoy, Clock, BarChart3, Flame, Sparkles, Check,
   ListChecks
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -351,12 +351,10 @@ const AppLayout: React.FC = () => {
   const isVideoByExtension = activeBg ? /\.(mp4|webm|mov|ogg)($|\?)/i.test(activeBg) : false;
   const isVideo = backgroundType === 'video' || isVideoByExtension || (ALL_BACKGROUNDS.find(b => b.url === activeBg)?.type === 'video');
 
+  // 2. Main app initialization
+  // Use the premium InitialLoader instead of a plain spinner for a better UX
   if (authLoading || dataLoading) {
-    return (
-      <div className="h-screen w-full flex items-center justify-center bg-slate-950">
-        <Loader2 className="w-8 h-8 text-sage-200 animate-spin" />
-      </div>
-    );
+    return <InitialLoader show={true} />;
   }
 
   const needsOnboarding = user && (!profile || (!profile.has_completed_onboarding && !profile.username));

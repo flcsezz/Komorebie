@@ -153,14 +153,16 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
         if (isActive && data.started_at) {
           const startedAt = new Date(data.started_at).getTime();
-          const targetEnd = startedAt + (data.duration_seconds * 1000);
+          // CRITICAL FIX: Use session_duration (absolute) to compute the stable target end time.
+          // Using duration_seconds from a heartbeat would shift the target backward because it's the *remaining* time!
+          const sessionDur = data.session_duration || data.duration_seconds;
+          const targetEnd = startedAt + (sessionDur * 1000);
           const now = Date.now();
 
           // FAILSAFE: If the session is stale, ignore it
           if (targetEnd < now - STALE_SESSION_THRESHOLD_MS) return;
 
           const remaining = Math.ceil((targetEnd - now) / 1000);
-          const sessionDur = data.session_duration || data.duration_seconds;
           
           setDurationState(sessionDur / 60);
           setTargetEndTime(targetEnd);
