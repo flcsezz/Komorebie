@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
-  Settings, 
   Clock, 
   Volume2, 
-  Bell, 
   Database, 
   LogOut, 
   Check, 
@@ -36,7 +34,6 @@ const SettingsPage: React.FC = () => {
   // Focus Settings State
   const [workDur, setWorkDur] = useState('25');
   const [shortBreak, setShortBreak] = useState('5');
-  const [longBreak, setLongBreak] = useState('15');
   const [autoStart, setAutoStart] = useState(false);
   const [overtime, setOvertime] = useState(true);
 
