@@ -93,7 +93,7 @@ const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({ onComplete, userI
     try {
       const emailName = user.email ? user.email.split('@')[0] : 'user';
       const defaultName = user.user_metadata?.full_name || user.user_metadata?.name || emailName;
-      let baseUsername = emailName.toLowerCase().replace(/[^a-z0-9_]/g, '');
+      let baseUsername = (emailName || '').toLowerCase().replace(/[^a-z0-9_]/g, '');
       
       if (baseUsername.length < 3) baseUsername = baseUsername + '123';
 
@@ -266,7 +266,7 @@ const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({ onComplete, userI
                         type="text"
                         required
                         value={username}
-                        onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+                        onChange={(e) => setUsername((e.target.value || '').toLowerCase().replace(/[^a-z0-9_]/g, ''))}
                         placeholder="e.g. wanderer_42"
                         className="w-full bg-white/5 border border-white/10 rounded-2xl pl-11 pr-4 py-4 text-white placeholder-white/20 focus:outline-none focus:border-sage-200/40 transition-all text-sm"
                       />

@@ -4,9 +4,9 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 // Eager load LandingPage for fast initial render if it's the first visit
 import LandingPage from './pages/LandingPage';
 
-// Eager load core app components to diagnose loading issues
-import AppLayout from './components/layout/AppLayout';
-import TaskCapture from './pages/TaskCapture';
+// Lazy load core app components
+const AppLayout = lazy(() => import('./components/layout/AppLayout'));
+const TaskCapture = lazy(() => import('./pages/TaskCapture'));
 
 // Lazy load non-critical components
 const FocusSession = lazy(() => import('./pages/FocusSession'));
@@ -14,21 +14,25 @@ const FlowAnalytics = lazy(() => import('./pages/FlowAnalytics'));
 const ZenEnvironment = lazy(() => import('./components/three/ZenEnvironment'));
 const SchedulePage = lazy(() => import('./pages/SchedulePage'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
+const NotesPage = lazy(() => import('./pages/NotesPage'));
 const FlashcardLibrary = lazy(() => import('./pages/FlashcardLibrary'));
 const FlashcardDeckPage = lazy(() => import('./pages/FlashcardDeck'));
 const FriendsPage = lazy(() => import('./pages/FriendsPage'));
 const FriendProfilePage = lazy(() => import('./pages/FriendProfilePage'));
 const BackgroundPage = lazy(() => import('./pages/BackgroundPage'));
 const LeaderboardPage = lazy(() => import('./pages/LeaderboardPage'));
+const HabitsPage = lazy(() => import('./pages/HabitsPage'));
 
 // Placeholders
-import { TasksPage, NotesPage, RoomPage, SocialPage, PlaceholderPage } from './pages/Placeholders';
+import { TasksPage, RoomPage, SocialPage, PlaceholderPage } from './pages/Placeholders';
 
 import ZenLoader from './components/ui/ZenLoader';
 import InitialLoader from './components/ui/InitialLoader';
 import ErrorBoundary from './components/ErrorBoundary';
+import SubsystemErrorBoundary from './components/SubsystemErrorBoundary';
 import { ZenClockProvider } from './context/ZenClockContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { DataSyncProvider } from './context/DataSyncContext';
 import { SoundscapeProvider } from './context/SoundscapeContext';
 import { BackgroundProvider } from './context/BackgroundContext';
 import AuthGateway from './pages/AuthGateway';
@@ -50,7 +54,9 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 const AppRoot = ({ children }: { children: React.ReactNode }) => (
   <>
     <Suspense fallback={null}>
-      <ZenEnvironment />
+      <SubsystemErrorBoundary subsystem="3D Environment" compact>
+        <ZenEnvironment />
+      </SubsystemErrorBoundary>
     </Suspense>
     {children}
   </>
@@ -74,9 +80,10 @@ function App() {
       {/* Premium initial loading animation */}
       <InitialLoader minDuration={1300} />
       
-      <Suspense fallback={null}>
+      <Suspense fallback={<InitialLoader show={true} minDuration={500} />}>
         <ErrorBoundary>
         <AuthProvider>
+          <DataSyncProvider>
           <ZenClockProvider>
             <BackgroundProvider>
               <SoundscapeProvider>
@@ -92,9 +99,9 @@ function App() {
                   <Route index element={<TaskCapture />} />
                   <Route path="tasks" element={<TasksPage />} />
                   <Route path="notes" element={<NotesPage />} />
-                  <Route path="flashcards" element={<FlashcardLibrary />} />
-                  <Route path="flashcards/:deckId" element={<FlashcardDeckPage />} />
-                  <Route path="analytics" element={<FlowAnalytics />} />
+                  <Route path="flashcards" element={<SubsystemErrorBoundary subsystem="Flashcards"><FlashcardLibrary /></SubsystemErrorBoundary>} />
+                  <Route path="flashcards/:deckId" element={<SubsystemErrorBoundary subsystem="Flashcards"><FlashcardDeckPage /></SubsystemErrorBoundary>} />
+                  <Route path="analytics" element={<SubsystemErrorBoundary subsystem="Analytics"><FlowAnalytics /></SubsystemErrorBoundary>} />
                   <Route path="room" element={<RoomPage />} />
                   <Route path="social" element={<SocialPage />} />
                   <Route path="calendar" element={<SchedulePage />} />
@@ -103,6 +110,7 @@ function App() {
                   <Route path="music" element={<PlaceholderPage title="Music" description="Manage your lo-fi beats and ambient soundscapes." />} />
                   <Route path="background" element={<BackgroundPage />} />
                   <Route path="leaderboard" element={<LeaderboardPage />} />
+                  <Route path="habits" element={<HabitsPage />} />
                   <Route path="friends" element={<FriendsPage />} />
                   <Route path="friends/:username" element={<FriendProfilePage />} />
                   <Route path="contact" element={<PlaceholderPage title="Contact Us" description="Get in touch with the Komorebie support team." />} />
@@ -112,7 +120,7 @@ function App() {
                 {/* Focus Mode Flow */}
                 <Route path="/app/focus">
                   <Route index element={<Navigate to="/app" replace />} /> {/* Focus setup is currently part of Sanctuary/Dashboard */}
-                  <Route path="session" element={<ProtectedRoute><AppRoot><FocusSession /></AppRoot></ProtectedRoute>} />
+                  <Route path="session" element={<ProtectedRoute><AppRoot><SubsystemErrorBoundary subsystem="Focus Timer"><FocusSession /></SubsystemErrorBoundary></AppRoot></ProtectedRoute>} />
                 </Route>
                 
                 {/* Fallback for unknown routes inside /app, or redirect back to app/landing */}
@@ -121,6 +129,7 @@ function App() {
             </SoundscapeProvider>
           </BackgroundProvider>
         </ZenClockProvider>
+        </DataSyncProvider>
       </AuthProvider>
         </ErrorBoundary>
       </Suspense>

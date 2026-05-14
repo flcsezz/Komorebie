@@ -82,16 +82,15 @@ const ZenClock: React.FC = () => {
   };
 
   const totalSeconds = duration * 60;
-  // Progress goes from 0 to 1
-  const progress = totalSeconds > 0 ? (totalSeconds - timeLeft) / totalSeconds : 0;
+  // Progress goes from 0 to 1, clamped to prevent visual glitches in overtime
+  const progress = totalSeconds > 0 ? Math.max(0, Math.min(1, (totalSeconds - timeLeft) / totalSeconds)) : 0;
   const dotsToLight = Math.floor(progress * 60);
 
   const formatTime = () => {
     const absSeconds = Math.abs(timeLeft);
     const mins = Math.floor(absSeconds / 60);
     const secs = absSeconds % 60;
-    const prefix = timeLeft < 0 ? '+' : '';
-    return `${prefix}${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
   const getThemeColor = () => {
@@ -115,7 +114,7 @@ const ZenClock: React.FC = () => {
   return (
     <motion.div 
       className={`relative flex flex-col items-center justify-center w-full transition-all duration-700 ease-in-out ${
-        isActive ? 'min-h-[580px]' : 'min-h-[480px]'
+        isActive ? 'min-h-[450px] md:min-h-[580px]' : 'min-h-[350px] md:min-h-[480px]'
       } group/clock`}
     >
       {/* Pomodoro Top Tag */}
@@ -126,7 +125,7 @@ const ZenClock: React.FC = () => {
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className={`absolute top-6 px-4 py-1.5 rounded-full border text-[10px] font-bold uppercase tracking-widest z-30 ${
+            className={`absolute top-0 md:top-6 px-4 py-1.5 rounded-full border text-[10px] font-bold uppercase tracking-widest z-30 ${
               pomodoroState === 'work' ? 'bg-red-500/15 border-red-500/30 text-red-400' : 'bg-blue-500/15 border-blue-500/30 text-blue-400'
             }`}
           >
@@ -137,10 +136,9 @@ const ZenClock: React.FC = () => {
       </AnimatePresence>
 
       <motion.div 
-        className={`relative flex items-center justify-center transition-all duration-700 ${
-          isActive || isSessionComplete ? 'scale-110' : 'scale-100'
+        className={`relative flex items-center justify-center transition-all duration-700 w-full max-w-[500px] aspect-square ${
+          isActive || isSessionComplete ? 'scale-105 md:scale-110' : 'scale-95 md:scale-100'
         }`}
-        style={{ width: '500px', height: '500px' }}
       >
         
         {/* Subtle Tomato Background in Pomodoro Mode */}
@@ -371,12 +369,18 @@ const ZenClock: React.FC = () => {
                           setSelectedAlarm(alarm.url);
                           // Play preview only if not 'none'
                           if (alarm.url !== 'none') {
+                            // Stop any existing preview before starting a new one
+                            if ((window as any).__zenPreviewAudio) {
+                              (window as any).__zenPreviewAudio.pause();
+                              (window as any).__zenPreviewAudio.src = '';
+                            }
                             const preview = new Audio(alarm.url);
                             preview.volume = 0.4;
+                            (window as any).__zenPreviewAudio = preview;
                             preview.play().catch(() => {});
                             setTimeout(() => {
                               preview.pause();
-                              preview.currentTime = 0;
+                              preview.src = ''; // Release the resource
                             }, 2000);
                           }
                         }}

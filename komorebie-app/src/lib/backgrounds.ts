@@ -1,20 +1,22 @@
 import { getR2PublicUrl } from './r2';
 
-export interface Background {
+export type Background = {
   id: string;
   name: string;
   url: string;
   type: 'image' | 'video';
   isSpecial?: boolean;
+  price?: number;
+  tier?: string;
   ambientAudio?: string; // Optional R2 URL for profile-specific music
   unmutedAudio?: string; // High-priority admin/premium music
-}
+};
 
-export const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL || 'gauravbaghel7193@gmail.com';
+export const ADMIN_EMAIL = (import.meta.env.VITE_ADMIN_EMAIL || 'gauravbaghel7193@gmail.com').toString();
 export const ADMIN_USERNAME = '@albertwesker';
 
 export const ADMIN_MUSIC = [
-  { id: 'wesker-theme', name: 'Wesker Theme', url: getR2PublicUrl('audio/wesker-theme.mp3') },
+  { id: 'admin-bgm', name: 'Admin BGM', url: getR2PublicUrl('audio/bgm.mp3') },
 ];
 
 export const PUBLIC_BACKGROUNDS: Background[] = [
@@ -51,7 +53,7 @@ export const SPECIAL_LIVE_BACKGROUNDS: Background[] = [
     url: getR2PublicUrl('live-backgrounds/adminback.webm'), 
     type: 'video', 
     isSpecial: true,
-    unmutedAudio: getR2PublicUrl('audio/wesker-theme.mp3') 
+    unmutedAudio: getR2PublicUrl('audio/bgm.mp3') 
   },
 ];
 
@@ -63,6 +65,8 @@ export const ALL_BACKGROUNDS = [
 ];
 
 export const getVisibleBackgrounds = (userEmail?: string | null) => {
-  if (userEmail?.toLowerCase() === ADMIN_EMAIL.toLowerCase()) return ALL_BACKGROUNDS;
+  const email = (userEmail || '').toLowerCase();
+  const admin = (ADMIN_EMAIL || '').toLowerCase();
+  if (email === admin && admin !== '') return ALL_BACKGROUNDS;
   return [...PUBLIC_BACKGROUNDS, ...LIVE_BACKGROUNDS];
 };

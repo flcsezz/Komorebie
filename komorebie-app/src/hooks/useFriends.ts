@@ -15,7 +15,7 @@ import {
   type FriendWithProfile,
   type FriendRequest,
 } from '../lib/friends';
-import { fetchTodayFocusForUsers } from '../lib/analytics';
+import { fetchTodayFocusForUsers, fetchWeeklyFocusForUsers } from '../lib/analytics';
 
 export function useFriends() {
   const { user } = useAuth();
@@ -27,6 +27,7 @@ export function useFriends() {
   const [searching, setSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<PublicProfile[]>([]);
   const [focusTimes, setFocusTimes] = useState<Record<string, number>>({});
+  const [weeklyFocusTimes, setWeeklyFocusTimes] = useState<Record<string, number>>({});
   const mountedRef = useRef(true);
 
   const fetchAll = useCallback(async () => {
@@ -48,8 +49,12 @@ export function useFriends() {
           // Fetch focus times for friends
           const friendIds = friendsData.map(f => f.friend.id);
           if (friendIds.length > 0) {
-            const times = await fetchTodayFocusForUsers(friendIds);
+            const [times, weeklyTimes] = await Promise.all([
+              fetchTodayFocusForUsers(friendIds),
+              fetchWeeklyFocusForUsers(friendIds)
+            ]);
             setFocusTimes(prev => ({ ...prev, ...times }));
+            setWeeklyFocusTimes(prev => ({ ...prev, ...weeklyTimes }));
           }
         }
     } catch (err) {
@@ -79,8 +84,12 @@ export function useFriends() {
         // Fetch focus times for results
         const resultIds = results.map(r => r.id);
         if (resultIds.length > 0) {
-          const times = await fetchTodayFocusForUsers(resultIds);
+          const [times, weeklyTimes] = await Promise.all([
+            fetchTodayFocusForUsers(resultIds),
+            fetchWeeklyFocusForUsers(resultIds)
+          ]);
           setFocusTimes(prev => ({ ...prev, ...times }));
+          setWeeklyFocusTimes(prev => ({ ...prev, ...weeklyTimes }));
         }
       }
     } finally {
@@ -123,6 +132,7 @@ export function useFriends() {
     searching,
     searchResults,
     focusTimes,
+    weeklyFocusTimes,
     handleSearch,
     sendRequest,
     acceptRequest,

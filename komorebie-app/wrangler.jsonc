@@ -1,16 +1,39 @@
 {
-  "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "komorebie",
-  "compatibility_date": "2026-05-02",
-  "observability": {
-    "enabled": true
-  },
-  "assets": {
-    "directory": "./dist",
-    "not_found_handling": "single-page-application"
-  },
-  "compatibility_flags": [
-    "nodejs_compat"
-  ]
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "komorebie",
+	"compatibility_date": "2026-05-02",
+	"observability": {
+		"enabled": true
+	},
+	"assets": {
+		"directory": "./dist",
+		"not_found_handling": "single-page-application"
+	},
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	"main": "src/worker.ts",
+	"vars": {
+		"VITE_SUPABASE_URL": "https://gsxexdnjdxwpiptwuqyi.supabase.co",
+		"VITE_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdzeGV4ZG5qZHh3cGlwdHd1cXlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzczNzU3MzYsImV4cCI6MjA5Mjk1MTczNn0.q7PqH8iMjENiikYYjmP_RCuoU-IB1onHm45Q3aXyq-4"
+	},
+	"d1_databases": [
+		{
+			"binding": "komorebie_db",
+			"database_name": "komorebie-db",
+			"database_id": "0ad96178-8d42-49f7-9f1e-e03da40b70f2"
+		}
+	],
+	"hyperdrive": [
+		{
+			"binding": "HYPERDRIVE",
+			"id": "347fda685a87480f88ff90d3196c3508",
+			"localConnectionString": "postgresql://postgres.gsxexdnjdxwpiptwuqyi:GAURAVBROOO1239@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres"
+		}
+	],
+	"triggers": {
+		"crons": [
+			"0 * * * *"
+		]
+	}
 }
-

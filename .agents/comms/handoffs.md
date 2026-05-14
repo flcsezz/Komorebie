@@ -13,3 +13,71 @@
 - What changed: Added information architecture, user flow, and ticket docs; corrected the main architecture plan to Vite + React Router; fixed the focus timer lint issue.
 - Decisions made: Route planning must follow the current Vite app; bundle optimization is a separate FE ticket, not a blocker for planning.
 - Next recommended action: Start `IA-01`, `IA-02`, and `UI-02` first, then move to `FE-01` and `FE-02`.
+
+## 2026-05-04 13:55 IST | Antigravity
+- Task: Knowledge Grove (Notes) System Implementation
+- Status: done
+- What changed: 
+    - Created `public.notes` table in Supabase with RLS and auto-updating triggers.
+    - Implemented `useNotes` hook for full CRUD operations.
+    - Built a premium, glassmorphism-themed `NotesPage` with search, folders, and favorites.
+    - Added a "Zen Mode" to the editor for distraction-free writing with subtle breathing animations.
+    - Replaced the `NotesPage` placeholder with the real implementation.
+- Decisions made: Notes are stored as plain text with future-proofing for AI summary and rich text fields. Zen Mode is a key feature for deep reflection.
+- Next recommended action: Implement `AI-01` (AI note-summary and flashcard generation) to bridge Knowledge Grove with the Flashcard system.
+
+## Leaderboard v2 Implementation
+- Status: done
+- What changed:
+    - Implemented a 7-tier League System (Ember → Transcendent) based on weekly focus time.
+    - Added real-time presence indicators (animated "Focus Rings") for all visible leaderboard users.
+    - Built a dedicated `HallOfFame` component for previous week's champions.
+    - Added toggleable views for This Week, This Month, and All Time focus.
+    - Implemented a "Show More" expansion system (max 100 users) and removed the search bar for a cleaner "Zen" experience.
+    - All entries are clickable and navigate to user profile pages.
+- Decisions made: 
+    - Leagues are strictly weekly-focus-based to ensure fairness across all user bases.
+    - Search was removed to maintain a calm, community-focused discovery rather than a utility-heavy search.
+    - 3D Podium is deferred to future work.
+- Handoff for 3D Podium:
+    - The `PodiumCard` component is currently a premium 2D glass surface.
+    - **Future Intent:** Replace the 2D podium cards with a 3D environment using `React Three Fiber`.
+    - **Context:** The top 3 users should be represented by 3D "spirit avatars" or minimalist silhouettes standing on glowing tiered pedestals.
+    - **Styling:** Match the existing `ZenEnvironment.tsx` aesthetic (soft lighting, ambient particles, sage/violet hues).
+    - **Interaction:** Hovering a 3D pedestal should trigger the same profile navigation and reveal focus stats in a 3D hover label.
+
+## 2026-05-12 17:54 IST | Antigravity
+- Task: Expand D1 Schema for App Data (BE-CF-05)
+- Status: done
+- What changed:
+    - Created migration `0002_add_data_cache.sql` to add `data_cache` table to D1.
+    - Table schema: `user_id` (TEXT), `data_type` (TEXT), `payload` (TEXT/JSON), `updated_at` (TEXT).
+    - Composite primary key on `(user_id, data_type)` for efficient lookups.
+    - Added index on `user_id`.
+    - Applied migration to local D1 instance and verified table existence.
+- Decisions made: Used a composite primary key to allow multiple data types per user while ensuring uniqueness and fast retrieval.
+- Next recommended action: Implement `BE-CF-06` (Edge Unified Data Sync) to start utilizing this new cache table for tasks, habits, and other app data.
+
+## 2026-05-12 18:19 IST | Antigravity
+- Task: Configure Cloudflare Hyperdrive (BE-CF-04)
+- Status: done
+- What changed:
+    - Created Hyperdrive PostgreSQL configuration `komorebie-db-pool` pointing to Supabase Direct connection (port 5432).
+    - ID: `347fda685a87480f88ff90d3196c3508`
+    - Bound `HYPERDRIVE` to the Cloudflare Worker in `wrangler.jsonc`.
+- Decisions made: Used Direct Connection (IPv6) instead of Supabase pooler to allow Hyperdrive to handle pooling globally for maximum performance gain.
+- Next recommended action: Update `worker.ts` to use the Hyperdrive connection for Supabase queries instead of the standard REST client where performance is critical.
+
+## 2026-05-12 18:23 IST | Antigravity
+- Task: Edge Analytics Cache Engine & Data Sync (BE-CF-03, FE-CF-02)
+- Status: done
+- What changed:
+    - Implemented `/api/analytics/stats` in `worker.ts`.
+    - Integrated `postgres` library with Hyperdrive for sub-100ms SQL queries.
+    - Ported heavy computation logic (streaks, focus time, weekly data) to the edge.
+    - Implemented D1 caching for computed results (2-minute TTL).
+    - Updated `DataSyncContext.tsx` to prefer edge stats with fallback to legacy Supabase fetch.
+- Decisions made: 
+    - Used Hyperdrive for SQL access instead of REST to minimize latency and connection overhead.
+    - Simplified "Today" logic to UTC in the worker for global consistency.
+- Next recommended action: Implement `BE-CF-07` (Cron Background Sync) to proactively warm the D1 cache for all users, further reducing "Cold Start" analytics lag.

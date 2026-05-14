@@ -1,139 +1,62 @@
 # Agent Tickets
 
-## IA-01 Marketing Sitemap Finalization
-- Goal: lock the public marketing information architecture
-- Scope:
-  - define page inventory
-  - define section order for `/`
-  - define CTA strategy
-- Verify:
-  - sitemap is complete
-  - each marketing page has a purpose
+## [x] SEC-01: Hardening SQL Function Permissions
+- **Complexity**: `LOW`
+- **Goal**: Prevent unauthenticated access to SECURITY DEFINER functions.
+- **Scope**:
+  - Revoke EXECUTE on `get_leaderboard_weekly`, `get_leaderboard_monthly`, `get_previous_week_champions` from `anon`.
+  - Ensure only `authenticated` users can access leaderboard data.
+- **Verify**: RPC calls from unauthenticated client fail with 403.
 
-## IA-02 Authenticated App Route Design
-- Goal: define the app shell and focus-mode route structure
-- Scope:
-  - primary app nav
-  - focus-mode isolation
-  - deep-link policy for notes, decks, analytics
-- Verify:
-  - route map exists
-  - focus mode has explicit visibility rules
+## [x] SEC-02: Revoke RPC Access for Internal Triggers
+- **Complexity**: `LOW`
+- **Goal**: Prevent manual triggering of system functions.
+- **Scope**:
+  - Revoke EXECUTE on `handle_new_user()`, `prevent_username_change()`, `enforce_display_name_cooldown()` from `authenticated` and `anon`.
+- **Verify**: API calls to these functions return "permission denied".
 
-## UX-01 First Session And Quick Start
-- Goal: make onboarding and repeat use low-friction
-- Scope:
-  - first-session flow
-  - returning-user quick-start flow
-  - defaults and persistence assumptions
-- Verify:
-  - both flows are documented step by step
+## [x] SEC-03: SQL Function Search Path Security
+- **Complexity**: `LOW`
+- **Goal**: Prevent schema injection attacks on custom RPCs.
+- **Scope**:
+  - Update all custom functions to `SET search_path = public`.
+- **Verify**: Functions execute correctly with restricted path.
 
-## UX-02 Core Study Workflow
-- Goal: define task capture, focus session, and completion loop
-- Scope:
-  - task capture
-  - focus setup
-  - active session
-  - completion summary
-- Verify:
-  - transition points and CTA hierarchy are documented
+## [x] SEC-04: Worker Endpoint Input Validation
+- **Complexity**: `LOW`
+- **Goal**: Secure the `/api/data/update` endpoint against arbitrary table writes.
+- **Scope**:
+  - Implement a whitelist of allowed `data_type` values in `worker.ts`.
+  - Return 400 for unknown data types.
+- **Verify**: Request with `data_type: 'profiles'` (unauthorized) fails.
 
-## SOCIAL-01: Social Features & Analytics
-**Status:** `DONE`
-**Assignee:** `Codex`
-**Epic:** Phase 6
+## [x] SEC-05: Storage Bucket Privacy Hardening
+- **Complexity**: `LOW`
+- **Goal**: Prevent listing of all user avatars.
+- **Scope**:
+  - Update RLS policy for `avatars` bucket to restrict `SELECT` (listing) or remove it.
+- **Verify**: Authenticated users can see their own avatar but cannot list the entire bucket.
 
-**Objective:**
-Implement friend system, profile viewing, and basic analytics sharing.
+## FE-11: Implement App Settings Page
+- **Complexity**: `MEDIUM`
+- **Goal**: Replace settings placeholder with functional UI.
+- **Scope**:
+  - Build UI for theme selection, notification toggles, and account management.
+  - Connect to `user_preferences` table in Supabase.
+- **Verify**: Changes persist across sessions.
 
-**Tasks:**
-1.  **Friend System:**
-    *   Implement friend request flow (send, accept, reject).
-    *   Create friends list view.
-2.  **Profile Viewing:**
-    *   Create a public profile view for friends.
-    *   Display basic stats (total focus time, streaks).
-3.  **Real-time Presence:**
-    *   Subscribe to `active_timers` via Supabase Realtime to show "Focusing Now" indicators.
-    *   Create `AmbientPresence` widget for the dashboard.
-4.  **Database:**
-    *   Ensure RLS policies secure social data (e.g., `are_friends` function).
+---
 
-**Acceptance Criteria:**
-*   Users can send, accept, and reject friend requests.
-*   Users can view friends' profiles and basic stats.
-*   "Focusing Now" indicator appears when a friend has an active timer.
-*   RLS policies restrict data access to friends only.
-*   UI matches Zen System aesthetics.
+## 🏁 Completed Tickets (Archived)
+- [x] **STB-01**: Fix Hyperdrive Connection Leak in Worker
+- [x] **STB-02**: Fix DataSyncContext Streak Approximation
+- [x] **BE-CF-01**: Provision D1 & Configure Wrangler
+- [x] **BE-CF-02**: Edge Timer Sync Worker
+- [x] **BE-CF-03**: Edge Analytics Cache Engine
+- [x] **BE-CF-04**: Configure Cloudflare Hyperdrive
+- [x] **BE-CF-05**: Expand D1 Schema for App Data
+- [x] **BE-CF-06**: Implement Edge Unified Data Sync
+- [x] **BE-CF-07**: Implement Cron Background Sync
+- [x] **FE-CF-01**: Zen Clock Edge Integration
+- [x] **FE-CF-02**: Edge-Aware Data Synchronization
 
-## UI-01 Zen System Translation
-- Goal: turn the chosen design language into implementation rules
-- Scope:
-  - color tokens
-  - typography scale
-  - glass surfaces
-  - motion constraints
-- Verify:
-  - component inventory exists
-  - focus mode styling rules exist
-
-## UI-02 Current UI Audit
-- Goal: find mismatches between existing UI and product direction
-- Scope:
-  - landing page
-  - task capture
-  - focus session
-  - analytics
-- Verify:
-  - issue list is prioritized
-  - fixes are scoped into tickets
-
-## FE-01 Router Refactor
-- Goal: make the current app match the approved route plan
-- Scope:
-  - route additions
-  - route naming cleanup
-  - layout separation
-- Verify:
-  - router file matches route plan
-
-## FE-02 Current Bug Fix Pass
-- Goal: stabilize the existing prototype
-- Scope:
-  - lint issues
-  - broken flows
-  - layout/interaction defects
-- Verify:
-  - `npm run lint` passes
-  - major flow regressions are fixed
-
-## FE-03 Bundle And Loading Strategy
-- Goal: reduce initial load cost
-- Scope:
-  - lazy-load route pages
-  - lazy-load 3D environment
-  - separate marketing and app costs
-- Verify:
-  - build warning is reduced or intentionally documented
-
-## BE-01 Supabase Domain Model
-- Goal: define the initial backend model
-- Scope:
-  - users
-  - tasks
-  - sessions
-  - notes
-  - flashcard decks
-  - progression
-- Verify:
-  - domain entities and relationships are documented
-
-## AI-01 Study Sidekick Contract
-- Goal: define AI interfaces before implementation
-- Scope:
-  - note summary input/output
-  - flashcard generation contract
-  - focus coaching triggers
-- Verify:
-  - edge function contract exists

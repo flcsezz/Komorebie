@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { createPortal } from 'react-dom';
 import { usePresence } from '../../hooks/usePresence';
 import { useFriends } from '../../hooks/useFriends';
 import { Sparkles, Users } from 'lucide-react';
@@ -13,8 +14,8 @@ const AmbientPresence: React.FC = () => {
 
   if (focusingFriends.length === 0) return null;
 
-  return (
-    <div className="fixed bottom-24 left-8 z-10 flex flex-col gap-3">
+  return createPortal(
+    <div className="absolute bottom-6 left-6 z-10 flex flex-col gap-3 pointer-events-auto">
       <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/5 backdrop-blur-sm">
         <Sparkles className="w-3 h-3 text-sage-200 animate-pulse" />
         <span className="text-[9px] font-bold uppercase tracking-widest text-white/30">
@@ -70,7 +71,8 @@ const AmbientPresence: React.FC = () => {
           ))}
         </AnimatePresence>
       </div>
-    </div>
+    </div>,
+    document.getElementById('floating-page-controls') || document.body
   );
 };
 

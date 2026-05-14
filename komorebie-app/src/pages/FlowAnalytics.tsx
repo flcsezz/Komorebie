@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { useAnalytics } from '../hooks/useAnalytics';
+import { useDataSync } from '../context/DataSyncContext';
 import GlassCard from '../components/ui/GlassCard';
 import { motion } from 'framer-motion';
 import { 
@@ -7,12 +7,14 @@ import {
   CheckCircle2, 
   Trophy,
   TrendingUp,
-  Activity,
   Clock
 } from 'lucide-react';
 
 const FlowAnalytics: React.FC = () => {
-  const { stats, streakDates } = useAnalytics();
+  const { stats, streakDates } = useDataSync();
+
+  const totalHours = stats.totalSeconds / 3600;
+  const weekHours = stats.weekSeconds / 3600;
   const [viewMode, setViewMode] = React.useState<'today' | 'total'>('today');
 
   // Map streaks to garden grid (49 cells = 7 weeks)
@@ -42,23 +44,15 @@ const FlowAnalytics: React.FC = () => {
     }));
   }, [stats.weeklyData]);
 
-  const totalHoursFormatted = stats.totalHours >= 1 ? `${stats.totalHours}h` : `${Math.floor(stats.totalSeconds / 60)}m`;
-  const weekHoursFormatted = stats.weekHours >= 1 ? `${stats.weekHours}h` : `${Math.floor(stats.weekSeconds / 60)}m`;
+  const totalHoursFormatted = totalHours >= 1 ? `${Math.floor(totalHours)}h` : `${Math.floor(stats.totalSeconds / 60)}m`;
+  const weekHoursFormatted = weekHours >= 1 ? `${Math.floor(weekHours)}h` : `${Math.floor(stats.weekSeconds / 60)}m`;
   const todayHours = stats.todayFocusSeconds / 3600;
   const todayFocusFormatted = todayHours >= 1 ? `${todayHours.toFixed(1)}h` : `${Math.floor(stats.todayFocusSeconds / 60)}m`;
 
   return (
-    <div className="min-h-screen pt-12 pb-20 px-6 max-w-7xl mx-auto">
-      <header className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-8">
+    <div className="min-h-screen pt-6 pb-20 px-6 max-w-7xl mx-auto">
+      <header className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-8">
         <div>
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-2xl bg-sage-200/10 flex items-center justify-center border border-sage-200/20">
-              <Activity className="w-5 h-5 text-sage-200" />
-            </div>
-            <h2 className="text-[13px] uppercase tracking-[0.4em] text-white/50 font-bold">
-              Inner Rhythm
-            </h2>
-          </div>
           <h1 className="text-4xl md:text-6xl font-display font-light text-white tracking-tight">
             Flow <span className="text-white/40">Analytics</span>
           </h1>

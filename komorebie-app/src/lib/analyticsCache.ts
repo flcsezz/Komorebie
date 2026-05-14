@@ -4,6 +4,7 @@ import { supabase } from './supabase';
  * Helper to get YYYY-MM-DD in local time.
  */
 export const toLocalISO = (date: Date) => {
+  if (!date || isNaN(date.getTime())) return '1970-01-01';
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
   const d = String(date.getDate()).padStart(2, '0');
@@ -115,9 +116,9 @@ class AnalyticsCacheStore {
   }
 
   private async fetchFromSupabase(userId: string): Promise<CachedAnalytics | null> {
-    try {
+    const fetchWithTimeout = async () => {
       // Run all queries in parallel for speed
-      const [profileRes, sessionsRes, streaksRes, deadlinesRes, tasksRes] = await Promise.all([
+      return Promise.all([
         supabase
           .from('profiles')
           .select('*')
@@ -147,9 +148,19 @@ class AnalyticsCacheStore {
           .eq('is_completed', true)
           .order('completed_at', { ascending: false }),
       ]);
+    };
+
+    try {
+      // 8 second timeout safety for the entire batch
+      const timeoutPromise = new Promise<null>((_, reject) => 
+        setTimeout(() => reject(new Error('Analytics timeout')), 8000)
+      );
+
+      const results = await Promise.race([fetchWithTimeout(), timeoutPromise]) as any[];
+      const [profileRes, sessionsRes, streaksRes, deadlinesRes, tasksRes] = results;
 
       const entry: CachedAnalytics = {
-        profile: profileRes.data,
+        profile: profileRes.data || {},
         sessions: sessionsRes.data || [],
         streaks: streaksRes.data || [],
         deadlines: deadlinesRes.data || [],
@@ -161,7 +172,7 @@ class AnalyticsCacheStore {
       this.notifyListeners();
       return entry;
     } catch (err) {
-      console.error('AnalyticsCache: fetch failed', err);
+      console.error('AnalyticsCache: fetch failed or timed out', err);
       return null;
     }
   }
@@ -217,28 +228,40 @@ export function computeStats(data: CachedAnalytics) {
     t.completed_at && toLocalISO(new Date(t.completed_at)) === today
   ).length;
 
-  // Weekly data (last 7 days)
+  // Weekly data for charts (last 7 days)
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const weeklyData: DailyStats[] = [];
 
   for (let i = 6; i >= 0; i--) {
-    const date = new Date();
-    date.setDate(date.getDate() - i);
-    const dateStr = toLocalISO(date);
-    const entry = streaks.find((s) => s.focus_date === dateStr);
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const dStr = toLocalISO(d);
+    const entry = streaks.find((s) => s.focus_date === dStr);
 
     weeklyData.push({
-      date: dateStr,
-      day: dayNames[date.getDay()],
+      date: dStr,
+      day: dayNames[d.getDay()],
       focusSeconds: entry ? entry.total_focus_seconds : 0,
       sessionsCount: entry ? entry.sessions_count : 0,
       tasksDone: data.tasks.filter((t) => 
-        t.completed_at && toLocalISO(new Date(t.completed_at)) === dateStr
+        t.completed_at && toLocalISO(new Date(t.completed_at)) === dStr
       ).length,
     });
   }
 
-  const weekSeconds = weeklyData.reduce((acc, d) => acc + d.focusSeconds, 0);
+  // Calculate current week seconds (Monday to Sunday) to match leaderboard logic
+  const now = new Date();
+  const day = now.getDay(); 
+  const diffToMonday = day === 0 ? 6 : day - 1;
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - diffToMonday);
+  monday.setHours(0, 0, 0, 0);
+  const mondayStr = toLocalISO(monday);
+
+  const weekSeconds = streaks
+    .filter(s => s.focus_date >= mondayStr)
+    .reduce((acc, s) => acc + (s.total_focus_seconds || 0), 0);
+
   const weekHours = Math.round((weekSeconds / 3600) * 10) / 10;
 
   // Calculate current streak from focus history
@@ -252,19 +275,20 @@ export function computeStats(data: CachedAnalytics) {
     const yesterdayStr = toLocalISO(yesterday);
     
     // Streak is active if either today or yesterday is qualified
-    if (qualifiedDates.has(todayStr) || qualifiedDates.has(yesterdayStr)) {
+    const isAlive = qualifiedDates.has(todayStr) || qualifiedDates.has(yesterdayStr);
+    
+    if (isAlive) {
       const checkDate = qualifiedDates.has(todayStr) ? new Date() : yesterday;
       
       while (qualifiedDates.has(toLocalISO(checkDate))) {
         currentStreak++;
         checkDate.setDate(checkDate.getDate() - 1);
       }
+      
+      // Fallback to profile field if it's higher (e.g. data older than 365 days)
+      // but only if the streak is actually alive.
+      currentStreak = Math.max(currentStreak, profile?.current_streak || 0);
     }
-  }
-
-  // Fallback to profile field if calculation is 0 but profile says otherwise (e.g. data older than 365 days)
-  if (currentStreak === 0 && profile?.current_streak > 0) {
-    currentStreak = profile.current_streak;
   }
 
   const bestStreak = Math.max(currentStreak, profile?.best_streak || 0);

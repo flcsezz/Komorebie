@@ -19,7 +19,7 @@ export interface DeadlineItem {
   created_at: string;
 }
 
-export const useAnalytics = (targetUserId?: string) => {
+export const useAnalytics = (targetUserId?: string | null) => {
   const { user: authUser } = useAuth();
   
   // If targetUserId is explicitly null (not just undefined), it means we're in a loading state

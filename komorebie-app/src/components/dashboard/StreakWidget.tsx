@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import GlassCard from '../ui/GlassCard';
 import { Flame, ChevronLeft, ChevronRight, Trophy, Zap, Clock, CheckCircle2, History } from 'lucide-react';
+import { useDevice } from '../../hooks/useDevice';
 import { toLocalISO } from '../../lib/analyticsCache';
 
 interface StreakWidgetProps {
@@ -26,6 +27,8 @@ const StreakWidget: React.FC<StreakWidgetProps> = ({
   bestStreak = 0,
   streakDates = new Map()
 }) => {
+  const { isTouch } = useDevice();
+  const [activeDay, setActiveDay] = useState<string | null>(null);
   const [viewMonth, setViewMonth] = useState(() => {
     const now = new Date();
     return { year: now.getFullYear(), month: now.getMonth() };
@@ -274,9 +277,10 @@ const StreakWidget: React.FC<StreakWidgetProps> = ({
                         ${getSquareClasses(sq)} 
                         ${sq.isToday ? 'ring-1 ring-white/40 ring-offset-1 ring-offset-transparent' : ''}
                       `}
+                      onClick={() => isTouch && setActiveDay(activeDay === sq.dateStr ? null : sq.dateStr)}
                     >
                       {/* Custom Tooltip */}
-                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 px-3 py-2 bg-[#0a0a0c]/90 backdrop-blur-md border border-white/10 rounded-xl text-[10px] text-white whitespace-nowrap opacity-0 group-hover/sq:opacity-100 pointer-events-none transition-all duration-200 z-50 shadow-2xl scale-90 group-hover/sq:scale-100 origin-bottom">
+                      <div className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-3 px-3 py-2 bg-[#0a0a0c]/90 backdrop-blur-md border border-white/10 rounded-xl text-[10px] text-white whitespace-nowrap transition-all duration-200 z-50 shadow-2xl scale-90 origin-bottom pointer-events-none ${activeDay === sq.dateStr ? 'opacity-100 scale-100' : 'opacity-0 group-hover/sq:opacity-100 group-hover/sq:scale-100'}`}>
                         <div className="flex flex-col gap-1.5">
                           <div className="flex items-center justify-between gap-4 border-b border-white/5 pb-1.5 mb-0.5">
                             <span className="font-bold text-white/90">{sq.day} {monthName}</span>

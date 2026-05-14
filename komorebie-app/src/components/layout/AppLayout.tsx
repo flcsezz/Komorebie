@@ -6,17 +6,24 @@ import {
   LayoutDashboard, Layers, 
   Settings, LogOut, Users,
   Crown, Bell, Palette, Menu, ChevronDown, Maximize, Minimize,
-  Calendar, SlidersHorizontal, Music, Eye, Image as ImageIcon,
-  Trophy, MessageSquare, Share2, LifeBuoy, Clock, BarChart3, Loader2, Flame, Sparkles
+  Calendar, SlidersHorizontal, Music, Image as ImageIcon,
+  Trophy, LifeBuoy, Clock, BarChart3, Flame, Sparkles, Check,
+  ListChecks
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { useAnalytics } from '../../hooks/useAnalytics';
+import { useDataSync } from '../../context/DataSyncContext';
+import { useDevice } from '../../hooks/useDevice';
 import InitialLoader from '../ui/InitialLoader';
+import ResilientVideo from '../ui/ResilientVideo';
 import OnboardingOverlay from '../profile/OnboardingOverlay';
+import ConfirmModal from '../ui/ConfirmModal';
 import { getRequestCount } from '../../lib/friends';
 import { supabase } from '../../lib/supabase';
 import { useBackground } from '../../context/BackgroundContext';
 import { getVisibleBackgrounds, ALL_BACKGROUNDS } from '../../lib/backgrounds';
+import OptimizedImage from '../ui/OptimizedImage';
+import { ADMIN_EMAIL } from '../../lib/backgrounds';
+import { TIERS, ADMIN_OVERRIDE_KEY, type TierKey } from '../../lib/leagues';
 
 // Spring configuration for animations
 const springConfig = { type: "spring" as const, stiffness: 300, damping: 35 };
@@ -159,7 +166,8 @@ const SidebarSection = ({ label, isCollapsed, children }: { label: string, isCol
 
 const AppLayout: React.FC = () => {
   const { user, loading: authLoading, signOut } = useAuth();
-  const { profile, stats, refresh } = useAnalytics();
+  const { profile, stats, refresh, loading: dataLoading } = useDataSync();
+  const { isMobile, isTouch } = useDevice();
   const location = useLocation();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [prevPath, setPrevPath] = useState(location.pathname);
@@ -187,7 +195,14 @@ const AppLayout: React.FC = () => {
     return () => clearTimeout(timer);
   }, []);
 
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
   const handleSignOut = async () => {
+    setShowLogoutConfirm(true);
+  };
+
+  const confirmSignOut = async () => {
+    setShowLogoutConfirm(false);
     await signOut();
   };
 
@@ -195,15 +210,17 @@ const AppLayout: React.FC = () => {
     return localStorage.getItem('komorebie-bg') || ALL_BACKGROUNDS[0].url;
   });
 
-  // Sync background state with profile when it loads
+  const lastSyncedBgRef = useRef<string | null>(null);
+
   // Sync local bg state with profile background if it changes
   useEffect(() => {
-    if (profile?.preferred_bg && profile.preferred_bg !== bgImage) {
+    if (profile?.preferred_bg && profile.preferred_bg !== lastSyncedBgRef.current) {
       console.log('AppLayout: Syncing bgImage from profile:', profile.preferred_bg);
       setBgImage(profile.preferred_bg);
       localStorage.setItem('komorebie-bg', profile.preferred_bg);
+      lastSyncedBgRef.current = profile.preferred_bg;
     }
-  }, [profile?.preferred_bg, bgImage]);
+  }, [profile?.preferred_bg]);
 
   // Log background override status for debugging
   useEffect(() => {
@@ -319,27 +336,46 @@ const AppLayout: React.FC = () => {
     localStorage.setItem('komorebie-bg', newBg);
     
     if (user) {
-      await supabase.from('profiles').update({ preferred_bg: newBg }).eq('id', user.id);
-      await refresh(); // Refresh profile so stats/context stay in sync
+      try {
+        await supabase.from('profiles').update({ preferred_bg: newBg }).eq('id', user.id);
+        // Update the ref so the sync effect doesn't revert it
+        lastSyncedBgRef.current = newBg;
+        await refresh(); 
+      } catch (err) {
+        console.error('Failed to update background preference:', err);
+      }
     }
   }, [user, refresh]);
 
-  if (authLoading) {
-    return (
-      <div className="h-screen w-full flex items-center justify-center bg-slate-950">
-        <Loader2 className="w-8 h-8 text-sage-200 animate-spin" />
-      </div>
-    );
+  const activeBg = background || bgImage;
+  const isVideoByExtension = activeBg ? /\.(mp4|webm|mov|ogg)($|\?)/i.test(activeBg) : false;
+  const isVideo = backgroundType === 'video' || isVideoByExtension || (ALL_BACKGROUNDS.find(b => b.url === activeBg)?.type === 'video');
+
+  // 2. Main app initialization
+  // Use the premium InitialLoader instead of a plain spinner for a better UX
+  if (authLoading || dataLoading) {
+    return <InitialLoader show={true} />;
   }
+
+  const needsOnboarding = user && (!profile || (!profile.has_completed_onboarding && !profile.username));
 
   return (
     <div className="flex h-screen overflow-hidden relative bg-transparent">
+        <ConfirmModal 
+          isOpen={showLogoutConfirm}
+          title="Log Out"
+          message="Are you sure you want to leave the sanctuary? Your progress is saved."
+          confirmText="Log Out"
+          isDestructive={true}
+          onConfirm={confirmSignOut}
+          onCancel={() => setShowLogoutConfirm(false)}
+        />
         {/* Premium Route Transition Loader */}
         <InitialLoader show={isTransitioning} />
 
         {/* First-time Onboarding Overlay */}
         <AnimatePresence>
-          {user && profile && !profile.has_completed_onboarding && !profile.username && (
+          {needsOnboarding && (
             <OnboardingOverlay 
               userId={user.id} 
               onComplete={() => refresh()} 
@@ -347,41 +383,52 @@ const AppLayout: React.FC = () => {
           )}
         </AnimatePresence>
 
-        {/* Dynamic Background */}
-        <div className="fixed inset-0 z-0 pointer-events-none opacity-40 overflow-hidden bg-slate-950">
-          {(background || bgImage) && (
-            backgroundType === 'video' || (ALL_BACKGROUNDS.find(b => b.url === (background || bgImage))?.type === 'video') ? (
-              <video
-                key={background || bgImage}
-                autoPlay
-                loop
-                muted
-                playsInline
-                className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000"
-                style={{ transform: 'scale(1.05)' }}
+        {/* Dynamic Background — Crossfade System */}
+        <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden bg-slate-950">
+          <AnimatePresence mode="popLayout">
+            {activeBg && (
+              <motion.div
+                key={activeBg}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 1.5, ease: 'easeInOut' }}
+                className="absolute inset-0"
               >
-                <source src={background || bgImage} type={(background || bgImage)?.endsWith('.webm') ? 'video/webm' : 'video/mp4'} />
-              </video>
-            ) : (
-              <div 
-                className="absolute inset-0 bg-cover bg-center transition-all duration-700 ease-in-out bg-optimize-quality"
-                style={{ backgroundImage: `url("${background || bgImage}")`, transform: 'scale(1.05)' }}
-              />
-            )
-          )}
+                {isVideo ? (
+                  <ResilientVideo
+                    key={activeBg}
+                    src={activeBg}
+                    className="absolute inset-0"
+                  />
+                ) : (
+                  <OptimizedImage
+                    key={activeBg}
+                    src={activeBg}
+                    alt="Background"
+                    loading="eager" // Backgrounds are critical
+                    fetchPriority="high" // React 19 supports this
+                    className="absolute inset-0"
+                  />
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+          
+          {/* Subtle dark overlay to ensure UI elements remain readable regardless of background content */}
+          <div className="absolute inset-0 bg-slate-950/40 z-1" />
         </div>
-        {/* Background Overlay */}
-        <div className="fixed inset-0 z-[1] bg-slate-950/20 pointer-events-none" />
         
-        {/* Sidebar - Hover Peek Behavior */}
-        <motion.aside 
-          initial={false}
-          animate={{ width: isCollapsed ? 80 : 260 }}
-          transition={springConfig}
-          onMouseEnter={() => setIsCollapsed(false)}
-          onMouseLeave={() => setIsCollapsed(true)}
-          className="h-screen border-r border-white/10 flex flex-col z-30 glass relative"
-        >
+        {/* Sidebar - Hover Peek Behavior (Desktop/Tablet) */}
+        {!isMobile && (
+          <motion.aside 
+            initial={false}
+            animate={{ width: isCollapsed ? 80 : 260 }}
+            transition={springConfig}
+            onMouseEnter={() => !isTouch && setIsCollapsed(false)}
+            onMouseLeave={() => !isTouch && setIsCollapsed(true)}
+            className="h-screen border-r border-white/10 flex flex-col z-30 glass relative"
+          >
           {/* Sidebar Header */}
           <div 
             className={`py-6 flex items-center min-h-[80px] overflow-hidden transition-all duration-300 ${isCollapsed ? 'justify-center px-0' : 'px-6'}`}
@@ -396,10 +443,10 @@ const AppLayout: React.FC = () => {
               className={`flex items-center gap-3 p-2 rounded-2xl bg-white/5 border border-white/5 transition-colors hover:bg-white/10 group/profile ${isCollapsed ? 'w-12 h-12 justify-center mx-auto' : 'w-full'}`}
             >
               {profile?.avatar_url ? (
-                <img 
+                <OptimizedImage 
                   src={profile.avatar_url} 
                   alt="Avatar" 
-                  className="w-8 h-8 rounded-lg object-cover flex-shrink-0 border border-white/10 group-hover/profile:border-sage-200/30 transition-colors" 
+                  className="w-8 h-8 rounded-lg flex-shrink-0 border border-white/10 group-hover/profile:border-sage-200/30 transition-colors" 
                 />
               ) : (
                 <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center flex-shrink-0 border border-white/10 group-hover/profile:border-sage-200/30 transition-colors">
@@ -430,13 +477,13 @@ const AppLayout: React.FC = () => {
             <SidebarLink to="/app" icon={LayoutDashboard} label="Dashboard" active={location.pathname === '/app'} isCollapsed={isCollapsed} />
             <SidebarLink to="/app/analytics" icon={BarChart3} label="Analytics" active={location.pathname === '/app/analytics'} isCollapsed={isCollapsed} />
             <SidebarLink to="/app/calendar" icon={Calendar} label="Calendar" active={location.pathname === '/app/calendar'} isCollapsed={isCollapsed} />
+            <SidebarLink to="/app/habits" icon={ListChecks} label="Habits" active={location.pathname === '/app/habits'} isCollapsed={isCollapsed} />
             <SidebarLink to="/app/flashcards" icon={Layers} label="Flashcards" active={location.pathname.startsWith('/app/flashcards')} isCollapsed={isCollapsed} />
 
             {/* Preferences */}
             <SidebarSection label="Preferences" isCollapsed={isCollapsed}>
               <SidebarLink to="/app/customize" icon={SlidersHorizontal} label="Customize" active={location.pathname === '/app/customize'} isCollapsed={isCollapsed} />
               <SidebarLink to="/app/music" icon={Music} label="Music" active={location.pathname === '/app/music'} isCollapsed={isCollapsed} />
-              <SidebarLink to="/app/focus" icon={Eye} label="Focus Mode" active={location.pathname === '/app/focus'} isCollapsed={isCollapsed} />
               <SidebarLink to="/app/background" icon={ImageIcon} label="Background" active={location.pathname === '/app/background'} isCollapsed={isCollapsed} />
             </SidebarSection>
 
@@ -445,21 +492,6 @@ const AppLayout: React.FC = () => {
               <SidebarLink to="/app/leaderboard" icon={Trophy} label="Leaderboard" active={location.pathname === '/app/leaderboard'} isCollapsed={isCollapsed} />
               <SidebarLink to="/app/friends" icon={Users} label="Friends" active={location.pathname === '/app/friends'} isCollapsed={isCollapsed} badge={friendRequestBadge} />
             </SidebarSection>
-
-            {/* Join Our Gang */}
-            {!isCollapsed && (
-              <div className="mt-12 p-4 text-center">
-                <p className="text-[11px] font-black text-amber-400 uppercase tracking-[0.2em] mb-4 shadow-[0_0_10px_rgba(251,191,36,0.2)]">Join Our Gang!</p>
-                <div className="flex justify-center gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-[#5865F2] flex items-center justify-center cursor-pointer hover:scale-110 transition-transform shadow-lg shadow-[#5865F2]/20">
-                    <MessageSquare className="w-5 h-5 text-white" fill="currentColor" />
-                  </div>
-                  <div className="w-10 h-10 rounded-xl bg-[#FF4500] flex items-center justify-center cursor-pointer hover:scale-110 transition-transform shadow-lg shadow-[#FF4500]/20">
-                    <Share2 className="w-5 h-5 text-white" />
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Footer */}
@@ -486,12 +518,13 @@ const AppLayout: React.FC = () => {
             </button>
           </div>
         </motion.aside>
+        )}
 
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col min-h-0 relative z-10">
           
           {/* Topbar */}
-          <header className="h-20 flex items-center justify-between px-8 relative z-30">
+          <header className={`flex items-center justify-between relative z-30 ${isMobile ? 'h-16 px-4' : 'h-20 px-8'}`}>
             <div className="flex items-center gap-4">
               <div 
                 className="flex items-center gap-2 cursor-pointer group"
@@ -520,18 +553,20 @@ const AppLayout: React.FC = () => {
 </AnimatePresence>
               </div>
               
-              <button className="flex items-center gap-2 px-4 py-1.5 bg-sage-200/15 text-sage-200 border border-sage-200/30 rounded-full text-[10px] uppercase tracking-[0.2em] transition-colors hover:bg-sage-200/25 font-bold cursor-pointer shadow-[0_0_15px_rgba(183,201,176,0.1)]">
+              <button className="flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-1.5 bg-sage-200/15 text-sage-200 border border-sage-200/30 rounded-full text-[10px] uppercase tracking-[0.2em] transition-colors hover:bg-sage-200/25 font-bold cursor-pointer shadow-[0_0_15px_rgba(183,201,176,0.1)]">
                 <Crown className="w-3.5 h-3.5" strokeWidth={3} />
-                Go Premium
+                <span className="hidden md:inline">Go Premium</span>
               </button>
 
-              <button 
-                onClick={toggleFullscreen}
-                className="flex items-center gap-2 px-4 py-1.5 bg-white/5 border border-white/10 rounded-full transition-colors hover:bg-white/10 text-white/40 hover:text-white cursor-pointer"
-              >
-                {isFullscreen ? <Minimize className="w-3.5 h-3.5" strokeWidth={2} /> : <Maximize className="w-3.5 h-3.5" strokeWidth={2} />}
-                <span className="text-[11px] font-bold tracking-wide">{isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}</span>
-              </button>
+              {!isMobile && (
+                <button 
+                  onClick={toggleFullscreen}
+                  className="flex items-center gap-2 px-4 py-1.5 bg-white/5 border border-white/10 rounded-full transition-colors hover:bg-white/10 text-white/40 hover:text-white cursor-pointer"
+                >
+                  {isFullscreen ? <Minimize className="w-3.5 h-3.5" strokeWidth={2} /> : <Maximize className="w-3.5 h-3.5" strokeWidth={2} />}
+                  <span className="text-[11px] font-bold tracking-wide">{isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}</span>
+                </button>
+              )}
               
               <div className="relative flex items-center ml-2">
                 <button 
@@ -562,7 +597,16 @@ const AppLayout: React.FC = () => {
                               bgImage === bg.url ? 'bg-sage-200/15 text-white font-bold' : 'text-white/50 hover:bg-white/5 hover:text-white'
                             }`}
                           >
-                            <div className="w-6 h-4 rounded bg-cover bg-center border border-white/10 bg-optimize-quality" style={{ backgroundImage: `url(${bg.url})` }} />
+                            {bg.type === 'video' ? (
+                              <video 
+                                src={bg.url} 
+                                className="w-6 h-4 rounded object-cover border border-white/10" 
+                                muted 
+                                playsInline 
+                              />
+                            ) : (
+                              <div className="w-6 h-4 rounded bg-cover bg-center border border-white/10 bg-optimize-quality" style={{ backgroundImage: `url(${bg.url})` }} />
+                            )}
                             {bg.name}
                           </button>
                         ))}
@@ -582,7 +626,7 @@ const AppLayout: React.FC = () => {
                   }`}
                 >
                   {profile?.avatar_url ? (
-                    <img src={profile.avatar_url} alt="PFP" className="w-7 h-7 rounded-full object-cover border border-white/5" />
+                    <OptimizedImage src={profile.avatar_url} alt="PFP" className="w-7 h-7 rounded-full border border-white/5" />
                   ) : (
                     <div className="w-7 h-7 rounded-full bg-sage-200/20 flex items-center justify-center border border-white/5 overflow-hidden relative">
                       <span className="text-sage-200 text-[10px] font-bold relative z-10">
@@ -591,7 +635,7 @@ const AppLayout: React.FC = () => {
                     </div>
                   )}
                   <span className="text-xs font-light text-white/50 group-hover:text-white transition-colors flex items-center gap-2">
-                    {profile?.display_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Explorer'}
+                    <span className="hidden sm:inline">{profile?.display_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Explorer'}</span>
                     <ChevronDown className={`w-3 h-3 transition-transform duration-300 ${showProfileMenu ? 'rotate-180' : ''}`} />
                   </span>
                 </button>
@@ -670,14 +714,128 @@ const AppLayout: React.FC = () => {
             </div>
           </main>
           
-          {/* Bottom Right Time */}
-          <div className="absolute bottom-6 right-6 flex items-center gap-2 px-4 py-1.5 bg-white/5 border border-white/10 rounded-full z-20 hover:bg-white/10 transition-colors">
-            <Clock className="w-4 h-4 text-sage-200" />
-            <span className="text-[12px] font-mono font-bold text-white tabular-nums">
-              {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </span>
-          </div>
+          {/* Bottom Right Time (Desktop/Tablet) */}
+          {!isMobile && (
+            <div className="absolute bottom-6 right-6 flex items-center gap-2 px-4 py-1.5 bg-white/5 border border-white/10 rounded-full z-20 hover:bg-white/10 transition-colors">
+              <Clock className="w-4 h-4 text-sage-200" />
+              <span className="text-[12px] font-mono font-bold text-white tabular-nums">
+                {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            </div>
+          )}
+
+          {/* Mobile Bottom Navigation */}
+          {isMobile && (
+            <nav className="h-16 glass-deep border-t border-white/10 flex items-center justify-around px-2 relative z-50">
+              <Link to="/app" className={`flex flex-col items-center gap-1 p-2 ${location.pathname === '/app' ? 'text-sage-200' : 'text-white/40'}`}>
+                <LayoutDashboard className="w-5 h-5" />
+                <span className="text-[9px] font-bold uppercase tracking-tighter">Dashboard</span>
+              </Link>
+              <Link to="/app/analytics" className={`flex flex-col items-center gap-1 p-2 ${location.pathname === '/app/analytics' ? 'text-sage-200' : 'text-white/40'}`}>
+                <BarChart3 className="w-5 h-5" />
+                <span className="text-[9px] font-bold uppercase tracking-tighter">Analytics</span>
+              </Link>
+              <Link to="/app/friends" className={`flex flex-col items-center gap-1 p-2 ${location.pathname === '/app/friends' ? 'text-sage-200' : 'text-white/40'}`}>
+                <div className="relative">
+                  <Users className="w-5 h-5" />
+                  {!!friendRequestBadge && friendRequestBadge > 0 && (
+                    <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-sage-200 text-slate-950 text-[7px] font-black flex items-center justify-center">
+                      {friendRequestBadge}
+                    </div>
+                  )}
+                </div>
+                <span className="text-[9px] font-bold uppercase tracking-tighter">Social</span>
+              </Link>
+              <Link to="/app/profile" className={`flex flex-col items-center gap-1 p-2 ${location.pathname === '/app/profile' ? 'text-sage-200' : 'text-white/40'}`}>
+                <Settings className="w-5 h-5" />
+                <span className="text-[9px] font-bold uppercase tracking-tighter">Settings</span>
+              </Link>
+            </nav>
+          )}
+
+          {/* Portal target for floating page controls (e.g. Previewers, Presence) */}
+          <div id="floating-page-controls" className="pointer-events-none" />
+
+          {/* Admin League Panel */}
+          {((user?.email || '').toLowerCase() === (ADMIN_EMAIL || '').toLowerCase() && (ADMIN_EMAIL || '') !== '') && (
+            <AdminLeaguePanel isSidebarCollapsed={isCollapsed} />
+          )}
         </div>
+    </div>
+  );
+};
+
+const AdminLeaguePanel = ({ isSidebarCollapsed }: { isSidebarCollapsed: boolean }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [leagueOverride, setLeagueOverride] = useState<TierKey | null>(() => {
+    return localStorage.getItem(ADMIN_OVERRIDE_KEY) as TierKey | null;
+  });
+
+  const handleSelect = (key: TierKey | null) => {
+    setLeagueOverride(key);
+    if (key) localStorage.setItem(ADMIN_OVERRIDE_KEY, key);
+    else localStorage.removeItem(ADMIN_OVERRIDE_KEY);
+    // Reload to apply changes globally
+    window.location.reload();
+  };
+
+  return (
+    <div 
+      className="fixed bottom-24 md:bottom-8 z-[100] transition-all duration-500 ease-[cubic-bezier(0.2,0,0,1)] pointer-events-auto"
+      style={{ left: isSidebarCollapsed ? '96px' : '276px' }}
+    >
+      <div className="relative">
+        <AnimatePresence>
+          {isOpen && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 10, x: -10 }}
+              animate={{ opacity: 1, scale: 1, y: 0, x: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 10, x: -10 }}
+              className="absolute bottom-full left-0 mb-4 p-3 bg-slate-950/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl min-w-[180px]"
+            >
+              <div className="flex flex-col gap-1">
+                <p className="text-[9px] uppercase tracking-[0.2em] text-white/30 font-bold px-2 py-1">Admin Overrides</p>
+                {TIERS.map((t) => (
+                  <button
+                    key={t.key}
+                    onClick={() => handleSelect(t.key)}
+                    className={`flex items-center justify-between px-3 py-2 rounded-xl text-[10px] uppercase tracking-widest font-bold transition-all cursor-pointer ${
+                      leagueOverride === t.key
+                        ? `${t.bgColor} ${t.textColor} border ${t.borderColor}`
+                        : 'text-white/40 hover:bg-white/5 hover:text-white'
+                    }`}
+                  >
+                    {t.name}
+                    {leagueOverride === t.key && <Check className="w-3 h-3" />}
+                  </button>
+                ))}
+                <div className="h-px bg-white/5 my-1" />
+                <button
+                  onClick={() => handleSelect(null)}
+                  className={`px-3 py-2 rounded-xl text-[10px] uppercase tracking-widest font-bold transition-all cursor-pointer ${
+                    !leagueOverride
+                      ? 'bg-white/10 text-white'
+                      : 'text-white/40 hover:bg-white/5 hover:text-white'
+                  }`}
+                >
+                  Reset (Auto)
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 shadow-xl border cursor-pointer ${
+            isOpen 
+              ? 'bg-sage-200 border-sage-200 text-slate-900 rotate-90' 
+              : 'bg-slate-900/80 backdrop-blur-md border-white/10 text-white/40 hover:text-sage-200 hover:border-sage-200/50'
+          }`}
+        >
+          <Sparkles className="w-5 h-5" />
+        </button>
+      </div>
     </div>
   );
 };

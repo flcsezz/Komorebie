@@ -21,36 +21,40 @@ export const logFocusSession = async (session: FocusSessionData) => {
       session.status = 'abandoned';
     }
 
-    const { data, error } = await supabase
-      .from('focus_sessions')
-      .insert([
-        {
-          user_id: session.user_id,
-          task_id: session.task_id,
-          duration_seconds: session.duration_seconds,
-          elapsed_seconds: elapsed,
-          status: session.status,
-          started_at: session.started_at,
-          ended_at: new Date().toISOString(),
-        }
-      ])
-      .select();
+    // --- Atomic Multi-Device Logging ---
+    // We use a custom RPC to ensure that only ONE device can "consume"
+    // an active timer and log a session. This prevents double-counting.
+    const { data: rpcData, error: rpcError } = await supabase
+      .rpc('secure_log_focus_session', {
+        p_task_id: session.task_id || null,
+        p_duration_seconds: session.duration_seconds,
+        p_elapsed_seconds: elapsed,
+        p_status: session.status,
+        p_started_at: session.started_at
+      });
 
-    if (error) {
-      console.error('[Analytics] Supabase insert error:', error.message, error.details, error.hint, error.code);
-      throw error;
+    if (rpcError) {
+      console.error('[Analytics] RPC error:', rpcError.message);
+      throw rpcError;
     }
 
-    console.log('[Analytics] Session inserted successfully:', data);
+    if (!rpcData.success) {
+      console.warn('[Analytics] Session rejected by server:', rpcData.error);
+      return null;
+    }
+
+    // The 'rpcData.data' now contains the values as processed by the DB (including the wall-clock trigger)
+    const verifiedData = rpcData.data;
+    const verifiedElapsed = verifiedData.elapsed_seconds || 0;
+    console.log(`[Analytics] Session verified & logged. DB Verified: ${verifiedElapsed}s`);
 
     // ONLY update stats (streaks, mana, daily totals) if the session is qualified (>= 5 mins)
-    if (isQualified) {
-      await updateStreak(session.user_id, elapsed);
-      // Award mana: 1 mana per completed minute
-      await updateProfileMana(session.user_id, Math.floor(elapsed / 60));
+    if (verifiedElapsed >= STREAK_THRESHOLD_SECONDS) {
+      await updateStreak(session.user_id, verifiedElapsed);
+      await updateProfileMana(session.user_id, Math.floor(verifiedElapsed / 60));
     }
 
-    return data;
+    return verifiedData;
   } catch (error) {
     console.error('[Analytics] Error logging focus session:', error);
     return null;
@@ -133,28 +137,23 @@ export const recalculateStreak = async (userId: string) => {
     if (error) throw error;
 
     let currentStreak = 0;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const todayStr = toLocalISO(new Date());
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = toLocalISO(yesterday);
 
     if (streakDays && streakDays.length > 0) {
-      // Check if most recent qualified day is today or yesterday
-      const latestDate = new Date(streakDays[0].focus_date + 'T00:00:00');
-      const diffDays = Math.floor((today.getTime() - latestDate.getTime()) / (1000 * 60 * 60 * 24));
+      // Create a set for fast lookup of qualified dates
+      const qualifiedDates = new Set(streakDays.map(d => d.focus_date));
       
-      if (diffDays <= 1) {
-        // Count consecutive days backward
-        const expectedDate = new Date(latestDate);
+      // Streak is active if either today or yesterday is qualified
+      if (qualifiedDates.has(todayStr) || qualifiedDates.has(yesterdayStr)) {
+        // Start from either today (if qualified) or yesterday
+        const checkDate = qualifiedDates.has(todayStr) ? new Date() : yesterday;
         
-        for (const day of streakDays) {
-          const dayDate = new Date(day.focus_date + 'T00:00:00');
-          const diff = Math.floor((expectedDate.getTime() - dayDate.getTime()) / (1000 * 60 * 60 * 24));
-          
-          if (diff === 0) {
-            currentStreak++;
-            expectedDate.setDate(expectedDate.getDate() - 1);
-          } else {
-            break;
-          }
+        while (qualifiedDates.has(toLocalISO(checkDate))) {
+          currentStreak++;
+          checkDate.setDate(checkDate.getDate() - 1);
         }
       }
     }
@@ -337,6 +336,32 @@ export const fetchTodayFocusForUsers = async (userIds: string[]) => {
     }, {});
   } catch (err) {
     console.error('Error fetching today focus for users:', err);
+    return {};
+  }
+};
+
+export const fetchWeeklyFocusForUsers = async (userIds: string[]) => {
+  if (!userIds || userIds.length === 0) return {};
+  
+  const lastWeek = new Date();
+  lastWeek.setDate(lastWeek.getDate() - 7);
+  const lastWeekStr = toLocalISO(lastWeek);
+
+  try {
+    const { data, error } = await supabase
+      .from('streaks')
+      .select('user_id, total_focus_seconds')
+      .in('user_id', userIds)
+      .gte('focus_date', lastWeekStr);
+    
+    if (error) throw error;
+    
+    return (data || []).reduce((acc: Record<string, number>, curr) => {
+      acc[curr.user_id] = (acc[curr.user_id] || 0) + curr.total_focus_seconds;
+      return acc;
+    }, {});
+  } catch (err) {
+    console.error('Error fetching weekly focus for users:', err);
     return {};
   }
 };

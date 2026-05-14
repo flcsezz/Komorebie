@@ -2,7 +2,8 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Target, Clock, CheckCircle2, BarChart3, Settings, X, Loader2 } from 'lucide-react';
 import GlassCard from '../ui/GlassCard';
-import { useAnalytics } from '../../hooks/useAnalytics';
+import { useDataSync } from '../../context/DataSyncContext';
+import { useDevice } from '../../hooks/useDevice';
 import { supabase } from '../../lib/supabase';
 
 const itemVariants = {
@@ -19,8 +20,10 @@ const itemVariants = {
 };
 
 const DashboardStats: React.FC = () => {
-  const { stats, profile, refresh } = useAnalytics();
+  const { stats, profile, refresh } = useDataSync();
+  const { isTouch } = useDevice();
   const [isSettingsOpen, setIsSettingsOpen] = React.useState(false);
+  const [activeTooltip, setActiveTooltip] = React.useState<number | null>(null);
   const [localGoalHours, setLocalGoalHours] = React.useState('4');
   const [isSaving, setIsSaving] = React.useState(false);
 
@@ -148,9 +151,13 @@ const DashboardStats: React.FC = () => {
                 const sessionDots = d.sessionsCount;
                 
                 return (
-                  <div key={d.date} className="flex-1 flex flex-col items-center gap-0 h-full justify-end group/bar relative">
+                  <div 
+                    key={d.date} 
+                    className="flex-1 flex flex-col items-center gap-0 h-full justify-end group/bar relative"
+                    onClick={() => isTouch && setActiveTooltip(activeTooltip === i ? null : i)}
+                  >
                     {/* Tooltip */}
-                    <div className="absolute -top-10 left-1/2 -translate-x-1/2 px-2.5 py-1.5 bg-slate-900 border border-white/20 text-[9px] text-white rounded-lg opacity-0 group-hover/bar:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-20 shadow-xl backdrop-blur-md flex flex-col items-center gap-0.5">
+                    <div className={`absolute -top-10 left-1/2 -translate-x-1/2 px-2.5 py-1.5 bg-slate-900 border border-white/20 text-[9px] text-white rounded-lg transition-opacity whitespace-nowrap pointer-events-none z-20 shadow-xl backdrop-blur-md flex flex-col items-center gap-0.5 ${activeTooltip === i ? 'opacity-100' : 'opacity-0 group-hover/bar:opacity-100'}`}>
                       <span className="font-bold">{focusMin}m</span>
                       <span className="text-white/50">{sessionDots} session{sessionDots !== 1 ? 's' : ''}</span>
                     </div>

@@ -18,6 +18,5 @@ export const PlaceholderPage: React.FC<{ title: string, description: string }> =
 );
 
 export const TasksPage = () => <PlaceholderPage title="Task Sanctuary" description="Define what you're working on now, next, and later. Your focused task library is coming soon." />;
-export const NotesPage = () => <PlaceholderPage title="Knowledge Grove" description="Upload, write, and refine your study notes. AI-powered summaries and flashcards will sprout here." />;
 export const RoomPage = () => <PlaceholderPage title="Zen Room" description="Customize your atmosphere, soundscapes, and companion progression in this restorative space." />;
 export const SocialPage = () => <PlaceholderPage title="Ambient Presence" description="Connect with fellow focusers through quiet presence and shared rhythm." />;
