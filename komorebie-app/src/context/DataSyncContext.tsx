@@ -103,30 +103,35 @@ export const DataSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const fetchRankings = useCallback(async (userId: string, totalSeconds: number) => {
     try {
-      // 1. Get total users count for context
-      const { count } = await supabase.from('profiles').select('*', { count: 'exact', head: true });
-      
-      // 2. Get global rank (based on all-time mana/seconds)
-      const { count: higherRanked } = await supabase
-        .from('profiles')
-        .select('*', { count: 'exact', head: true })
-        .gt('mana_points', Math.floor(totalSeconds / 60));
+      const fetchPromise = (async () => {
+        // 1. Get total users count for context
+        const { count } = await supabase.from('profiles').select('*', { count: 'exact', head: true });
+        
+        // 2. Get global rank (based on all-time mana/seconds)
+        const { count: higherRanked } = await supabase
+          .from('profiles')
+          .select('*', { count: 'exact', head: true })
+          .gt('mana_points', Math.floor(totalSeconds / 60));
 
-      const globalRank = (higherRanked || 0) + 1;
+        const globalRank = (higherRanked || 0) + 1;
 
-      // 3. League rank
-      console.log('DataSync: Calling get_leaderboard_weekly RPC...');
-      const { data: weeklyLB } = await supabase.rpc('get_leaderboard_weekly');
-      console.log('DataSync: get_leaderboard_weekly RPC result:', weeklyLB ? 'success' : 'empty');
-      const lb = weeklyLB as any[] || [];
-      const myLBEntry = lb.find(u => u.id === userId);
-      const weeklyRank = myLBEntry ? lb.indexOf(myLBEntry) + 1 : null;
+        // 3. League rank
+        const { data: weeklyLB } = await supabase.rpc('get_leaderboard_weekly');
+        const lb = weeklyLB as any[] || [];
+        const myLBEntry = lb.find(u => u.id === userId);
+        const weeklyRank = myLBEntry ? lb.indexOf(myLBEntry) + 1 : null;
 
-      setRankings({
-        globalRank,
-        leagueRank: weeklyRank,
-        totalUsers: count || 0,
-      });
+        setRankings({
+          globalRank,
+          leagueRank: weeklyRank,
+          totalUsers: count || 0,
+        });
+      })();
+
+      await Promise.race([
+        fetchPromise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Rankings timeout')), 3000))
+      ]);
     } catch (err) {
       console.error('DataSync: ranking fetch error', err);
     }
