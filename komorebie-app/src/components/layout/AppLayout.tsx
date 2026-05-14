@@ -207,7 +207,10 @@ const AppLayout: React.FC = () => {
   };
 
   const [bgImage, setBgImage] = useState(() => {
-    return localStorage.getItem('komorebie-bg') || ALL_BACKGROUNDS[0].url;
+    const saved = localStorage.getItem('komorebie-bg');
+    if (saved) return saved;
+    const cosmic = ALL_BACKGROUNDS.find(b => b.id === 'cosmic-nebula');
+    return cosmic ? cosmic.url : ALL_BACKGROUNDS[0].url;
   });
 
   const lastSyncedBgRef = useRef<string | null>(null);
@@ -378,7 +381,7 @@ const AppLayout: React.FC = () => {
           {needsOnboarding && (
             <OnboardingOverlay 
               userId={user.id} 
-              onComplete={() => refresh()} 
+              onComplete={() => refresh(true)} 
             />
           )}
         </AnimatePresence>
@@ -746,7 +749,7 @@ const AppLayout: React.FC = () => {
                 </div>
                 <span className="text-[9px] font-bold uppercase tracking-tighter">Social</span>
               </Link>
-              <Link to="/app/profile" className={`flex flex-col items-center gap-1 p-2 ${location.pathname === '/app/profile' ? 'text-sage-200' : 'text-white/40'}`}>
+              <Link to="/app/settings" className={`flex flex-col items-center gap-1 p-2 ${location.pathname === '/app/settings' ? 'text-sage-200' : 'text-white/40'}`}>
                 <Settings className="w-5 h-5" />
                 <span className="text-[9px] font-bold uppercase tracking-tighter">Settings</span>
               </Link>

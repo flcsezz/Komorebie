@@ -108,17 +108,43 @@ export default {
         // Analytics Stats Engine (BE-CF-03)
         if (url.pathname === '/api/analytics/stats') {
           const force = url.searchParams.get('force') === 'true';
+          const targetUserId = url.searchParams.get('userId') || user.id;
+          const isOwnProfile = targetUserId === user.id;
           
+          let isFriend = false;
+          if (!isOwnProfile) {
+            // Check friendship status
+            const sql = getSqlClient(env);
+            const friendship = await sql`
+              SELECT status FROM friendships 
+              WHERE (requester_id = ${user.id} AND addressee_id = ${targetUserId})
+              OR (requester_id = ${targetUserId} AND addressee_id = ${user.id})
+              AND status = 'accepted'
+              LIMIT 1
+            `;
+            isFriend = friendship.length > 0;
+          }
+
           if (!force) {
             // Check D1 Cache first
             const cached = await env.komorebie_db.prepare(
               'SELECT payload, updated_at FROM data_cache WHERE user_id = ? AND data_type = ?'
-            ).bind(user.id, 'analytics_stats').first() as any;
+            ).bind(targetUserId, 'analytics_stats').first() as any;
 
             if (cached) {
               const age = Date.now() - new Date(cached.updated_at).getTime();
-              if (age < 10 * 60 * 1000) { // 10 minute cache (BE-CF-03-OPT)
-                return new Response(cached.payload, {
+              // Cache hits for others can be longer, but for now 10m is fine
+              if (age < 10 * 60 * 1000) { 
+                const payload = JSON.parse(cached.payload);
+                // Sanitize cached payload if not friend/self
+                if (!isOwnProfile && !isFriend) {
+                  payload.deadlines = [];
+                  payload.sessions = [];
+                  payload.tasks = [];
+                  // We can keep streaks as they are public in RLS anyway
+                }
+                
+                return new Response(JSON.stringify(payload), {
                   headers: { 'Content-Type': 'application/json', 'X-Cache': 'HIT' }
                 });
               }
@@ -126,9 +152,17 @@ export default {
           }
 
           // Compute and return
-          console.log(`[Worker] Computing stats for user: ${user.id}`);
-          const stats = await computeAndStoreStats(user.id, env, null, ctx);
-          console.log(`[Worker] Stats computation complete for user: ${user.id}`);
+          console.log(`[Worker] Computing stats for user: ${targetUserId} (Requested by: ${user.id})`);
+          const stats = await computeAndStoreStats(targetUserId, env, null, ctx);
+          
+          // Sanitize response if not friend/self
+          if (!isOwnProfile && !isFriend) {
+            stats.deadlines = [];
+            stats.sessions = [];
+            stats.tasks = [];
+          }
+
+          console.log(`[Worker] Stats computation complete for user: ${targetUserId}`);
           return new Response(JSON.stringify(stats), {
             headers: { 'Content-Type': 'application/json', 'X-Cache': 'MISS' }
           });
@@ -292,11 +326,11 @@ async function computeAndStoreStats(userId: string, env: Env, providedSql?: any,
     
     // Individual timeouts for queries to avoid global hang
     const [profile, sessions, streaks, deadlines, tasks] = await Promise.all([
-      sql`SELECT * FROM profiles WHERE id = ${userId} LIMIT 1`.timeout(4000),
-      sql`SELECT id, status, elapsed_seconds, started_at FROM focus_sessions WHERE user_id = ${userId} ORDER BY started_at DESC LIMIT 500`.timeout(4000),
-      sql`SELECT focus_date, total_focus_seconds, sessions_count, streak_qualified FROM streaks WHERE user_id = ${userId} ORDER BY focus_date DESC LIMIT 365`.timeout(4000),
-      sql`SELECT id, deadline_date, title FROM deadlines WHERE user_id = ${userId} ORDER BY deadline_date ASC`.timeout(4000),
-      sql`SELECT id, is_completed, completed_at FROM tasks WHERE user_id = ${userId} AND is_completed = true ORDER BY completed_at DESC`.timeout(4000)
+      sql`SELECT * FROM profiles WHERE id = ${userId} LIMIT 1`,
+      sql`SELECT id, status, elapsed_seconds, started_at FROM focus_sessions WHERE user_id = ${userId} ORDER BY started_at DESC LIMIT 500`,
+      sql`SELECT focus_date, total_focus_seconds, sessions_count, streak_qualified FROM streaks WHERE user_id = ${userId} ORDER BY focus_date DESC LIMIT 365`,
+      sql`SELECT id, deadline_date, title FROM deadlines WHERE user_id = ${userId} ORDER BY deadline_date ASC`,
+      sql`SELECT id, is_completed, completed_at FROM tasks WHERE user_id = ${userId} AND is_completed = true ORDER BY completed_at DESC`
     ]);
     
     console.log(`[Worker] DB queries finished in ${Date.now() - start}ms. Sessions: ${sessions.length}`);
@@ -376,7 +410,9 @@ async function computeAndStoreStats(userId: string, env: Env, providedSql?: any,
       weekHours: Math.round((weekSeconds / 3600) * 10) / 10,
       profile: userProfile,
       deadlines: deadlines,
-      streaks: streaks
+      streaks: streaks,
+      sessions: sessions,
+      tasks: tasks
     };
 
     const payload = JSON.stringify(stats);

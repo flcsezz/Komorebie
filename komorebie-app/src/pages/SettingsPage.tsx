@@ -1,0 +1,350 @@
+import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { 
+  Settings, 
+  Clock, 
+  Volume2, 
+  Bell, 
+  Database, 
+  LogOut, 
+  Check, 
+  ShieldCheck, 
+  Download,
+  Smartphone,
+  Sparkles,
+  Timer
+} from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { useDataSync } from '../context/DataSyncContext';
+import { supabase } from '../lib/supabase';
+import GlassCard from '../components/ui/GlassCard';
+import ZenSelect from '../components/ui/ZenSelect';
+import { useZenClock } from '../context/ZenClockContext';
+
+/**
+ * SettingsPage (FE-11)
+ * A premium, minimalist control center for the Zen Sanctuary.
+ */
+const SettingsPage: React.FC = () => {
+  const { user, signOut } = useAuth();
+  const { profile, refresh } = useDataSync();
+  const { setDuration } = useZenClock();
+  
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // Focus Settings State
+  const [workDur, setWorkDur] = useState('25');
+  const [shortBreak, setShortBreak] = useState('5');
+  const [longBreak, setLongBreak] = useState('15');
+  const [autoStart, setAutoStart] = useState(false);
+  const [overtime, setOvertime] = useState(true);
+
+  // Audio Settings State
+  const [alarmSound, setAlarmSound] = useState('Zen Bell');
+  const [volume, setVolume] = useState(50);
+  const [ticks, setTicks] = useState(false);
+
+  // Load initial settings from profile/localStorage
+  useEffect(() => {
+    if (profile) {
+      setWorkDur((profile.preferred_duration || 25).toString());
+    }
+    
+    // Load other settings from localStorage as fallback for now
+    const savedAutoStart = localStorage.getItem('komorebie-auto-start') === 'true';
+    const savedOvertime = localStorage.getItem('komorebie-overtime') !== 'false';
+    const savedVolume = parseInt(localStorage.getItem('komorebie-volume') || '50', 10);
+    const savedTicks = localStorage.getItem('komorebie-ticks') === 'true';
+    const savedAlarm = localStorage.getItem('komorebie-alarm') || 'Zen Bell';
+
+    setAutoStart(savedAutoStart);
+    setOvertime(savedOvertime);
+    setVolume(savedVolume);
+    setTicks(savedTicks);
+    setAlarmSound(savedAlarm);
+  }, [profile]);
+
+  const handleSave = async () => {
+    if (!user) return;
+    setIsSaving(true);
+    
+    try {
+      // 1. Update Supabase Profile
+      const { error } = await supabase
+        .from('profiles')
+        .update({ 
+          preferred_duration: parseInt(workDur, 10),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      // 2. Update Contexts
+      setDuration(parseInt(workDur, 10));
+
+      // 3. Save to localStorage for client-side settings
+      localStorage.setItem('komorebie-auto-start', autoStart.toString());
+      localStorage.setItem('komorebie-overtime', overtime.toString());
+      localStorage.setItem('komorebie-volume', volume.toString());
+      localStorage.setItem('komorebie-ticks', ticks.toString());
+      localStorage.setItem('komorebie-alarm', alarmSound);
+
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+      await refresh();
+    } catch (err) {
+      console.error('Failed to save settings:', err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleExportData = () => {
+    const data = {
+      profile,
+      exported_at: new Date().toISOString(),
+      app: 'Komorebie'
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `komorebie-data-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="max-w-4xl mx-auto pb-20 pt-4"
+    >
+      <header className="mb-10 flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-display tracking-tight text-white/90">Settings</h1>
+          <p className="text-white/40 text-sm mt-1">Calibrate your sanctuary for maximum depth.</p>
+        </div>
+        
+        <button
+          onClick={handleSave}
+          disabled={isSaving}
+          className={`flex items-center gap-2 px-6 py-2.5 rounded-2xl font-bold text-sm transition-all duration-500 cursor-pointer ${
+            saveSuccess 
+              ? 'bg-sage-200 text-slate-950 scale-95' 
+              : 'bg-white/10 text-white hover:bg-white/20 active:scale-95'
+          }`}
+        >
+          {isSaving ? (
+            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+          ) : saveSuccess ? (
+            <Check className="w-4 h-4" />
+          ) : (
+            <ShieldCheck className="w-4 h-4 text-sage-200" />
+          )}
+          {saveSuccess ? 'Saved' : 'Save Changes'}
+        </button>
+      </header>
+
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
+        {/* Navigation / Sidebar (Optional, currently inline) */}
+        <div className="md:col-span-4 space-y-2">
+          <SettingsNav icon={Clock} label="Focus Control" active />
+          <SettingsNav icon={Volume2} label="Audio & Atmosphere" />
+          <SettingsNav icon={Smartphone} label="Devices" disabled />
+          <SettingsNav icon={Database} label="Data & Privacy" />
+        </div>
+
+        {/* Settings Content */}
+        <div className="md:col-span-8 space-y-8">
+          
+          {/* Focus Control */}
+          <GlassCard className="p-6">
+            <h2 className="text-lg font-bold text-white/80 mb-6 flex items-center gap-3">
+              <Timer className="w-5 h-5 text-sage-200" />
+              Focus Configuration
+            </h2>
+            
+            <div className="space-y-6">
+              <SettingItem 
+                label="Work Duration" 
+                description="Default time for deep focus periods."
+              >
+                <div className="w-24">
+                  <ZenSelect 
+                    value={workDur} 
+                    onChange={setWorkDur} 
+                    options={['15', '25', '45', '50', '60', '90']} 
+                  />
+                </div>
+              </SettingItem>
+
+              <SettingItem 
+                label="Short Break" 
+                description="Time for quick recovery."
+              >
+                <div className="w-24">
+                  <ZenSelect 
+                    value={shortBreak} 
+                    onChange={setShortBreak} 
+                    options={['5', '10', '15']} 
+                  />
+                </div>
+              </SettingItem>
+
+              <SettingItem 
+                label="Auto-Start Breaks" 
+                description="Automatically begin break after work session."
+              >
+                <Toggle active={autoStart} onToggle={() => setAutoStart(!autoStart)} />
+              </SettingItem>
+
+              <SettingItem 
+                label="Allow Overtime" 
+                description="Keep counting up after the timer hits zero."
+              >
+                <Toggle active={overtime} onToggle={() => setOvertime(!overtime)} />
+              </SettingItem>
+            </div>
+          </GlassCard>
+
+          {/* Audio & Atmosphere */}
+          <GlassCard className="p-6">
+            <h2 className="text-lg font-bold text-white/80 mb-6 flex items-center gap-3">
+              <Volume2 className="w-5 h-5 text-sage-200" />
+              Audio & Atmosphere
+            </h2>
+            
+            <div className="space-y-6">
+              <SettingItem 
+                label="Alarm Sound" 
+                description="The sound played when a session completes."
+              >
+                <div className="w-40">
+                  <ZenSelect 
+                    value={alarmSound} 
+                    onChange={setAlarmSound} 
+                    options={['Zen Bell', 'Digital Beep', 'Forest Bird', 'None']} 
+                  />
+                </div>
+              </SettingItem>
+
+              <SettingItem 
+                label="Master Volume" 
+                description="Control all ambient and notification sounds."
+              >
+                <input 
+                  type="range" 
+                  min="0" 
+                  max="100" 
+                  value={volume} 
+                  onChange={(e) => setVolume(parseInt(e.target.value, 10))}
+                  className="w-full accent-sage-200 opacity-70 hover:opacity-100 transition-opacity"
+                />
+              </SettingItem>
+
+              <SettingItem 
+                label="Tick Sound" 
+                description="Subtle mechanical ticking during focus."
+              >
+                <Toggle active={ticks} onToggle={() => setTicks(!ticks)} />
+              </SettingItem>
+            </div>
+          </GlassCard>
+
+          {/* Data & Privacy */}
+          <GlassCard className="p-6">
+            <h2 className="text-lg font-bold text-white/80 mb-6 flex items-center gap-3">
+              <Database className="w-5 h-5 text-sage-200" />
+              Data & Privacy
+            </h2>
+            
+            <div className="space-y-4">
+              <button 
+                onClick={handleExportData}
+                className="w-full flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-all group"
+              >
+                <div className="flex items-center gap-3">
+                  <Download className="w-5 h-5 text-white/40 group-hover:text-sage-200" />
+                  <div className="text-left">
+                    <p className="text-sm font-medium text-white/80">Export My Data</p>
+                    <p className="text-[10px] text-white/30 uppercase tracking-wider font-bold">JSON FORMAT</p>
+                  </div>
+                </div>
+              </button>
+
+              <button 
+                onClick={signOut}
+                className="w-full flex items-center justify-between p-4 rounded-xl bg-red-400/5 border border-red-400/10 hover:bg-red-400/10 transition-all group"
+              >
+                <div className="flex items-center gap-3">
+                  <LogOut className="w-5 h-5 text-red-400/40 group-hover:text-red-400" />
+                  <div className="text-left">
+                    <p className="text-sm font-medium text-red-400/80">Log Out</p>
+                    <p className="text-[10px] text-red-400/30 uppercase tracking-wider font-bold">TERMINATE SESSION</p>
+                  </div>
+                </div>
+              </button>
+            </div>
+          </GlassCard>
+
+          <footer className="pt-10 flex flex-col items-center">
+            <div className="flex items-center gap-2 text-white/20">
+              <Sparkles className="w-4 h-4" />
+              <span className="text-[11px] font-bold uppercase tracking-[0.3em]">Komorebie v1.2.0</span>
+            </div>
+          </footer>
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
+/* --- Sub-components --- */
+
+const SettingsNav = ({ icon: Icon, label, active, disabled }: { icon: any, label: string, active?: boolean, disabled?: boolean }) => (
+  <button 
+    disabled={disabled}
+    className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl border transition-all duration-300 text-sm ${
+      active 
+        ? 'bg-sage-200/15 border-sage-200/30 text-white font-medium' 
+        : disabled 
+          ? 'opacity-30 cursor-not-allowed border-transparent text-white/20' 
+          : 'border-transparent text-white/40 hover:bg-white/5 hover:text-white'
+    }`}
+  >
+    <Icon className={`w-4 h-4 ${active ? 'text-sage-200' : ''}`} />
+    {label}
+  </button>
+);
+
+const SettingItem = ({ label, description, children }: { label: string, description: string, children: React.ReactNode }) => (
+  <div className="flex items-center justify-between gap-6">
+    <div className="max-w-[240px] sm:max-w-md">
+      <h3 className="text-sm font-medium text-white/80">{label}</h3>
+      <p className="text-xs text-white/30 leading-relaxed mt-0.5">{description}</p>
+    </div>
+    {children}
+  </div>
+);
+
+const Toggle = ({ active, onToggle }: { active: boolean, onToggle: () => void }) => (
+  <button 
+    onClick={onToggle}
+    className={`w-12 h-6 rounded-full relative transition-all duration-500 cursor-pointer ${
+      active ? 'bg-sage-200 shadow-[0_0_15px_rgba(183,201,176,0.3)]' : 'bg-white/10'
+    }`}
+  >
+    <motion.div 
+      animate={{ x: active ? 26 : 2 }}
+      transition={{ type: "spring", stiffness: 500, damping: 30 }}
+      className={`absolute top-1 left-0 w-4 h-4 rounded-full ${
+        active ? 'bg-slate-950' : 'bg-white/40'
+      }`}
+    />
+  </button>
+);
+
+export default SettingsPage;

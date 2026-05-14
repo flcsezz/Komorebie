@@ -23,7 +23,7 @@ export const PUBLIC_BACKGROUNDS: Background[] = [
   { id: 'zen-morning', name: 'Zen Morning', url: getR2PublicUrl('backgrounds/left1.webp'), type: 'image' },
   { id: 'quiet-afternoon', name: 'Quiet Afternoon', url: getR2PublicUrl('backgrounds/left2.webp'), type: 'image' },
   { id: 'starlight-sanctuary', name: 'Starlight Sanctuary', url: getR2PublicUrl('backgrounds/left3.webp'), type: 'image' },
-  { id: 'misty-forest', name: 'Misty Forest', url: getR2PublicUrl('backgrounds/forest.webp'), type: 'image' },
+  { id: 'misty-forest', name: 'Mist Forest', url: getR2PublicUrl('backgrounds/forest.webp'), type: 'image' },
   { id: 'eye-blue', name: 'Blue Eye', url: getR2PublicUrl('backgrounds/eye1.webp'), type: 'image' },
   { id: 'snow-mountain', name: 'Snow Mountain', url: getR2PublicUrl('backgrounds/snowmountain.webp'), type: 'image' },
   { id: 'cosmic-nebula', name: 'Cosmic Nebula', url: getR2PublicUrl('backgrounds/space.webp'), type: 'image' },

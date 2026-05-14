@@ -23,6 +23,10 @@ export interface CachedAnalytics {
   deadlines: { id: string; deadline_date: string; title: string }[];
   tasks: { id: string; is_completed: boolean; completed_at: string | null }[];
   fetchedAt: number;
+  // Pre-computed fields from worker
+  totalSeconds?: number;
+  totalSessions?: number;
+  tasksDone?: number;
 }
 
 export interface DailyStats {
@@ -104,7 +108,7 @@ class AnalyticsCacheStore {
       return this.inflightRequests.get(inflightKey)!;
     }
 
-    const promise = this.fetchFromSupabase(userId);
+    const promise = this.fetchFromWorker(userId);
     this.inflightRequests.set(inflightKey, promise);
 
     try {
@@ -115,56 +119,29 @@ class AnalyticsCacheStore {
     }
   }
 
-  private async fetchFromSupabase(userId: string): Promise<CachedAnalytics | null> {
-    const fetchWithTimeout = async () => {
-      // Run all queries in parallel for speed
-      return Promise.all([
-        supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', userId)
-          .single(),
-        supabase
-          .from('focus_sessions')
-          .select('*')
-          .eq('user_id', userId)
-          .order('started_at', { ascending: false })
-          .limit(500),
-        supabase
-          .from('streaks')
-          .select('*')
-          .eq('user_id', userId)
-          .order('focus_date', { ascending: false })
-          .limit(365),
-        supabase
-          .from('deadlines')
-          .select('*')
-          .eq('user_id', userId)
-          .order('deadline_date', { ascending: true }),
-        supabase
-          .from('tasks')
-          .select('*')
-          .eq('user_id', userId)
-          .eq('is_completed', true)
-          .order('completed_at', { ascending: false }),
-      ]);
-    };
-
+  private async fetchFromWorker(userId: string): Promise<CachedAnalytics | null> {
     try {
-      // 8 second timeout safety for the entire batch
-      const timeoutPromise = new Promise<null>((_, reject) => 
-        setTimeout(() => reject(new Error('Analytics timeout')), 8000)
-      );
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return null;
 
-      const results = await Promise.race([fetchWithTimeout(), timeoutPromise]) as any[];
-      const [profileRes, sessionsRes, streaksRes, deadlinesRes, tasksRes] = results;
+      const res = await fetch(`/api/analytics/stats?userId=${userId}`, {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      });
+
+      if (!res.ok) throw new Error(`Worker error: ${res.status}`);
+      const data = await res.json() as any;
 
       const entry: CachedAnalytics = {
-        profile: profileRes.data || {},
-        sessions: sessionsRes.data || [],
-        streaks: streaksRes.data || [],
-        deadlines: deadlinesRes.data || [],
-        tasks: tasksRes.data || [],
+        profile: data.profile || {},
+        sessions: data.sessions || [],
+        streaks: data.streaks || [],
+        deadlines: data.deadlines || [],
+        tasks: data.tasks || [],
+        totalSeconds: data.totalSeconds,
+        totalSessions: data.totalSessions,
+        tasksDone: data.tasksDone,
         fetchedAt: Date.now(),
       };
 
@@ -172,7 +149,7 @@ class AnalyticsCacheStore {
       this.notifyListeners();
       return entry;
     } catch (err) {
-      console.error('AnalyticsCache: fetch failed or timed out', err);
+      console.error('AnalyticsCache: fetchFromWorker failed', err);
       return null;
     }
   }
@@ -203,8 +180,9 @@ export function computeStats(data: CachedAnalytics) {
   const { profile, sessions, streaks } = data;
 
   const validSessions = sessions.filter((s) => s.status === 'completed' || (s.elapsed_seconds || 0) >= 300);
-  const totalSeconds = validSessions.reduce((acc: number, s) => acc + (s.elapsed_seconds || 0), 0);
+  const totalSeconds = data.totalSeconds !== undefined ? data.totalSeconds : validSessions.reduce((acc: number, s) => acc + (s.elapsed_seconds || 0), 0);
   const totalHours = Math.round((totalSeconds / 3600) * 10) / 10;
+  const totalSessionsCount = data.totalSessions !== undefined ? data.totalSessions : validSessions.length;
 
   const today = toLocalISO(new Date());
 
@@ -223,7 +201,7 @@ export function computeStats(data: CachedAnalytics) {
     s.status === 'completed' && toLocalISO(new Date(s.started_at)) === today
   ).length;
 
-  const tasksDone = data.tasks.length;
+  const tasksDone = data.tasksDone !== undefined ? data.tasksDone : data.tasks.length;
   const tasksDoneToday = data.tasks.filter((t) =>
     t.completed_at && toLocalISO(new Date(t.completed_at)) === today
   ).length;
@@ -296,7 +274,7 @@ export function computeStats(data: CachedAnalytics) {
   return {
     totalSeconds,
     totalHours,
-    totalSessions: validSessions.length,
+    totalSessions: totalSessionsCount,
     sessionsToday,
     completedToday,
     tasksDone,

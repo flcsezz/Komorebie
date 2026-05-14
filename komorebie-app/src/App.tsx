@@ -22,6 +22,7 @@ const FriendProfilePage = lazy(() => import('./pages/FriendProfilePage'));
 const BackgroundPage = lazy(() => import('./pages/BackgroundPage'));
 const LeaderboardPage = lazy(() => import('./pages/LeaderboardPage'));
 const HabitsPage = lazy(() => import('./pages/HabitsPage'));
+const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 
 // Placeholders
 import { TasksPage, RoomPage, SocialPage, PlaceholderPage } from './pages/Placeholders';
@@ -114,7 +115,7 @@ function App() {
                   <Route path="friends" element={<FriendsPage />} />
                   <Route path="friends/:username" element={<FriendProfilePage />} />
                   <Route path="contact" element={<PlaceholderPage title="Contact Us" description="Get in touch with the Komorebie support team." />} />
-                  <Route path="settings" element={<PlaceholderPage title="Settings" description="Manage your account, focus defaults, and sanctuary preferences." />} />
+                  <Route path="settings" element={<SettingsPage />} />
                 </Route>
                 
                 {/* Focus Mode Flow */}
