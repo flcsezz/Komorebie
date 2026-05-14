@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Play, Pause, Square } from 'lucide-react';
 import { useZenClock } from '../context/ZenClockContext';
+import ConfirmModal from '../components/ui/ConfirmModal';
 
 const FocusSession: React.FC = () => {
   const {
@@ -16,6 +17,7 @@ const FocusSession: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const task = location.state?.task || "Deep Work";
+  const [showStopConfirm, setShowStopConfirm] = useState(false);
 
   React.useEffect(() => {
     if (timeLeft === 0 && isActive) {
@@ -24,6 +26,11 @@ const FocusSession: React.FC = () => {
   }, [timeLeft, isActive, navigate]);
 
   const onEnd = () => {
+    setShowStopConfirm(true);
+  };
+
+  const confirmStop = () => {
+    setShowStopConfirm(false);
     resetTimer();
     navigate('/app/analytics');
   };
@@ -38,6 +45,15 @@ const FocusSession: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center relative">
+      <ConfirmModal 
+        isOpen={showStopConfirm}
+        title="Stop Session?"
+        message="Are you sure you want to stop this focus session early? This time will still be logged."
+        confirmText="Stop Session"
+        isDestructive={true}
+        onConfirm={confirmStop}
+        onCancel={() => setShowStopConfirm(false)}
+      />
       <div className="relative w-80 h-80 flex items-center justify-center">
         {/* Progress Circle */}
         <svg className="absolute inset-0 w-full h-full -rotate-90">

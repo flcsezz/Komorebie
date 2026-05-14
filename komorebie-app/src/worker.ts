@@ -8,6 +8,8 @@ export interface Env {
   VITE_SUPABASE_ANON_KEY: string;
 }
 
+let sqlClient: postgres.Sql<any> | null = null;
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -31,7 +33,7 @@ export default {
           if (request.method === 'POST') {
             const body = await request.json() as any;
             
-            // Upsert to D1
+            // 1. Upsert to D1 (Edge Cache for low-latency own-device sync)
             await env.komorebie_db.prepare(`
               INSERT INTO active_timers (
                 user_id, is_active, started_at, duration_seconds, 
@@ -56,7 +58,25 @@ export default {
               new Date().toISOString()
             ).run();
 
-            return new Response(JSON.stringify({ success: true }), {
+            // 2. Dual-write to Supabase (Primary Source for Cross-User Presence)
+            // We push to Supabase so that other users can see the "Focusing" status via Realtime subscriptions
+            // Note: We perform this every heartbeat for now to ensure 'last_seen' / 'updated_at' stays fresh
+            const { error: sbError } = await supabase.from('active_timers').upsert({
+              user_id: user.id,
+              is_active: !!body.is_active,
+              started_at: body.started_at,
+              duration_seconds: body.duration_seconds,
+              session_duration: body.session_duration,
+              is_pomodoro: !!body.is_pomodoro,
+              pomodoro_state: body.pomodoro_state,
+              updated_at: new Date().toISOString()
+            });
+
+            if (sbError) {
+              console.error('[Worker] Timer Supabase sync error:', sbError);
+            }
+
+            return new Response(JSON.stringify({ success: true, sb_sync: !sbError }), {
               headers: { 'Content-Type': 'application/json' }
             });
           } 
@@ -191,7 +211,10 @@ export default {
 
   // Cron Background Sync (BE-CF-07)
   async scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContext) {
-    const sql = postgres(env.HYPERDRIVE.connectionString);
+    if (!sqlClient) {
+      sqlClient = postgres(env.HYPERDRIVE.connectionString);
+    }
+    const sql = sqlClient;
     
     try {
       // 1. Fetch active users (e.g. active in last 7 days)
@@ -242,8 +265,6 @@ export default {
 
     } catch (err) {
       console.error('[Cron] Background sync failed:', err);
-    } finally {
-      await sql.end();
     }
   }
 };
@@ -252,7 +273,10 @@ export default {
  * Reusable analytics engine logic
  */
 async function computeAndStoreStats(userId: string, env: Env, providedSql?: any) {
-  const sql = providedSql || postgres(env.HYPERDRIVE.connectionString);
+  if (!sqlClient && !providedSql) {
+    sqlClient = postgres(env.HYPERDRIVE.connectionString);
+  }
+  const sql = providedSql || sqlClient;
   try {
     const [profile, sessions, streaks, deadlines, tasks] = await Promise.all([
       sql`SELECT * FROM profiles WHERE id = ${userId} LIMIT 1`,
@@ -336,7 +360,8 @@ async function computeAndStoreStats(userId: string, env: Env, providedSql?: any)
       weekSeconds,
       weekHours: Math.round((weekSeconds / 3600) * 10) / 10,
       profile: userProfile,
-      deadlines: deadlines
+      deadlines: deadlines,
+      streaks: streaks
     };
 
     const payload = JSON.stringify(stats);
@@ -350,9 +375,8 @@ async function computeAndStoreStats(userId: string, env: Env, providedSql?: any)
     `).bind(userId, 'analytics_stats', payload, new Date().toISOString()).run();
 
     return stats;
-  } finally {
-    if (!providedSql) {
-      await sql.end();
-    }
+  } catch (err) {
+    console.error('Error in computeAndStoreStats:', err);
+    throw err;
   }
 }

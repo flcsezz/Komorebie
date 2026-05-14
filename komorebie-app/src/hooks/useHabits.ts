@@ -128,6 +128,7 @@ export const useHabits = () => {
               user_id: user.id,
               log_date: date,
               is_completed: newState,
+              is_frozen: false,
               updated_at: new Date().toISOString(),
             },
           ];
@@ -152,9 +153,44 @@ export const useHabits = () => {
     [user, todayStr, yesterdayStr, isCompleted, refresh]
   );
 
+  const freezeLog = useCallback(async (habitId: string, date: string) => {
+    if (!user) return;
+    try {
+      // Deduct 100 mana (let's say 100 mana per freeze)
+      const { data, error: rpcError } = await import('../lib/supabase').then(m => m.supabase.rpc('spend_mana', { amount: 100 }));
+      if (rpcError) throw rpcError;
+      if (!data) throw new Error("Not enough mana!");
+
+      // Optimistic update
+      setLogs(prev => {
+        const existing = prev.find(l => l.habit_id === habitId && l.log_date === date);
+        if (existing) {
+          return prev.map(l => l.habit_id === habitId && l.log_date === date ? { ...l, is_frozen: true } : l);
+        } else {
+          return [
+            ...prev,
+            { id: `temp-${Date.now()}`, habit_id: habitId, user_id: user.id, log_date: date, is_completed: false, is_frozen: true, updated_at: new Date().toISOString() }
+          ];
+        }
+      });
+
+      await toggleHabitLog({
+        habitId,
+        userId: user.id,
+        logDate: date,
+        isCompleted: false,
+        isFrozen: true,
+      });
+      refresh(false);
+    } catch (err: any) {
+      setError(err.message);
+      refresh(false);
+    }
+  }, [user, refresh]);
+
   // Create a new habit
   const addHabit = useCallback(
-    async (params: { name: string; description?: string; icon?: string; color?: string }) => {
+    async (params: { name: string; description?: string; icon?: string; color?: string; frequency_type?: 'daily'|'specific_days'|'x_per_week'; target_days?: number[]; target_per_week?: number }) => {
       if (!user) return null;
       try {
         const newHabit = await createHabit({ ...params, user_id: user.id });
@@ -179,7 +215,7 @@ export const useHabits = () => {
 
   // Edit an existing habit
   const editHabit = useCallback(
-    async (id: string, updates: { name?: string; description?: string; icon?: string; color?: string }) => {
+    async (id: string, updates: { name?: string; description?: string; icon?: string; color?: string; frequency_type?: 'daily'|'specific_days'|'x_per_week'; target_days?: number[]; target_per_week?: number }) => {
       try {
         const updated = await updateHabit(id, updates);
         setHabits(prev => prev.map(h => (h.id === id ? { ...h, ...updated } : h)));
@@ -208,6 +244,15 @@ export const useHabits = () => {
     [refresh]
   );
 
+  const isFrozen = useCallback(
+    (habitId: string, date: string): boolean => {
+      return logs.some(
+        l => l.habit_id === habitId && l.log_date === date && l.is_frozen
+      );
+    },
+    [logs]
+  );
+
   return {
     habits,
     logs,
@@ -220,8 +265,10 @@ export const useHabits = () => {
     isEditable,
     isGracePeriod,
     isCompleted,
+    isFrozen,
     getCompletionCount,
     toggle,
+    freezeLog,
     addHabit,
     editHabit,
     removeHabit,

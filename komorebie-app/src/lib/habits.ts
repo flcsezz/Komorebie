@@ -11,6 +11,9 @@ export interface Habit {
   icon: string;       // Lucide icon name
   color: string;      // Tailwind-friendly color key
   created_at: string;
+  frequency_type: 'daily' | 'specific_days' | 'x_per_week';
+  target_days: number[] | null; // 0=Sun, 1=Mon, etc.
+  target_per_week: number | null;
 }
 
 export interface HabitLog {
@@ -19,6 +22,7 @@ export interface HabitLog {
   user_id: string;
   log_date: string;   // YYYY-MM-DD
   is_completed: boolean;
+  is_frozen: boolean;
   updated_at: string;
 }
 
@@ -49,6 +53,9 @@ export async function createHabit(habit: {
   description?: string;
   icon?: string;
   color?: string;
+  frequency_type?: 'daily' | 'specific_days' | 'x_per_week';
+  target_days?: number[];
+  target_per_week?: number;
 }): Promise<Habit> {
   const payload = {
     id: crypto.randomUUID(),
@@ -57,6 +64,9 @@ export async function createHabit(habit: {
     description: habit.description || null,
     icon: habit.icon || 'circle-check',
     color: habit.color || 'sage',
+    frequency_type: habit.frequency_type || 'daily',
+    target_days: habit.target_days || null,
+    target_per_week: habit.target_per_week || null,
     created_at: new Date().toISOString()
   };
 
@@ -109,12 +119,14 @@ export async function toggleHabitLog(params: {
   userId: string;
   logDate: string;
   isCompleted: boolean;
+  isFrozen?: boolean;
 }): Promise<HabitLog> {
   const payload = {
     habit_id: params.habitId,
     user_id: params.userId,
     log_date: params.logDate,
     is_completed: params.isCompleted,
+    is_frozen: params.isFrozen || false,
     updated_at: new Date().toISOString(),
   };
 
@@ -129,9 +141,9 @@ export function calculateStreak(
   logs: HabitLog[],
   todayStr: string
 ): { current: number; best: number } {
-  // Get completed dates for this habit, sorted descending
+  // Get completed or frozen dates for this habit, sorted descending
   const completedDates = logs
-    .filter(l => l.habit_id === habitId && l.is_completed)
+    .filter(l => l.habit_id === habitId && (l.is_completed || l.is_frozen))
     .map(l => l.log_date)
     .sort((a, b) => b.localeCompare(a)); // descending
 

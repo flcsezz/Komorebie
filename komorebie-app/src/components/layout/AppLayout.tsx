@@ -6,8 +6,8 @@ import {
   LayoutDashboard, Layers, 
   Settings, LogOut, Users,
   Crown, Bell, Palette, Menu, ChevronDown, Maximize, Minimize,
-  Calendar, SlidersHorizontal, Music, Eye, Image as ImageIcon,
-  Trophy, MessageSquare, Share2, LifeBuoy, Clock, BarChart3, Loader2, Flame, Sparkles, Check,
+  Calendar, SlidersHorizontal, Music, Image as ImageIcon,
+  Trophy, LifeBuoy, Clock, BarChart3, Loader2, Flame, Sparkles, Check,
   ListChecks
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -16,6 +16,7 @@ import { useDevice } from '../../hooks/useDevice';
 import InitialLoader from '../ui/InitialLoader';
 import ResilientVideo from '../ui/ResilientVideo';
 import OnboardingOverlay from '../profile/OnboardingOverlay';
+import ConfirmModal from '../ui/ConfirmModal';
 import { getRequestCount } from '../../lib/friends';
 import { supabase } from '../../lib/supabase';
 import { useBackground } from '../../context/BackgroundContext';
@@ -165,7 +166,7 @@ const SidebarSection = ({ label, isCollapsed, children }: { label: string, isCol
 
 const AppLayout: React.FC = () => {
   const { user, loading: authLoading, signOut } = useAuth();
-  const { profile, stats, refresh } = useDataSync();
+  const { profile, stats, refresh, loading: dataLoading } = useDataSync();
   const { isMobile, isTouch } = useDevice();
   const location = useLocation();
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -194,7 +195,14 @@ const AppLayout: React.FC = () => {
     return () => clearTimeout(timer);
   }, []);
 
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
   const handleSignOut = async () => {
+    setShowLogoutConfirm(true);
+  };
+
+  const confirmSignOut = async () => {
+    setShowLogoutConfirm(false);
     await signOut();
   };
 
@@ -343,7 +351,7 @@ const AppLayout: React.FC = () => {
   const isVideoByExtension = activeBg ? /\.(mp4|webm|mov|ogg)($|\?)/i.test(activeBg) : false;
   const isVideo = backgroundType === 'video' || isVideoByExtension || (ALL_BACKGROUNDS.find(b => b.url === activeBg)?.type === 'video');
 
-  if (authLoading) {
+  if (authLoading || dataLoading) {
     return (
       <div className="h-screen w-full flex items-center justify-center bg-slate-950">
         <Loader2 className="w-8 h-8 text-sage-200 animate-spin" />
@@ -351,14 +359,25 @@ const AppLayout: React.FC = () => {
     );
   }
 
+  const needsOnboarding = user && (!profile || (!profile.has_completed_onboarding && !profile.username));
+
   return (
     <div className="flex h-screen overflow-hidden relative bg-transparent">
+        <ConfirmModal 
+          isOpen={showLogoutConfirm}
+          title="Log Out"
+          message="Are you sure you want to leave the sanctuary? Your progress is saved."
+          confirmText="Log Out"
+          isDestructive={true}
+          onConfirm={confirmSignOut}
+          onCancel={() => setShowLogoutConfirm(false)}
+        />
         {/* Premium Route Transition Loader */}
         <InitialLoader show={isTransitioning} />
 
         {/* First-time Onboarding Overlay */}
         <AnimatePresence>
-          {user && profile && !profile.has_completed_onboarding && !profile.username && (
+          {needsOnboarding && (
             <OnboardingOverlay 
               userId={user.id} 
               onComplete={() => refresh()} 

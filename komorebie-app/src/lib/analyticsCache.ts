@@ -160,7 +160,7 @@ class AnalyticsCacheStore {
       const [profileRes, sessionsRes, streaksRes, deadlinesRes, tasksRes] = results;
 
       const entry: CachedAnalytics = {
-        profile: profileRes.data,
+        profile: profileRes.data || {},
         sessions: sessionsRes.data || [],
         streaks: streaksRes.data || [],
         deadlines: deadlinesRes.data || [],

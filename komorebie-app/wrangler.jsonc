@@ -27,7 +27,8 @@
 	"hyperdrive": [
 		{
 			"binding": "HYPERDRIVE",
-			"id": "347fda685a87480f88ff90d3196c3508"
+			"id": "347fda685a87480f88ff90d3196c3508",
+			"localConnectionString": "postgresql://postgres.gsxexdnjdxwpiptwuqyi:GAURAVBROOO1239@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres"
 		}
 	],
 	"triggers": {

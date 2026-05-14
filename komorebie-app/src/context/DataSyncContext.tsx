@@ -49,11 +49,13 @@ const DataSyncContext = createContext<DataSyncContextType | undefined>(undefined
 export const DataSyncProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
   const [data, setData] = useState<CachedAnalytics | null>(null);
+  const [edgeStats, setEdgeStats] = useState<SyncStats | null>(null);
   const [rankings, setRankings] = useState<SyncRankings>({ globalRank: null, leagueRank: null, totalUsers: 0 });
   const [loading, setLoading] = useState(true);
 
   // Derived stats
   const stats = useMemo<SyncStats>(() => {
+    if (edgeStats) return edgeStats;
     if (!data) {
       return {
         totalSeconds: 0,
@@ -73,7 +75,7 @@ export const DataSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       };
     }
     return computeStats(data);
-  }, [data]);
+  }, [data, edgeStats]);
 
   // Derived tier
   const tier = useMemo(() => {
@@ -83,9 +85,21 @@ export const DataSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   // Derived streak dates
   const streakDates = useMemo(() => {
+    if (edgeStats) {
+      // Create a map directly from the edge streaks array
+      const map = new Map<string, any>();
+      (edgeStats as any).streaks?.forEach((s: any) => {
+        map.set(s.focus_date, {
+          total_focus_seconds: s.total_focus_seconds,
+          sessions_count: s.sessions_count,
+          streak_qualified: s.streak_qualified
+        });
+      });
+      return map;
+    }
     if (!data) return new Map();
     return buildStreakDates(data.streaks, data.tasks);
-  }, [data]);
+  }, [data, edgeStats]);
 
   const fetchRankings = useCallback(async (userId: string, totalSeconds: number) => {
     try {
@@ -119,6 +133,7 @@ export const DataSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const refresh = useCallback(async (force = false) => {
     if (!user?.id) {
       setData(null);
+      setEdgeStats(null);
       setLoading(false);
       return;
     }
@@ -137,28 +152,25 @@ export const DataSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         });
 
         if (res.ok) {
-          const stats = await res.json() as any;
-          // We still set data to keep other components happy, but stats are pre-computed
-          // The current SyncStats interface matches the output of the edge engine.
-          // Note: we might need to adjust CachedAnalytics if we want to keep exact compatibility.
+          const statsPayload = await res.json() as any;
+          setEdgeStats(statsPayload);
           
-          // For now, let's just use the stats directly if we can, or mock the CachedAnalytics.
           setData({
-            profile: stats.profile,
+            profile: statsPayload.profile,
             sessions: [], // We don't need raw sessions if stats are computed
-            streaks: stats.weeklyData.map((d: any) => ({
+            streaks: statsPayload.streaks || statsPayload.weeklyData.map((d: any) => ({
               focus_date: d.date,
               total_focus_seconds: d.focusSeconds,
               sessions_count: d.sessionsCount,
-              streak_qualified: d.streakQualified || false // Actual value instead of Approximation
+              streak_qualified: d.streakQualified || false
             })),
-            deadlines: stats.deadlines,
+            deadlines: statsPayload.deadlines,
             tasks: [], // Tasks are also pre-computed in stats
             fetchedAt: Date.now()
           } as any);
 
           // We still need rankings, which aren't in the edge stats yet
-          await fetchRankings(user.id, stats.totalSeconds);
+          await fetchRankings(user.id, statsPayload.totalSeconds);
           return;
         }
       }
