@@ -117,8 +117,8 @@ export default {
             const sql = getSqlClient(env);
             const friendship = await sql`
               SELECT status FROM friendships 
-              WHERE (requester_id = ${user.id} AND addressee_id = ${targetUserId})
-              OR (requester_id = ${targetUserId} AND addressee_id = ${user.id})
+              WHERE ((requester_id = ${user.id} AND addressee_id = ${targetUserId})
+              OR (requester_id = ${targetUserId} AND addressee_id = ${user.id}))
               AND status = 'accepted'
               LIMIT 1
             `;
@@ -340,13 +340,26 @@ async function computeAndStoreStats(userId: string, env: Env, providedSql?: any,
     const totalHours = Math.round((totalSeconds / 3600) * 10) / 10;
     const today = new Date().toISOString().split('T')[0];
 
-    const sessionsTodayList = validSessions.filter((s: any) => s.started_at.startsWith(today));
+    const sessionsTodayList = validSessions.filter((s: any) => {
+      const start = s.started_at instanceof Date ? s.started_at.toISOString() : String(s.started_at);
+      return start.startsWith(today);
+    });
     const todayFocusSeconds = sessionsTodayList.reduce((acc: number, s: any) => acc + (s.elapsed_seconds || 0), 0);
-    const sessionsToday = sessions.filter((s: any) => s.started_at.startsWith(today)).length;
-    const completedToday = sessions.filter((s: any) => s.status === 'completed' && s.started_at.startsWith(today)).length;
+    const sessionsToday = sessions.filter((s: any) => {
+      const start = s.started_at instanceof Date ? s.started_at.toISOString() : String(s.started_at);
+      return start.startsWith(today);
+    }).length;
+    const completedToday = sessions.filter((s: any) => {
+      const start = s.started_at instanceof Date ? s.started_at.toISOString() : String(s.started_at);
+      return s.status === 'completed' && start.startsWith(today);
+    }).length;
     
     const tasksDone = tasks.length;
-    const tasksDoneToday = tasks.filter((t: any) => t.completed_at && t.completed_at.startsWith(today)).length;
+    const tasksDoneToday = tasks.filter((t: any) => {
+      if (!t.completed_at) return false;
+      const comp = t.completed_at instanceof Date ? t.completed_at.toISOString() : String(t.completed_at);
+      return comp.startsWith(today);
+    }).length;
 
     const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const weeklyData = [];
@@ -361,7 +374,11 @@ async function computeAndStoreStats(userId: string, env: Env, providedSql?: any,
         focusSeconds: entry ? entry.total_focus_seconds : 0,
         sessionsCount: entry ? entry.sessions_count : 0,
         streakQualified: entry ? entry.streak_qualified : false,
-        tasksDone: tasks.filter((t: any) => t.completed_at && t.completed_at.startsWith(dStr)).length
+        tasksDone: tasks.filter((t: any) => {
+          if (!t.completed_at) return false;
+          const comp = t.completed_at instanceof Date ? t.completed_at.toISOString() : String(t.completed_at);
+          return comp.startsWith(dStr);
+        }).length
       });
     }
 

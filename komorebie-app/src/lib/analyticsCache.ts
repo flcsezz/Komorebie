@@ -124,11 +124,16 @@ class AnalyticsCacheStore {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return null;
 
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
       const res = await fetch(`/api/analytics/stats?userId=${userId}`, {
         headers: {
           'Authorization': `Bearer ${session.access_token}`
-        }
+        },
+        signal: controller.signal
       });
+      clearTimeout(timeoutId);
 
       if (!res.ok) throw new Error(`Worker error: ${res.status}`);
       const data = await res.json() as any;
