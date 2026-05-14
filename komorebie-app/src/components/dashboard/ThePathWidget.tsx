@@ -27,7 +27,7 @@ import TaskItem, { type Task, type TaskStatus } from './TaskItem';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { analyticsCache } from '../../lib/analyticsCache';
-import { edgeUpdate, edgeFetchAll } from '../../lib/edge';
+
 import { AnimatePresence, motion } from 'framer-motion';
 
 const DroppableArea: React.FC<{ id: string; children: React.ReactNode; className?: string; isOver?: boolean }> = ({ id, children, className, isOver }) => {
@@ -59,24 +59,7 @@ const ThePathWidget: React.FC = () => {
     
     setLoading(true);
     try {
-      // Try edge first
-      const edgeData = await edgeFetchAll() as any[];
-      const tasksRow = edgeData.find((d: any) => d.data_type === 'tasks');
-      
-      if (tasksRow && tasksRow.payload) {
-        const mappedTasks: Task[] = tasksRow.payload.map((t: any) => ({
-          id: t.id,
-          title: t.title,
-          category: t.category || 'General',
-          status: t.status as TaskStatus,
-          isCompleted: t.is_completed
-        }));
-        setTasks(mappedTasks);
-        setLoading(false);
-        return;
-      }
-
-      // Fallback
+      // Fetch directly from Supabase for real-time consistency
       const { data, error } = await supabase
         .from('tasks')
         .select('*')
@@ -148,7 +131,8 @@ const ThePathWidget: React.FC = () => {
         created_at: new Date().toISOString()
       };
 
-      await edgeUpdate('tasks', payload);
+      const { error } = await supabase.from('tasks').insert(payload);
+      if (error) throw error;
       
       const newTask: Task = {
         id: tempId,
@@ -159,7 +143,7 @@ const ThePathWidget: React.FC = () => {
       };
       setTasks([newTask, ...tasks]);
     } catch (err) {
-      console.error('Error adding task via edge:', err);
+      console.error('Error adding task:', err);
       fetchTasks();
     }
   };
@@ -175,12 +159,12 @@ const ThePathWidget: React.FC = () => {
     setTasks(tasks.map(t => t.id === id ? { ...t, isCompleted: nextState } : t));
 
     try {
-      await edgeUpdate('tasks', { 
-        id,
+      const { error } = await supabase.from('tasks').update({
         is_completed: nextState,
         completed_at: completedAt
-      });
+      }).eq('id', id);
       
+      if (error) throw error;
       if (user) analyticsCache.invalidate(user.id);
     } catch (err) {
       console.error('Error toggling task via edge:', err);
@@ -361,11 +345,11 @@ const ThePathWidget: React.FC = () => {
     }));
 
     try {
-      await edgeUpdate('tasks', updates);
+      const { error } = await supabase.from('tasks').upsert(updates, { onConflict: 'id' });
+      if (error) throw error;
     } catch (err) {
-      console.error('Error syncing task order via edge:', err);
+      console.error('Error syncing task order:', err);
     }
-
   };
 
   // Custom collision detection: prefer droppable containers when not directly over a task

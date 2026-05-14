@@ -63,8 +63,9 @@
 | SEC-03    | done   | Antigravity | SQL Function Search Path Security                                            | none         | Schema injection protection    |
 | SEC-04    | done   | Antigravity | Worker Endpoint Input Validation                                             | none         | API data-type whitelist        |
 | SEC-05    | done   | Antigravity | Storage Bucket Privacy Hardening                                             | none         | Restricted bucket listing      |
-| STB-01    | todo   | unassigned  | Fix Hyperdrive Connection Leak in Worker                                     | none         | Optimized edge connection pool |
-| STB-02    | todo   | unassigned  | Fix DataSyncContext Streak Approximation                                     | none         | Accurate dashboard heatmap     |
+| STB-01    | done   | Antigravity | Fix Hyperdrive Connection Leak in Worker                                     | none         | Optimized edge connection pool |
+| STB-02    | done   | Antigravity | Fix DataSyncContext Streak Approximation                                     | none         | Accurate dashboard heatmap     |
+| STB-03    | done   | Antigravity | Fix Edge Cache Profile Sync & Remote D1 schema                               | none         | Consistent Onboarding states   |
 | FE-11     | todo   | unassigned  | Implement App Settings Page                                                  | none         | Functional preferences UI      |
 
 ## Claim Rules

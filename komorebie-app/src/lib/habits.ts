@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { edgeUpdate, edgeFetchAll } from './edge';
+
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -29,13 +29,7 @@ export interface HabitLog {
 // ─── Habit CRUD ─────────────────────────────────────────────────────────────
 
 export async function fetchHabits(userId: string): Promise<Habit[]> {
-  try {
-    const edgeData = await edgeFetchAll() as any[];
-    const row = edgeData.find((d: any) => d.data_type === 'habits');
-    if (row && row.payload) return row.payload;
-  } catch (err) {
-    console.error('fetchHabits edge error:', err);
-  }
+
 
   const { data, error } = await supabase
     .from('habits')
@@ -70,14 +64,15 @@ export async function createHabit(habit: {
     created_at: new Date().toISOString()
   };
 
-  await edgeUpdate('habits', payload);
-  return payload as Habit;
+  const { data, error } = await supabase.from('habits').insert(payload).select().single();
+  if (error) throw error;
+  return data;
 }
 
-export async function updateHabit(id: string, updates: Partial<Pick<Habit, 'name' | 'description' | 'icon' | 'color'>>): Promise<Habit> {
-  const payload = { id, ...updates };
-  await edgeUpdate('habits', payload);
-  return payload as Habit;
+export async function updateHabit(id: string, updates: Partial<Habit>): Promise<Habit> {
+  const { data, error } = await supabase.from('habits').update(updates).eq('id', id).select().single();
+  if (error) throw error;
+  return data;
 }
 
 export async function deleteHabit(id: string): Promise<void> {
@@ -93,15 +88,7 @@ export async function deleteHabit(id: string): Promise<void> {
 // ─── Habit Logs ─────────────────────────────────────────────────────────────
 
 export async function fetchHabitLogs(userId: string, startDate: string, endDate: string): Promise<HabitLog[]> {
-  try {
-    const edgeData = await edgeFetchAll() as any[];
-    const row = edgeData.find((d: any) => d.data_type === 'habit_logs');
-    if (row && row.payload) {
-      return row.payload.filter((l: any) => l.log_date >= startDate && l.log_date <= endDate);
-    }
-  } catch (err) {
-    console.error('fetchHabitLogs edge error:', err);
-  }
+
 
   const { data, error } = await supabase
     .from('habit_logs')
@@ -130,8 +117,17 @@ export async function toggleHabitLog(params: {
     updated_at: new Date().toISOString(),
   };
 
-  await edgeUpdate('habit_logs', payload);
-  return payload as HabitLog;
+  const { data, error } = await supabase
+    .from('habit_logs')
+    .upsert(payload, { onConflict: 'habit_id,log_date' })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('toggleHabitLog error:', error);
+    throw error;
+  }
+  return data as HabitLog;
 }
 
 // ─── Streak Calculation (client-side) ───────────────────────────────────────
