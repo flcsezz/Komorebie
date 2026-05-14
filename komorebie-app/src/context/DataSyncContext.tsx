@@ -155,9 +155,9 @@ export const DataSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       if (token) {
         console.log('DataSync: Attempting edge fetch with timeout...');
         
-        // 10 second timeout for edge fetch
+        // 5 second timeout for edge fetch
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
 
         const res = await fetch(`/api/analytics/stats${force ? '?force=true' : ''}`, {
           headers: {

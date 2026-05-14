@@ -21,58 +21,40 @@ export const logFocusSession = async (session: FocusSessionData) => {
       session.status = 'abandoned';
     }
 
-    // --- Server-side elapsed time validation ---
-    // Compare client-reported elapsed_seconds against wall-clock time
-    // to prevent client-side manipulation of focus time stats
-    const endedAt = new Date();
-    const startedAt = new Date(session.started_at);
-    const wallClockSeconds = Math.max(0, Math.floor((endedAt.getTime() - startedAt.getTime()) / 1000));
-    
-    // Allow a tolerance of 10% or 30 seconds (whichever is larger)
-    // to account for network latency and timer drift
-    const tolerance = Math.max(30, wallClockSeconds * 0.1);
-    let validatedElapsed = elapsed;
-    
-    if (elapsed > wallClockSeconds + tolerance) {
-      console.warn(
-        `[Analytics] Elapsed time validation: client reported ${elapsed}s but wall-clock was ${wallClockSeconds}s. ` +
-        `Clamping to wall-clock value.`
-      );
-      validatedElapsed = wallClockSeconds;
+    // --- Atomic Multi-Device Logging ---
+    // We use a custom RPC to ensure that only ONE device can "consume"
+    // an active timer and log a session. This prevents double-counting.
+    const { data: rpcData, error: rpcError } = await supabase
+      .rpc('secure_log_focus_session', {
+        p_task_id: session.task_id || null,
+        p_duration_seconds: session.duration_seconds,
+        p_elapsed_seconds: elapsed,
+        p_status: session.status,
+        p_started_at: session.started_at
+      });
+
+    if (rpcError) {
+      console.error('[Analytics] RPC error:', rpcError.message);
+      throw rpcError;
     }
 
-    const { data, error } = await supabase
-      .from('focus_sessions')
-      .insert([
-        {
-          user_id: session.user_id,
-          task_id: session.task_id,
-          duration_seconds: session.duration_seconds,
-          elapsed_seconds: validatedElapsed,
-          status: session.status,
-          started_at: session.started_at,
-          ended_at: endedAt.toISOString(),
-        }
-      ])
-      .select();
-
-    if (error) {
-      console.error('[Analytics] Supabase insert error:', error.message, error.details, error.hint, error.code);
-      throw error;
+    if (!rpcData.success) {
+      console.warn('[Analytics] Session rejected by server:', rpcData.error);
+      return null;
     }
 
-    console.log('[Analytics] Session inserted successfully:', data);
+    // The 'rpcData.data' now contains the values as processed by the DB (including the wall-clock trigger)
+    const verifiedData = rpcData.data;
+    const verifiedElapsed = verifiedData.elapsed_seconds || 0;
+    console.log(`[Analytics] Session verified & logged. DB Verified: ${verifiedElapsed}s`);
 
     // ONLY update stats (streaks, mana, daily totals) if the session is qualified (>= 5 mins)
-    // Use validatedElapsed (wall-clock clamped) for integrity
-    const isStillQualified = validatedElapsed >= STREAK_THRESHOLD_SECONDS;
-    if (isStillQualified) {
-      await updateStreak(session.user_id, validatedElapsed);
-      // Award mana: 1 mana per completed minute
-      await updateProfileMana(session.user_id, Math.floor(validatedElapsed / 60));
+    if (verifiedElapsed >= STREAK_THRESHOLD_SECONDS) {
+      await updateStreak(session.user_id, verifiedElapsed);
+      await updateProfileMana(session.user_id, Math.floor(verifiedElapsed / 60));
     }
 
-    return data;
+    return verifiedData;
   } catch (error) {
     console.error('[Analytics] Error logging focus session:', error);
     return null;

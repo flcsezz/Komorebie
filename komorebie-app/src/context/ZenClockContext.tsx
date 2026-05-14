@@ -186,7 +186,7 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
     };
 
-    const interval = setInterval(pollTimer, 3000);
+    const interval = setInterval(pollTimer, 10000);
     pollTimer();
 
     return () => clearInterval(interval);
@@ -437,7 +437,7 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
         // Mark as local update to prevent the real-time listener from echoing
         lastLocalUpdateRef.current = Date.now();
-      }, 30_000);
+      }, 70_000);
     }
 
     return () => {

@@ -10,8 +10,21 @@ export interface Env {
 
 let sqlClient: postgres.Sql<any> | null = null;
 
+function getSqlClient(env: Env) {
+  if (!sqlClient) {
+    console.log('[Worker] Initializing singleton Postgres client with Hyperdrive...');
+    sqlClient = postgres(env.HYPERDRIVE.connectionString, {
+      ssl: 'require',
+      max: 10,
+      idle_timeout: 30,
+      connect_timeout: 5
+    });
+  }
+  return sqlClient;
+}
+
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
 
     // API Routes
@@ -104,7 +117,7 @@ export default {
 
             if (cached) {
               const age = Date.now() - new Date(cached.updated_at).getTime();
-              if (age < 2 * 60 * 1000) { // 2 minute cache
+              if (age < 10 * 60 * 1000) { // 10 minute cache (BE-CF-03-OPT)
                 return new Response(cached.payload, {
                   headers: { 'Content-Type': 'application/json', 'X-Cache': 'HIT' }
                 });
@@ -114,7 +127,7 @@ export default {
 
           // Compute and return
           console.log(`[Worker] Computing stats for user: ${user.id}`);
-          const stats = await computeAndStoreStats(user.id, env);
+          const stats = await computeAndStoreStats(user.id, env, null, ctx);
           console.log(`[Worker] Stats computation complete for user: ${user.id}`);
           return new Response(JSON.stringify(stats), {
             headers: { 'Content-Type': 'application/json', 'X-Cache': 'MISS' }
@@ -213,10 +226,7 @@ export default {
 
   // Cron Background Sync (BE-CF-07)
   async scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContext) {
-    if (!sqlClient) {
-      sqlClient = postgres(env.HYPERDRIVE.connectionString);
-    }
-    const sql = sqlClient;
+    const sql = getSqlClient(env);
     
     try {
       // 1. Fetch active users (e.g. active in last 7 days)
@@ -274,11 +284,8 @@ export default {
 /**
  * Reusable analytics engine logic
  */
-async function computeAndStoreStats(userId: string, env: Env, providedSql?: any) {
-  if (!sqlClient && !providedSql) {
-    sqlClient = postgres(env.HYPERDRIVE.connectionString);
-  }
-  const sql = providedSql || sqlClient;
+async function computeAndStoreStats(userId: string, env: Env, providedSql?: any, ctx?: ExecutionContext) {
+  const sql = providedSql || getSqlClient(env);
   try {
     console.log(`[Worker] Starting DB queries for user: ${userId}`);
     const start = Date.now();
@@ -374,15 +381,22 @@ async function computeAndStoreStats(userId: string, env: Env, providedSql?: any)
 
     const payload = JSON.stringify(stats);
 
-    console.log(`[Worker] Storing stats in D1 for user: ${userId}`);
-    await env.komorebie_db.prepare(`
+    // Use waitUntil if available to avoid blocking the response for cache storage (BE-CF-03-OPT)
+    const storagePromise = env.komorebie_db.prepare(`
       INSERT INTO data_cache (user_id, data_type, payload, updated_at)
       VALUES (?, ?, ?, ?)
       ON CONFLICT (user_id, data_type) DO UPDATE SET
         payload = excluded.payload,
         updated_at = excluded.updated_at
     `).bind(userId, 'analytics_stats', payload, new Date().toISOString()).run();
-    console.log(`[Worker] Stats stored in D1 for user: ${userId}`);
+
+    if (ctx) {
+      ctx.waitUntil(storagePromise);
+      console.log(`[Worker] Stats storage queued in waitUntil for user: ${userId}`);
+    } else {
+      await storagePromise;
+      console.log(`[Worker] Stats stored in D1 for user: ${userId}`);
+    }
 
     return stats;
   } catch (err) {
