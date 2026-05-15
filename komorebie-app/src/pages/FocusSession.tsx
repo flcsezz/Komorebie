@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Play, Pause, Square } from 'lucide-react';
-import { useZenClock } from '../context/ZenClockContext';
+import { useZenClock } from '../hooks/useZenClock';
+import { useDataSync } from '../context/DataSyncContext';
 import ConfirmModal from '../components/ui/ConfirmModal';
 
 const FocusSession: React.FC = () => {
@@ -14,6 +15,7 @@ const FocusSession: React.FC = () => {
     resetTimer
   } = useZenClock();
   
+  const { refresh } = useDataSync();
   const navigate = useNavigate();
   const location = useLocation();
   const task = location.state?.task || "Deep Work";
@@ -29,9 +31,11 @@ const FocusSession: React.FC = () => {
     setShowStopConfirm(true);
   };
 
-  const confirmStop = () => {
+  const confirmStop = async () => {
     setShowStopConfirm(false);
-    resetTimer();
+    await resetTimer();
+    // Force-refresh analytics so stats are current before the page renders
+    refresh(true);
     navigate('/app/analytics');
   };
 

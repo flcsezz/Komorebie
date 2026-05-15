@@ -92,8 +92,16 @@ class AnalyticsCacheStore {
   }
 
   /**
-   * Fetch fresh analytics from Supabase with inflight deduplication.
-   * If a request for the same user is already in progress, returns the same promise.
+   * Externally set cached data (used by DataSyncContext after fetching).
+   */
+  set(userId: string, data: CachedAnalytics) {
+    this.cache.set(userId, data);
+    this.notifyListeners();
+  }
+
+  /**
+   * Fetch fresh analytics — tries edge worker first, then Supabase direct.
+   * Used by hooks that need analytics for specific users (e.g., friend profiles).
    */
   async fetch(userId: string, force = false): Promise<CachedAnalytics | null> {
     // Return cached if fresh and not forced
@@ -102,51 +110,105 @@ class AnalyticsCacheStore {
       if (cached && !this.isStale(userId)) return cached;
     }
 
-    // Deduplicate inflight requests
-    const inflightKey = userId;
-    if (this.inflightRequests.has(inflightKey)) {
-      return this.inflightRequests.get(inflightKey)!;
+    // Deduplicate inflight requests (keyed by userId+force to avoid serving non-forced response for a forced request)
+    const cacheKey = `${userId}:${force}`;
+    if (this.inflightRequests.has(cacheKey)) {
+      return this.inflightRequests.get(cacheKey)!;
     }
 
-    const promise = this.fetchFromWorker(userId);
-    this.inflightRequests.set(inflightKey, promise);
+    const promise = this.fetchFresh(userId, force);
+    this.inflightRequests.set(cacheKey, promise);
 
     try {
-      const result = await promise;
-      return result;
+      return await promise;
     } finally {
-      this.inflightRequests.delete(inflightKey);
+      this.inflightRequests.delete(cacheKey);
     }
   }
 
-  private async fetchFromWorker(userId: string): Promise<CachedAnalytics | null> {
+  /**
+   * Try edge worker first with timeout, then fall back to direct Supabase.
+   */
+  private async fetchFresh(userId: string, force = false): Promise<CachedAnalytics | null> {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return null;
+
+    // Try edge worker with 3s timeout
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return null;
-
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
 
-      const res = await fetch(`/api/analytics/stats?userId=${userId}`, {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`
-        },
+      const res = await fetch(`/api/analytics/stats?userId=${userId}${force ? '&force=true' : ''}`, {
+        headers: { 'Authorization': `Bearer ${session.access_token}` },
         signal: controller.signal
       });
       clearTimeout(timeoutId);
 
-      if (!res.ok) throw new Error(`Worker error: ${res.status}`);
-      const data = await res.json() as any;
+      if (res.ok) {
+        const data = await res.json() as any;
+        const entry: CachedAnalytics = {
+          profile: data.profile || {},
+          sessions: data.sessions || [],
+          streaks: data.streaks || [],
+          deadlines: data.deadlines || [],
+          tasks: data.tasks || [],
+          totalSeconds: data.totalSeconds,
+          totalSessions: data.totalSessions,
+          tasksDone: data.tasksDone,
+          fetchedAt: Date.now(),
+        };
+        this.cache.set(userId, entry);
+        this.notifyListeners();
+        return entry;
+      }
+    } catch (err) {
+      console.warn('AnalyticsCache: Edge worker fetch failed, trying Supabase direct');
+    }
+
+    // Fallback: Direct Supabase queries
+    return this.fetchDirectFromSupabase(userId);
+  }
+
+  /**
+   * Direct Supabase fallback — no worker involved.
+   */
+  private async fetchDirectFromSupabase(userId: string): Promise<CachedAnalytics | null> {
+    try {
+      const [
+        { data: profile },
+        { data: sessions },
+        { data: streaks },
+        { data: deadlines },
+        { data: tasks }
+      ] = await Promise.all([
+        supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
+        supabase.from('focus_sessions')
+          .select('id, status, elapsed_seconds, started_at')
+          .eq('user_id', userId)
+          .order('started_at', { ascending: false })
+          .limit(500),
+        supabase.from('streaks')
+          .select('focus_date, total_focus_seconds, sessions_count, streak_qualified')
+          .eq('user_id', userId)
+          .order('focus_date', { ascending: false })
+          .limit(365),
+        supabase.from('deadlines')
+          .select('id, deadline_date, title')
+          .eq('user_id', userId)
+          .order('deadline_date', { ascending: true }),
+        supabase.from('tasks')
+          .select('id, is_completed, completed_at')
+          .eq('user_id', userId)
+          .eq('is_completed', true)
+          .order('completed_at', { ascending: false })
+      ]);
 
       const entry: CachedAnalytics = {
-        profile: data.profile || {},
-        sessions: data.sessions || [],
-        streaks: data.streaks || [],
-        deadlines: data.deadlines || [],
-        tasks: data.tasks || [],
-        totalSeconds: data.totalSeconds,
-        totalSessions: data.totalSessions,
-        tasksDone: data.tasksDone,
+        profile: profile || {},
+        sessions: sessions || [],
+        streaks: streaks || [],
+        deadlines: deadlines || [],
+        tasks: tasks || [],
         fetchedAt: Date.now(),
       };
 
@@ -154,7 +216,7 @@ class AnalyticsCacheStore {
       this.notifyListeners();
       return entry;
     } catch (err) {
-      console.error('AnalyticsCache: fetchFromWorker failed', err);
+      console.error('AnalyticsCache: Direct Supabase fetch failed:', err);
       return null;
     }
   }

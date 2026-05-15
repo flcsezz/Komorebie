@@ -1,10 +1,10 @@
-import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
+import React, { createContext, useState, useEffect, useRef, useCallback } from 'react';
 import { type PomodoroState } from '../types/clock';
 import { useAuth } from './AuthContext';
 import { logFocusSession } from '../lib/analytics';
 import { analyticsCache } from '../lib/analyticsCache';
 
-interface ZenClockContextType {
+export interface ZenClockContextType {
   timeLeft: number;
   duration: number;
   isActive: boolean;
@@ -52,15 +52,30 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return saved ? parseFloat(saved) : 25;
   });
   
-  const [timeLeft, setTimeLeft] = useState(duration * 60);
-  const [isActive, setIsActive] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(() => {
+    const savedActive = localStorage.getItem('zen-is-active') === 'true';
+    const savedTarget = localStorage.getItem('zen-target-end-time');
+    if (savedActive && savedTarget) {
+      const remaining = Math.ceil((parseInt(savedTarget, 10) - Date.now()) / 1000);
+      return remaining > -1800 ? remaining : duration * 60;
+    }
+    return duration * 60;
+  });
   const [isSessionComplete, setIsSessionComplete] = useState(false);
   const [selectedAlarm, setSelectedAlarm] = useState(() => {
     return localStorage.getItem('zen-selected-alarm') || 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
   });
   const [isAlarmPlaying, setIsAlarmPlaying] = useState(false);
-  const [sessionStartTime, setSessionStartTime] = useState<string | null>(null);
-  const [targetEndTime, setTargetEndTime] = useState<number | null>(null);
+  const [sessionStartTime, setSessionStartTime] = useState<string | null>(() => {
+    return localStorage.getItem('zen-session-start-time');
+  });
+  const [targetEndTime, setTargetEndTime] = useState<number | null>(() => {
+    const saved = localStorage.getItem('zen-target-end-time');
+    return saved ? parseInt(saved, 10) : null;
+  });
+  const [isActive, setIsActive] = useState(() => {
+    return localStorage.getItem('zen-is-active') === 'true';
+  });
   
   const { user, session } = useAuth();
   
@@ -133,7 +148,8 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     const pollTimer = async () => {
       // Ignore if we recently updated locally (avoid race conditions/jumps)
-      if (Date.now() - lastLocalUpdateRef.current < 5000) {
+      // We use a 15s guard because the manual stop RPC + Sync can take several seconds
+      if (Date.now() - lastLocalUpdateRef.current < 15000) {
         return;
       }
 
@@ -194,12 +210,14 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   // Persistence
   useEffect(() => {
-    localStorage.setItem('zen-pomodoro-mode', isPomodoroMode.toString());
-    localStorage.setItem('zen-pomodoro-state', pomodoroState);
-    localStorage.setItem('zen-pomodoro-cycle', pomodoroCycle.toString());
     localStorage.setItem('zen-clock-duration', duration.toString());
     localStorage.setItem('zen-selected-alarm', selectedAlarm);
-  }, [isPomodoroMode, pomodoroState, pomodoroCycle, duration, selectedAlarm]);
+    localStorage.setItem('zen-is-active', isActive.toString());
+    if (sessionStartTime) localStorage.setItem('zen-session-start-time', sessionStartTime);
+    else localStorage.removeItem('zen-session-start-time');
+    if (targetEndTime) localStorage.setItem('zen-target-end-time', targetEndTime.toString());
+    else localStorage.removeItem('zen-target-end-time');
+  }, [isPomodoroMode, pomodoroState, pomodoroCycle, duration, selectedAlarm, isActive, sessionStartTime, targetEndTime]);
 
   const stopAlarm = useCallback(() => {
     if (audioRef.current) {
@@ -244,31 +262,43 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, []);
 
   // --- LOG HELPER: logs a focus session if it qualifies ---
-  const logSessionIfQualified = useCallback((
+  const logSessionIfQualified = useCallback(async (
     elapsedSeconds: number,
     status: 'completed' | 'abandoned',
     startedAt: string | null
   ) => {
     if (!user) return;
-    if (elapsedSeconds < 300) return; // Must be >= 5 minutes
+    if (elapsedSeconds < 300) {
+      console.log(`[Zen] Session too short (${elapsedSeconds}s < 300s), skipping log.`);
+      return null;
+    }
 
     // FAILSAFE: Cap overtime to prevent farming
     const maxAllowed = (duration * 60) + MAX_SESSION_OVERTIME_SECONDS;
     const finalElapsed = Math.min(elapsedSeconds, maxAllowed);
 
     console.log(`[Zen] Logging ${status} session (qualified):`, finalElapsed, 'seconds');
-    logFocusSession({
-      user_id: user.id,
-      duration_seconds: duration * 60,
-      elapsed_seconds: finalElapsed,
-      status,
-      started_at: startedAt || new Date().toISOString()
-    }).then((result) => {
-      console.log('[Zen] Session logged to Supabase:', result);
-      if (user) analyticsCache.invalidate(user.id);
-    }).catch((err: Error | unknown) => {
+    try {
+      const result = await logFocusSession({
+        user_id: user.id,
+        duration_seconds: duration * 60,
+        elapsed_seconds: finalElapsed,
+        status,
+        started_at: startedAt || new Date().toISOString()
+      });
+      
+      if (result) {
+        console.log('[Zen] Session logged to Supabase:', result);
+        // Await invalidation so the analytics page gets fresh data immediately
+        await analyticsCache.invalidate(user.id);
+      } else {
+        console.warn('[Zen] Session was not logged (rejected by server).');
+      }
+      return result;
+    } catch (err) {
       console.error('[Zen] FAILED to log session:', err);
-    });
+      return null;
+    }
   }, [user, duration]);
 
   /**
@@ -383,7 +413,7 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     hasTriggeredCompletionRef.current = false;
     
     // SYNC: Clear active timer from cloud with the NEW state
-    syncTimerToCloud(false, null, nextDuration * 60, isPomodoroMode, nextPomState, nextDuration * 60);
+    syncTimerToCloudImmediate(false, null, nextDuration * 60, isPomodoroMode, nextPomState, nextDuration * 60);
   }, [isPomodoroMode, pomodoroState, duration, timeLeft, sessionStartTime, stopAlarm, syncTimerToCloud, logSessionIfQualified]);
 
   const skipBreak = useCallback(() => {
@@ -407,7 +437,7 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setSessionStartTime(startTime);
       const targetEnd = Date.now() + (nextDuration * 60 * 1000);
       setTargetEndTime(targetEnd);
-      syncTimerToCloud(true, startTime, nextDuration * 60, isPomodoroMode, 'work', nextDuration * 60);
+      syncTimerToCloudImmediate(true, startTime, nextDuration * 60, isPomodoroMode, 'work', nextDuration * 60);
     }
   }, [isPomodoroMode, pomodoroState, pomodoroCycle, stopAlarm, syncTimerToCloud]);
 
@@ -508,36 +538,35 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       // Manual stop before completion — log as abandoned if significant time elapsed
       const currentSeconds = timeLeft;
       const elapsed = duration * 60 - currentSeconds;
-      console.log('[Zen] Manual stop. Elapsed:', elapsed, 'seconds. User:', user?.id);
+      const startTime = sessionStartTime;
+      
+      console.log(`[Zen] Manual stop triggered. Elapsed: ${elapsed}s, StartedAt: ${startTime}`);
+      
+      // CRITICAL: Kill the tick interval IMMEDIATELY before any state updates
+      // to prevent a racing setTimeLeft(remaining) from overwriting our reset value
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
       
       setIsActive(false);
       setSessionStartTime(null);
       setTargetEndTime(null);
       hasTriggeredCompletionRef.current = false;
+      lastLocalUpdateRef.current = Date.now();
 
       // RESET: Immediately reset timeLeft on stop so progress bar clears
       const resetTime = duration * 60;
       setTimeLeft(resetTime);
       
-      // SYNC: Push stop event to cloud with the RESET duration
-      syncTimerToCloud(false, null, resetTime, isPomodoroMode, pomodoroState, resetTime);
-
+      // LOG: Ensure RPC runs while is_active is still true in cloud
       if (user && elapsed >= 300 && (!isPomodoroMode || pomodoroState === 'work')) {
-        console.log('[Zen] Logging abandoned session (qualified):', elapsed, 'seconds');
-        // Do not await to prevent UI blocking
-        logFocusSession({
-          user_id: user.id,
-          duration_seconds: duration * 60,
-          elapsed_seconds: elapsed,
-          status: 'abandoned',
-          started_at: sessionStartTime || new Date().toISOString()
-        }).then((result) => {
-          console.log('[Zen] Abandoned session logged:', result);
-          analyticsCache.invalidate(user.id);
-        }).catch((err) => {
-          console.error('[Zen] FAILED to log abandoned session:', err);
-        });
+        await logSessionIfQualified(elapsed, 'abandoned', startTime);
       }
+
+      // SYNC: Push stop event to cloud with the RESET duration
+      // Use immediate sync to ensure cloud is cleaned up after the RPC attempt
+      syncTimerToCloudImmediate(false, null, resetTime, isPomodoroMode, pomodoroState, resetTime);
     } else {
       // Normal start
       const now = Date.now();
@@ -554,7 +583,7 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       hasTriggeredCompletionRef.current = false;
       
       // SYNC: Push start event to cloud with the RESET duration
-      syncTimerToCloud(true, startTime, initialTime, isPomodoroMode, pomodoroState, initialTime);
+      syncTimerToCloudImmediate(true, startTime, initialTime, isPomodoroMode, pomodoroState, initialTime);
       
       try {
         const doc = document as any;
@@ -600,17 +629,48 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
-  const resetTimer = () => {
-    setIsActive(false);
-    setIsSessionComplete(false);
-    stopAlarm();
-    setTimeLeft(duration * 60);
-    setTargetEndTime(null);
-    hasTriggeredCompletionRef.current = false;
-    
-    // SYNC: Clear cloud timer
-    syncTimerToCloud(false, null, duration * 60, isPomodoroMode, pomodoroState, duration * 60);
-  };
+  const resetTimer = useCallback(async () => {
+    if (isActive) {
+      const elapsed = duration * 60 - timeLeft;
+      const startTime = sessionStartTime;
+      
+      // CRITICAL: Kill the tick interval IMMEDIATELY before any state updates
+      // to prevent a racing setTimeLeft(remaining) from overwriting our reset value
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      
+      // 1. Immediately update local state & guard to prevent polling reversion
+      setIsActive(false);
+      setIsSessionComplete(false);
+      stopAlarm();
+      setTimeLeft(duration * 60);
+      setSessionStartTime(null);
+      setTargetEndTime(null);
+      hasTriggeredCompletionRef.current = false;
+      lastLocalUpdateRef.current = Date.now();
+
+      // 2. Log in background (don't block the UI reset, but await if we want to ensure it completes before cloud sync)
+      if (user && elapsed >= 300 && (!isPomodoroMode || pomodoroState === 'work')) {
+        await logSessionIfQualified(elapsed, 'abandoned', startTime);
+      }
+      
+      // 3. Final cloud sync to clear the D1/active_timers entry
+      await syncTimerToCloudImmediate(false, null, duration * 60, isPomodoroMode, pomodoroState, duration * 60);
+    } else {
+      // If not active, just a simple reset
+      setIsActive(false);
+      setIsSessionComplete(false);
+      stopAlarm();
+      setTimeLeft(duration * 60);
+      setSessionStartTime(null);
+      setTargetEndTime(null);
+      hasTriggeredCompletionRef.current = false;
+      lastLocalUpdateRef.current = Date.now();
+      await syncTimerToCloudImmediate(false, null, duration * 60, isPomodoroMode, pomodoroState, duration * 60);
+    }
+  }, [isActive, duration, timeLeft, user, isPomodoroMode, pomodoroState, sessionStartTime, stopAlarm, logSessionIfQualified, syncTimerToCloudImmediate]);
 
   return (
     <ZenClockContext.Provider value={{
@@ -637,10 +697,4 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   );
 };
 
-export const useZenClock = () => {
-  const context = useContext(ZenClockContext);
-  if (context === undefined) {
-    throw new Error('useZenClock must be used within a ZenClockProvider');
-  }
-  return context;
-};
+export { ZenClockContext };
