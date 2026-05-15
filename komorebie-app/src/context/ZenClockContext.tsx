@@ -565,8 +565,8 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
 
       // SYNC: Push stop event to cloud with the RESET duration
-      // Use immediate sync to ensure cloud is cleaned up after the RPC attempt
-      syncTimerToCloudImmediate(false, null, resetTime, isPomodoroMode, pomodoroState, resetTime);
+      // Await so the DB is clean before navigation / analytics refresh
+      await syncTimerToCloudImmediate(false, null, resetTime, isPomodoroMode, pomodoroState, resetTime);
     } else {
       // Normal start
       const now = Date.now();
@@ -582,8 +582,10 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setTargetEndTime(targetEnd);
       hasTriggeredCompletionRef.current = false;
       
-      // SYNC: Push start event to cloud with the RESET duration
-      syncTimerToCloudImmediate(true, startTime, initialTime, isPomodoroMode, pomodoroState, initialTime);
+      // SYNC: Await the start sync so is_active=true is GUARANTEED in the cloud DB
+      // before this session can ever be stopped and logged. Fire-and-forget here
+      // caused the RPC to see is_active=false and silently reject the log.
+      await syncTimerToCloudImmediate(true, startTime, initialTime, isPomodoroMode, pomodoroState, initialTime);
       
       try {
         const doc = document as any;

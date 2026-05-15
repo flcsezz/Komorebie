@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useAuth } from './AuthContext';
 import { analyticsCache, computeStats, buildStreakDates, type CachedAnalytics, type DailyStats } from '../lib/analyticsCache';
 import { getTierForSeconds, type TierConfig, type TierKey, ADMIN_OVERRIDE_KEY } from '../lib/leagues';
@@ -46,36 +46,38 @@ interface DataSyncContextType {
 
 const DataSyncContext = createContext<DataSyncContextType | undefined>(undefined);
 
+const EMPTY_STATS: SyncStats = {
+  totalSeconds: 0,
+  totalHours: 0,
+  totalSessions: 0,
+  sessionsToday: 0,
+  completedToday: 0,
+  tasksDone: 0,
+  tasksDoneToday: 0,
+  currentStreak: 0,
+  bestStreak: 0,
+  mana: 0,
+  todayFocusSeconds: 0,
+  weeklyData: [],
+  weekSeconds: 0,
+  weekHours: 0,
+};
+
 export const DataSyncProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
   const [data, setData] = useState<CachedAnalytics | null>(null);
-  const [edgeStats, setEdgeStats] = useState<SyncStats | null>(null);
   const [rankings, setRankings] = useState<SyncRankings>({ globalRank: null, leagueRank: null, totalUsers: 0 });
   const [loading, setLoading] = useState(true);
+  const hasDataRef = useRef(false);
+  
+  // Keep ref in sync with state
+  useEffect(() => { hasDataRef.current = !!data; }, [data]);
 
-  // Derived stats
+  // Derived stats — always computed from the single `data` source
   const stats = useMemo<SyncStats>(() => {
-    if (edgeStats) return edgeStats;
-    if (!data) {
-      return {
-        totalSeconds: 0,
-        totalHours: 0,
-        totalSessions: 0,
-        sessionsToday: 0,
-        completedToday: 0,
-        tasksDone: 0,
-        tasksDoneToday: 0,
-        currentStreak: 0,
-        bestStreak: 0,
-        mana: 0,
-        todayFocusSeconds: 0,
-        weeklyData: [],
-        weekSeconds: 0,
-        weekHours: 0,
-      };
-    }
+    if (!data) return EMPTY_STATS;
     return computeStats(data);
-  }, [data, edgeStats]);
+  }, [data]);
 
   // Derived tier
   const tier = useMemo(() => {
@@ -85,21 +87,9 @@ export const DataSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   // Derived streak dates
   const streakDates = useMemo(() => {
-    if (edgeStats) {
-      // Create a map directly from the edge streaks array
-      const map = new Map<string, any>();
-      (edgeStats as any).streaks?.forEach((s: any) => {
-        map.set(s.focus_date, {
-          total_focus_seconds: s.total_focus_seconds,
-          sessions_count: s.sessions_count,
-          streak_qualified: s.streak_qualified
-        });
-      });
-      return map;
-    }
     if (!data) return new Map();
     return buildStreakDates(data.streaks, data.tasks);
-  }, [data, edgeStats]);
+  }, [data]);
 
   const fetchRankings = useCallback(async (userId: string, totalSeconds: number) => {
     try {
@@ -137,98 +127,192 @@ export const DataSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, []);
 
+  /**
+   * Fetch analytics directly from Supabase (bypasses worker entirely).
+   * This is the fallback when the edge worker is down or slow.
+   */
+  const fetchDirectFromSupabase = useCallback(async (userId: string): Promise<CachedAnalytics | null> => {
+    try {
+      console.log('DataSync: Fetching directly from Supabase...');
+      const [
+        { data: profile, error: pErr },
+        { data: sessions },
+        { data: streaks },
+        { data: deadlines },
+        { data: tasks }
+      ] = await Promise.all([
+        supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
+        supabase.from('focus_sessions')
+          .select('id, status, elapsed_seconds, started_at')
+          .eq('user_id', userId)
+          .order('started_at', { ascending: false })
+          .limit(500),
+        supabase.from('streaks')
+          .select('focus_date, total_focus_seconds, sessions_count, streak_qualified')
+          .eq('user_id', userId)
+          .order('focus_date', { ascending: false })
+          .limit(365),
+        supabase.from('deadlines')
+          .select('id, deadline_date, title')
+          .eq('user_id', userId)
+          .order('deadline_date', { ascending: true }),
+        supabase.from('tasks')
+          .select('id, is_completed, completed_at')
+          .eq('user_id', userId)
+          .eq('is_completed', true)
+          .order('completed_at', { ascending: false })
+      ]);
+
+      // If profile fetch failed, we can't proceed
+      if (pErr) {
+        console.error('DataSync: Supabase profile fetch error:', pErr);
+        return null;
+      }
+
+      const result: CachedAnalytics = {
+        profile: profile || {},
+        sessions: sessions || [],
+        streaks: streaks || [],
+        deadlines: deadlines || [],
+        tasks: tasks || [],
+        fetchedAt: Date.now()
+      };
+
+      // Cache in-memory for subsequent reads
+      analyticsCache.set(userId, result);
+      console.log('DataSync: Supabase direct fetch complete');
+      return result;
+    } catch (err) {
+      console.error('DataSync: Direct Supabase fetch error:', err);
+      return null;
+    }
+  }, []);
+
   const refresh = useCallback(async (force = false) => {
     if (!user?.id) {
       setData(null);
-      setEdgeStats(null);
       setLoading(false);
       return;
     }
 
-    // Only show the loading screen if we have no data yet or it's a forced refresh
-    const shouldShowLoader = !data || force;
-    if (shouldShowLoader) {
-      console.log('DataSync: refresh() called, showing loader. force:', force);
+    // Only show the loading indicator if we have no data yet
+    if (!hasDataRef.current || force) {
       setLoading(true);
-    } else {
-      console.log('DataSync: refresh() called in background...');
     }
+
     try {
-      const session = await supabase.auth.getSession();
-      const token = session.data.session?.access_token;
+      // ─── Step 1: Check in-memory cache first ───────────────────────
+      // When force=true, still use a very-recently-populated cache (< 10s old)
+      // to avoid a redundant edge-worker call right after analyticsCache.invalidate().
+      const _cached = analyticsCache.get(user.id);
+      const _cacheAge = _cached ? Date.now() - _cached.fetchedAt : Infinity;
+      if (_cached && (!force ? !analyticsCache.isStale(user.id) : _cacheAge < 10_000)) {
+        console.log(`DataSync: Using ${force ? 'very-fresh' : 'cached'} in-memory data (${Math.round(_cacheAge / 1000)}s old)`);
+        setData(_cached);
+        setLoading(false);
+        fetchRankings(user.id, _cached.totalSeconds || 0);
+        return;
+      }
 
-      if (token) {
-        console.log('DataSync: Attempting edge fetch with timeout...');
-        
-        // 5 second timeout for edge fetch
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000);
+      // ─── Step 2: Try edge worker (fast path) with 3s timeout ──────
+      let edgeSuccess = false;
+      try {
+        const session = await supabase.auth.getSession();
+        const token = session.data.session?.access_token;
 
-        const res = await fetch(`/api/analytics/stats${force ? '?force=true' : ''}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          },
-          signal: controller.signal
-        });
-        clearTimeout(timeoutId);
+        if (token) {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 3000);
 
-        if (res.ok) {
-          const statsPayload = await res.json() as any;
-          console.log('DataSync: Stats fetched from edge successfully', statsPayload);
-          
-          setData({
-            profile: statsPayload.profile,
-            sessions: [], // We don't need raw sessions if stats are computed
-            streaks: statsPayload.streaks || statsPayload.weeklyData.map((d: any) => ({
-              focus_date: d.date,
-              total_focus_seconds: d.focusSeconds,
-              sessions_count: d.sessionsCount,
-              streak_qualified: d.streakQualified || false
-            })),
-            deadlines: statsPayload.deadlines,
-            tasks: [], // Tasks are also pre-computed in stats
-            fetchedAt: Date.now()
-          } as any);
-
-          // We still need rankings, which aren't in the edge stats yet
-          // We fire this off but don't block the initial loading state for it
-          console.log('DataSync: Calling fetchRankings (async)...');
-          fetchRankings(user.id, statsPayload.totalSeconds).then(() => {
-            console.log('DataSync: fetchRankings finished');
+          const res = await fetch(`/api/analytics/stats${force ? '?force=true' : ''}`, {
+            headers: { 'Authorization': `Bearer ${token}` },
+            signal: controller.signal
           });
-          
-          console.log('DataSync: Early return from refresh (edge success)');
-          return;
+          clearTimeout(timeoutId);
+
+          if (res.ok) {
+            const statsPayload = await res.json() as any;
+            console.log('DataSync: Edge worker fetch succeeded', res.headers.get('X-Cache'));
+
+            const result: CachedAnalytics = {
+              profile: statsPayload.profile || {},
+              sessions: statsPayload.sessions || [],
+              streaks: statsPayload.streaks || [],
+              deadlines: statsPayload.deadlines || [],
+              tasks: statsPayload.tasks || [],
+              totalSeconds: statsPayload.totalSeconds,
+              totalSessions: statsPayload.totalSessions,
+              tasksDone: statsPayload.tasksDone,
+              fetchedAt: Date.now()
+            };
+
+            analyticsCache.set(user.id, result);
+            setData(result);
+            edgeSuccess = true;
+
+            // Fire-and-forget rankings
+            fetchRankings(user.id, statsPayload.totalSeconds || 0);
+          }
+        }
+      } catch (edgeErr: any) {
+        if (edgeErr?.name === 'AbortError') {
+          console.warn('DataSync: Edge worker timed out (3s)');
+        } else {
+          console.warn('DataSync: Edge worker fetch failed:', edgeErr?.message);
         }
       }
 
-      console.log('DataSync: Edge fetch failed or not ok, falling back to legacy fetch...');
-      const result = force 
-        ? await analyticsCache.invalidate(user.id)
-        : await analyticsCache.fetch(user.id);
-      console.log('DataSync: Legacy fetch result:', result ? 'success' : 'failed');
-      
-      if (result) {
-        setData(result);
-        const computed = computeStats(result);
-        await fetchRankings(user.id, computed.totalSeconds);
+      // ─── Step 3: Supabase direct fallback ─────────────────────────
+      if (!edgeSuccess) {
+        console.log('DataSync: Falling back to Supabase direct...');
+        const result = await fetchDirectFromSupabase(user.id);
+        if (result) {
+          setData(result);
+          fetchRankings(user.id, result.totalSeconds || 0);
+        } else {
+          // Emergency: at minimum set profile so the app doesn't break
+          console.warn('DataSync: Both paths failed, setting empty data');
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', user.id)
+            .maybeSingle();
+
+          setData({
+            profile: profileData || {},
+            sessions: [],
+            streaks: [],
+            deadlines: [],
+            tasks: [],
+            fetchedAt: Date.now()
+          } as CachedAnalytics);
+        }
       }
     } catch (err) {
       console.error('DataSync: refresh error', err);
-      // Final fallback
-      const result = await analyticsCache.fetch(user.id);
-      if (result) setData(result);
+      // Absolute last resort — ensure we set SOMETHING to prevent infinite loading
+      if (!hasDataRef.current) {
+        setData({
+          profile: {},
+          sessions: [],
+          streaks: [],
+          deadlines: [],
+          tasks: [],
+          fetchedAt: Date.now()
+        } as CachedAnalytics);
+      }
     } finally {
-      console.log('DataSync: refresh() finished, setting loading to false');
       setLoading(false);
     }
-  }, [user, fetchRankings]);
+  }, [user, fetchRankings, fetchDirectFromSupabase]);
 
-  // Initial load
+  // Initial load + visibility-based refresh
   useEffect(() => {
+    if (!user?.id) return;
+
     refresh();
 
-    // Subscribe to cache updates
+    // Subscribe to in-memory cache updates (e.g., after session logging)
     const unsub = analyticsCache.subscribe(() => {
       if (user?.id) {
         const cached = analyticsCache.get(user.id);
@@ -238,8 +322,29 @@ export const DataSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
     });
 
-    return () => unsub();
-  }, [user?.id, refresh]);
+    // Background refresh when tab becomes visible again (debounced)
+    let lastRefreshTime = Date.now();
+    const MIN_REFRESH_GAP_MS = 5_000; // Don't refresh more than once per 5s
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible' && user?.id) {
+        const timeSinceLastRefresh = Date.now() - lastRefreshTime;
+        if (timeSinceLastRefresh > MIN_REFRESH_GAP_MS) {
+          lastRefreshTime = Date.now();
+          // Silent background refresh — don't set loading
+          refresh(false);
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      unsub();
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   const value = {
     stats,
