@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform, animate } from 'framer-motion';
-import { Music, Check, Volume2 } from 'lucide-react';
+import { Music, Check, Volume2, Tag } from 'lucide-react';
 import { useZenClock } from '../../hooks/useZenClock';
 
 const ALARM_PRESETS = [
@@ -26,7 +26,9 @@ const ZenClock: React.FC = () => {
     setIsPomodoroMode,
     setSelectedAlarm,
     completeSession,
-    skipBreak
+    skipBreak,
+    currentTag,
+    setCurrentTag
   } = useZenClock();
 
   const [showAlarms, setShowAlarms] = useState(false);
@@ -334,6 +336,66 @@ const ZenClock: React.FC = () => {
             </div>
           </div>
         </div>
+      </motion.div>
+
+      {/* Tag Selector Pill */}
+      <motion.div
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mt-6 flex flex-col items-center gap-2 z-30"
+      >
+        <div 
+          className={`flex items-center gap-2 px-4 py-2 rounded-full backdrop-blur-md border transition-all duration-500 ${
+            isActive 
+              ? 'bg-slate-950/20 border-white/5 text-white/50' 
+              : 'bg-slate-950/40 border-white/10 text-white/70 hover:border-white/20 focus-within:border-sage-200/40 focus-within:shadow-[0_0_20px_rgba(183,201,176,0.1)]'
+          }`}
+        >
+          <Tag className={`w-3.5 h-3.5 ${currentTag ? 'text-sage-200 animate-pulse' : 'text-white/30'}`} />
+          
+          <input
+            type="text"
+            value={currentTag || ''}
+            onChange={(e) => {
+              const val = e.target.value.trim().substring(0, 20);
+              setCurrentTag(val || null);
+            }}
+            disabled={isActive}
+            placeholder="Add a tag..."
+            className="bg-transparent border-none outline-none text-[13px] text-white placeholder-white/35 font-sans font-medium w-32 tracking-wide focus:ring-0 p-0 text-center"
+          />
+
+          {!isActive && currentTag && (
+            <button
+              onClick={() => setCurrentTag(null)}
+              className="text-white/30 hover:text-white transition-colors cursor-pointer"
+            >
+              <span className="text-[10px] font-bold">✕</span>
+            </button>
+          )}
+        </div>
+
+        {/* Quick Tag Recommendations (Only show if not active) */}
+        <AnimatePresence>
+          {!isActive && !currentTag && (
+            <motion.div 
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="flex items-center gap-1.5 mt-1 overflow-hidden"
+            >
+              {['code', 'design', 'math', 'read', 'write'].map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setCurrentTag(t)}
+                  className="px-3 py-1 rounded-full bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 text-[10px] font-mono text-white/40 hover:text-white transition-all duration-300 cursor-pointer uppercase tracking-wider"
+                >
+                  {t}
+                </button>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
 
       {/* Alarms and Pomodoro Toggle Section */}

@@ -21,7 +21,7 @@
   - Update `secure_log_focus_session` RPC function to accept `p_tag text DEFAULT NULL` and insert it.
 - **Verify**: RPC call with `p_tag` inserts a session with the correct tag successfully.
 
-## TAG-02: Global ZenClock State and Edge Sync for Tags
+## [x] TAG-02: Global ZenClock State and Edge Sync for Tags
 - **Complexity**: `MEDIUM`
 - **Goal**: Integrate tag state into the React Context and Cloudflare Edge sync interface.
 - **Scope**:
@@ -30,7 +30,7 @@
   - Expand `/api/timer/sync` endpoints to transmit and cache the `tag` parameter.
 - **Verify**: Re-routing to a new page or reloading preserves the selected tag state.
 
-## TAG-03: Dashboard Tag Entry UI and Active Display
+## [x] TAG-03: Dashboard Tag Entry UI and Active Display
 - **Complexity**: `MEDIUM`
 - **Goal**: Build a minimalist, beautiful tag input in the dashboard clock and show the active tag during focus sessions.
 - **Scope**:

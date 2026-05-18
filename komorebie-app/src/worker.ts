@@ -95,8 +95,8 @@ export default {
             const d1Promise = env.komorebie_db.prepare(`
               INSERT INTO active_timers (
                 user_id, is_active, started_at, duration_seconds, 
-                session_duration, is_pomodoro, pomodoro_state, updated_at
-              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                session_duration, is_pomodoro, pomodoro_state, tag, updated_at
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
               ON CONFLICT (user_id) DO UPDATE SET
                 is_active = excluded.is_active,
                 started_at = excluded.started_at,
@@ -104,6 +104,7 @@ export default {
                 session_duration = excluded.session_duration,
                 is_pomodoro = excluded.is_pomodoro,
                 pomodoro_state = excluded.pomodoro_state,
+                tag = excluded.tag,
                 updated_at = excluded.updated_at
             `).bind(
               user.id,
@@ -113,6 +114,7 @@ export default {
               body.session_duration ?? 0,
               body.is_pomodoro ? 1 : 0,
               body.pomodoro_state ?? 'focus',
+              body.tag ?? null,
               now
             ).run();
 
@@ -125,6 +127,7 @@ export default {
               session_duration: body.session_duration ?? 0,
               is_pomodoro: !!body.is_pomodoro,
               pomodoro_state: body.pomodoro_state ?? 'focus',
+              tag: body.tag ?? null,
               updated_at: now
             });
 

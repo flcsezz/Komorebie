@@ -14,6 +14,8 @@ export interface ZenClockContextType {
   selectedAlarm: string;
   isAlarmPlaying: boolean;
   isSessionComplete: boolean;
+  currentTag: string | null;
+  setCurrentTag: (tag: string | null) => void;
   toggleTimer: () => Promise<void>;
   setDuration: (duration: number) => void;
   setIsPomodoroMode: (isPomodoro: boolean) => void;
@@ -46,6 +48,19 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [pomodoroCycle, setPomodoroCycle] = useState(() => {
     return parseInt(localStorage.getItem('zen-pomodoro-cycle') || '1', 10);
   });
+
+  const [currentTag, setCurrentTagState] = useState<string | null>(() => {
+    return localStorage.getItem('zen-clock-tag') || null;
+  });
+
+  const setCurrentTag = useCallback((tag: string | null) => {
+    setCurrentTagState(tag);
+    if (tag) {
+      localStorage.setItem('zen-clock-tag', tag);
+    } else {
+      localStorage.removeItem('zen-clock-tag');
+    }
+  }, []);
 
   const [duration, setDurationState] = useState(() => {
     const saved = localStorage.getItem('zen-clock-duration');
@@ -114,13 +129,14 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           duration_seconds: remSeconds,
           session_duration: sessionDurSeconds,
           is_pomodoro: isPom,
-          pomodoro_state: pomState
+          pomodoro_state: pomState,
+          tag: currentTag
         })
       });
     } catch (err) {
       console.error('Failed to sync timer to cloud:', err);
     }
-  }, [user, session]);
+  }, [user, session, currentTag]);
 
   // Debounced cloud sync — coalesces rapid state changes (500ms trailing edge)
   const syncTimerToCloud = useCallback((
@@ -188,6 +204,15 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           setIsPomodoroModeState(isPomodoro);
           setPomodoroState(data.pomodoro_state);
           hasTriggeredCompletionRef.current = false;
+
+          // Sync active tag from cloud timer
+          if (data.tag) {
+            setCurrentTagState(data.tag);
+            localStorage.setItem('zen-clock-tag', data.tag);
+          } else {
+            setCurrentTagState(null);
+            localStorage.removeItem('zen-clock-tag');
+          }
         } else {
           setIsActive(false);
           setTargetEndTime(null);
@@ -284,7 +309,8 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         duration_seconds: duration * 60,
         elapsed_seconds: finalElapsed,
         status,
-        started_at: startedAt || new Date().toISOString()
+        started_at: startedAt || new Date().toISOString(),
+        tag: currentTag
       });
       
       if (result) {
@@ -299,7 +325,7 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       console.error('[Zen] FAILED to log session:', err);
       return null;
     }
-  }, [user, duration]);
+  }, [user, duration, currentTag]);
 
   /**
    * advancePomodoroPhase — called automatically when a Pomodoro period timer hits 0.
@@ -461,7 +487,8 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             duration_seconds: remaining,
             session_duration: sessionDur,
             is_pomodoro: isPomodoroMode,
-            pomodoro_state: pomodoroState
+            pomodoro_state: pomodoroState,
+            tag: currentTag
           })
         }).catch(err => console.error('[Zen] Heartbeat failed:', err));
 
@@ -476,7 +503,7 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         heartbeatRef.current = null;
       }
     };
-  }, [isActive, user, session, sessionStartTime, targetEndTime, duration, isPomodoroMode, pomodoroState]);
+  }, [isActive, user, session, sessionStartTime, targetEndTime, duration, isPomodoroMode, pomodoroState, currentTag]);
 
   // Handle timer tick and tab visibility
   useEffect(() => {
@@ -685,6 +712,8 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       selectedAlarm,
       isAlarmPlaying,
       isSessionComplete,
+      currentTag,
+      setCurrentTag,
       toggleTimer,
       setDuration,
       setIsPomodoroMode,

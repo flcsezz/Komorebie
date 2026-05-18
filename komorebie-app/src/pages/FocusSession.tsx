@@ -11,6 +11,7 @@ const FocusSession: React.FC = () => {
     timeLeft,
     duration,
     isActive,
+    currentTag,
     toggleTimer,
     resetTimer
   } = useZenClock();
@@ -89,6 +90,12 @@ const FocusSession: React.FC = () => {
           <div className="text-white/20 text-xs uppercase tracking-[0.4em] mt-4 font-light">
             {task}
           </div>
+          {currentTag && (
+            <div className="text-sage-200/50 text-[10px] font-mono mt-2 uppercase tracking-[0.3em] flex items-center justify-center gap-1.5 animate-pulse">
+              <span>🏷️</span>
+              <span>{currentTag}</span>
+            </div>
+          )}
         </div>
       </div>
 
