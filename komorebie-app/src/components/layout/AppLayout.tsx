@@ -535,8 +535,10 @@ const AppLayout: React.FC = () => {
               >
                 <button 
                   onClick={() => setIsCollapsed(!isCollapsed)}
-                  className="p-2 -ml-2 rounded-xl transition-colors text-white/40 group-hover:text-white cursor-pointer hover:bg-white/5 flex-shrink-0 mr-2"
+                  className="p-2 -ml-2 rounded-xl transition-colors text-white/40 group-hover:text-white cursor-pointer hover:bg-white/5 flex-shrink-0 mr-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage-200/50"
                   title="Toggle Sidebar"
+                  aria-label={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+                  aria-expanded={!isCollapsed}
                 >
                   <Menu className="w-5 h-5" />
                 </button>
@@ -574,7 +576,9 @@ const AppLayout: React.FC = () => {
               <div className="relative flex items-center ml-2">
                 <button 
                   onClick={() => setShowBgPicker(!showBgPicker)}
-                  className="p-2 bg-white/5 border border-white/10 rounded-full transition-colors hover:bg-white/10 text-white/40 hover:text-white cursor-pointer"
+                  className="p-2 bg-white/5 border border-white/10 rounded-full transition-colors hover:bg-white/10 text-white/40 hover:text-white cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage-200/50"
+                  aria-label="Change Background"
+                  aria-expanded={showBgPicker}
                 >
                   <Palette className="w-3.5 h-3.5" strokeWidth={1.5} />
                 </button>
@@ -701,7 +705,7 @@ const AppLayout: React.FC = () => {
                 </AnimatePresence>
               </div>
               
-              <button className="p-2 bg-white/5 border border-white/10 rounded-full transition-colors hover:bg-white/10 text-white/30 hover:text-white cursor-pointer relative">
+              <button className="p-2 bg-white/5 border border-white/10 rounded-full transition-colors hover:bg-white/10 text-white/30 hover:text-white cursor-pointer relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage-200/50" aria-label="Notifications">
                 <Bell className="w-3.5 h-3.5" strokeWidth={1.5} />
                 <div className="absolute top-1.5 right-1.5 w-1 h-1 bg-sage-200 rounded-full border border-slate-950" />
               </button>
@@ -830,11 +834,13 @@ const AdminLeaguePanel = ({ isSidebarCollapsed }: { isSidebarCollapsed: boolean 
 
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 shadow-xl border cursor-pointer ${
+          className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 shadow-xl border cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage-200/50 ${
             isOpen 
               ? 'bg-sage-200 border-sage-200 text-slate-900 rotate-90' 
               : 'bg-slate-900/80 backdrop-blur-md border-white/10 text-white/40 hover:text-sage-200 hover:border-sage-200/50'
           }`}
+          aria-label={isOpen ? "Close Admin Menu" : "Open Admin Menu"}
+          aria-expanded={isOpen}
         >
           <Sparkles className="w-5 h-5" />
         </button>
