@@ -609,11 +609,8 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setTargetEndTime(targetEnd);
       hasTriggeredCompletionRef.current = false;
       
-      // SYNC: Await the start sync so is_active=true is GUARANTEED in the cloud DB
-      // before this session can ever be stopped and logged. Fire-and-forget here
-      // caused the RPC to see is_active=false and silently reject the log.
-      await syncTimerToCloudImmediate(true, startTime, initialTime, isPomodoroMode, pomodoroState, initialTime);
-      
+      // FULLSCREEN FIRST: Enter fullscreen immediately on user gesture to avoid network latency.
+      // Doing this synchronously in the user click handler ensures browsers do not block the request.
       try {
         const doc = document as any;
         const el = document.documentElement as any;
@@ -633,6 +630,10 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       } catch (err) {
         console.error("Failed to enter fullscreen:", err);
       }
+
+      // SYNC: Await the start sync so is_active=true is GUARANTEED in the cloud DB
+      // before this session can ever be stopped and logged.
+      await syncTimerToCloudImmediate(true, startTime, initialTime, isPomodoroMode, pomodoroState, initialTime);
     }
   };
 

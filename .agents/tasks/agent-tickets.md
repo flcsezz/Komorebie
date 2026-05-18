@@ -39,7 +39,7 @@
   - Update `FocusSession.tsx` to read and display the current tag elegantly.
 - **Verify**: Tag can be entered before starting, and shows up styled appropriately on the active focus screen.
 
-## TAG-04: Tag Aggregate Fetching and Personal Analytics Widget
+## [x] TAG-04: Tag Aggregate Fetching and Personal Analytics Widget
 - **Complexity**: `MEDIUM`
 - **Goal**: Aggregate tag statistics and display them in a visually stunning card on the analytics dashboard.
 - **Scope**:
@@ -48,7 +48,7 @@
   - Embed the widget inside `FlowAnalytics.tsx`.
 - **Verify**: Analytics page reflects correct aggregated focus time and session counts per tag.
 
-## TAG-05: Social Profile Tag Integration
+## [x] TAG-05: Social Profile Tag Integration
 - **Complexity**: `LOW`
 - **Goal**: Allow public tag distribution metrics to be viewed on user profiles and friends' cards.
 - **Scope**:
