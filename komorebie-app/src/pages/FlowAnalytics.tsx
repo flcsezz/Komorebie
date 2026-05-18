@@ -13,27 +13,12 @@ import { useAuth } from '../context/AuthContext';
 import { TagAnalyticsWidget } from '../components/analytics/TagAnalyticsWidget';
 
 const FlowAnalytics: React.FC = () => {
-  const { stats, streakDates } = useDataSync();
+  const { stats } = useDataSync();
   const { user } = useAuth();
 
   const totalHours = stats.totalSeconds / 3600;
   const weekHours = stats.weekSeconds / 3600;
   const [viewMode, setViewMode] = React.useState<'today' | 'total'>('today');
-
-  // Map streaks to garden grid (49 cells = 7 weeks)
-  const gardenData = useMemo(() => {
-    return Array.from({ length: 49 }).map((_, i) => {
-      const date = new Date();
-      date.setDate(date.getDate() - (48 - i));
-      const dateStr = date.toISOString().split('T')[0];
-      const entry = streakDates.get(dateStr);
-      
-      const focusTime = entry ? entry.seconds : 0;
-      const opacity = focusTime === 0 ? 0.05 : Math.min(0.15 + (focusTime / 14400) * 0.85, 1);
-      
-      return { dateStr, opacity, active: focusTime > 0 };
-    });
-  }, [streakDates]);
 
   // Weekly distribution data for bar chart
   const weeklyBarData = useMemo(() => {
@@ -124,7 +109,7 @@ const FlowAnalytics: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Weekly Distribution */}
-        <div className="lg:col-span-3">
+        <div className="lg:col-span-2">
           <GlassCard className="p-8 h-[450px] flex flex-col">
             <div className="flex items-center justify-between mb-8">
               <div>
@@ -166,44 +151,6 @@ const FlowAnalytics: React.FC = () => {
                   </div>
                 );
               })}
-            </div>
-          </GlassCard>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
-        {/* Focus Garden / Heatmap */}
-        <div className="lg:col-span-2">
-          <GlassCard className="p-8 h-full flex flex-col">
-            <div className="mb-8">
-              <h3 className="text-xl font-display font-light text-white/90">Focus Garden</h3>
-              <p className="text-[12px] text-white/40 tracking-widest uppercase mt-1">Last 7 weeks</p>
-            </div>
-            
-            <div className="grid grid-cols-7 gap-2 flex-1">
-              {gardenData.map((day) => (
-                <div
-                  key={day.dateStr}
-                  className={`aspect-square rounded-sm transition-colors duration-500 hover:ring-1 hover:ring-white/20 relative group/day ${day.active ? 'bg-sage-200' : 'bg-white/10'}`}
-                  style={{ opacity: day.opacity }}
-                >
-                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900 text-[10px] text-white rounded opacity-0 group-hover/day:opacity-100 whitespace-nowrap pointer-events-none z-50">
-                    {day.dateStr}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-8 pt-8 border-t border-white/5">
-              <div className="flex items-center justify-between text-[11px] uppercase tracking-widest text-white/50 font-bold">
-                <span>Less Flow</span>
-                <div className="flex gap-1">
-                  {[0.1, 0.3, 0.6, 0.9].map((op) => (
-                    <div key={op} className="w-2.5 h-2.5 rounded-sm bg-sage-200" style={{ opacity: op }} />
-                  ))}
-                </div>
-                <span>Deep Flow</span>
-              </div>
             </div>
           </GlassCard>
         </div>

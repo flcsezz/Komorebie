@@ -340,9 +340,9 @@ const ZenClock: React.FC = () => {
 
       {/* Tag Selector Pill */}
       <motion.div
-        initial={{ opacity: 0, y: 15 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="mt-6 flex flex-col items-center gap-2 z-30"
+        initial={{ y: 15 }}
+        animate={{ y: 0 }}
+        className="mt-6 flex flex-col items-center gap-2 z-30 opacity-0 group-hover/clock:opacity-100 focus-within:opacity-100 transition-opacity duration-500"
       >
         <div 
           className={`flex items-center gap-2 px-4 py-2 rounded-full backdrop-blur-md border transition-all duration-500 ${

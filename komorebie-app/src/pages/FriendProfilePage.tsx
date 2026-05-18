@@ -415,14 +415,10 @@ const FriendProfilePage: React.FC = () => {
         initial={{ opacity: 0, y: 20 }} 
         animate={{ opacity: 1, y: 0 }} 
         transition={{ duration: 0.6, delay: 0.2 }}
-        className="w-full grid grid-cols-1 lg:grid-cols-3 gap-8"
+        className="w-full space-y-8"
       >
-        <div className="lg:col-span-2">
-          <FocusActivityWidget streakDates={streakDates} />
-        </div>
-        <div className="lg:col-span-1">
-          {profile?.id && <TagAnalyticsWidget userId={profile.id} />}
-        </div>
+        <FocusActivityWidget streakDates={streakDates} />
+        {profile?.id && <TagAnalyticsWidget userId={profile.id} />}
       </motion.div>
 
     </div>
