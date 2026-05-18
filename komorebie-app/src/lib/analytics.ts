@@ -367,3 +367,45 @@ export const fetchWeeklyFocusForUsers = async (userIds: string[]) => {
     return {};
   }
 };
+
+export interface TagAnalyticData {
+  tag: string;
+  total_seconds: number;
+  session_count: number;
+}
+
+export const fetchTagAnalytics = async (userId: string): Promise<TagAnalyticData[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('focus_sessions')
+      .select('tag, elapsed_seconds')
+      .eq('user_id', userId)
+      .not('tag', 'is', null);
+
+    if (error) throw error;
+
+    const aggregates: Record<string, { total_seconds: number; session_count: number }> = {};
+
+    for (const session of (data || [])) {
+      const tag = session.tag;
+      if (!tag) continue;
+      
+      const seconds = session.elapsed_seconds || 0;
+      if (!aggregates[tag]) {
+        aggregates[tag] = { total_seconds: 0, session_count: 0 };
+      }
+      
+      aggregates[tag].total_seconds += seconds;
+      aggregates[tag].session_count += 1;
+    }
+
+    return Object.entries(aggregates).map(([tag, stats]) => ({
+      tag,
+      total_seconds: stats.total_seconds,
+      session_count: stats.session_count
+    })).sort((a, b) => b.total_seconds - a.total_seconds);
+  } catch (error) {
+    console.error('Error fetching tag analytics:', error);
+    return [];
+  }
+};

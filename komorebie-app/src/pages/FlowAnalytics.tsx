@@ -9,9 +9,12 @@ import {
   TrendingUp,
   Clock
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { TagAnalyticsWidget } from '../components/analytics/TagAnalyticsWidget';
 
 const FlowAnalytics: React.FC = () => {
   const { stats, streakDates } = useDataSync();
+  const { user } = useAuth();
 
   const totalHours = stats.totalSeconds / 3600;
   const weekHours = stats.weekSeconds / 3600;
@@ -121,7 +124,7 @@ const FlowAnalytics: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Weekly Distribution */}
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-3">
           <GlassCard className="p-8 h-[450px] flex flex-col">
             <div className="flex items-center justify-between mb-8">
               <div>
@@ -166,9 +169,11 @@ const FlowAnalytics: React.FC = () => {
             </div>
           </GlassCard>
         </div>
+      </div>
 
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
         {/* Focus Garden / Heatmap */}
-        <div className="lg:col-span-1">
+        <div className="lg:col-span-2">
           <GlassCard className="p-8 h-full flex flex-col">
             <div className="mb-8">
               <h3 className="text-xl font-display font-light text-white/90">Focus Garden</h3>
@@ -201,6 +206,11 @@ const FlowAnalytics: React.FC = () => {
               </div>
             </div>
           </GlassCard>
+        </div>
+
+        {/* Tag Analytics Widget */}
+        <div className="lg:col-span-1">
+          {user?.id && <TagAnalyticsWidget userId={user.id} />}
         </div>
       </div>
     </div>

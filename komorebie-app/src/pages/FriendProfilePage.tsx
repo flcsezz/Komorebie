@@ -20,6 +20,7 @@ import { getTierForSeconds } from '../lib/leagues';
 import LeagueBadge from '../components/leaderboard/LeagueBadge';
 import { Medal, Crown } from 'lucide-react';
 import FocusRing from '../components/leaderboard/FocusRing';
+import { TagAnalyticsWidget } from '../components/analytics/TagAnalyticsWidget';
 
 
 const FriendProfilePage: React.FC = () => {
@@ -409,14 +410,19 @@ const FriendProfilePage: React.FC = () => {
       <FriendBackgroundSync profile={profile} stats={stats} isTargetAdmin={isTargetAdmin} setBackground={setBackground} />
       </div>
 
-      {/* Yearly Heatmap Calendar - Full Width */}
+      {/* Yearly Heatmap Calendar & Focus Tags Grid */}
       <motion.div 
         initial={{ opacity: 0, y: 20 }} 
         animate={{ opacity: 1, y: 0 }} 
         transition={{ duration: 0.6, delay: 0.2 }}
-        className="w-full"
+        className="w-full grid grid-cols-1 lg:grid-cols-3 gap-8"
       >
-        <FocusActivityWidget streakDates={streakDates} />
+        <div className="lg:col-span-2">
+          <FocusActivityWidget streakDates={streakDates} />
+        </div>
+        <div className="lg:col-span-1">
+          {profile?.id && <TagAnalyticsWidget userId={profile.id} />}
+        </div>
       </motion.div>
 
     </div>

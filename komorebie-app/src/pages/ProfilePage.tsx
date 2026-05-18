@@ -13,6 +13,7 @@ import { useBackground } from '../context/BackgroundContext';
 import ProfileStyleModal from '../components/profile/ProfileStyleModal';
 import { resolveProfileDecoration } from '../lib/profile-utils';
 import OptimizedImage from '../components/ui/OptimizedImage';
+import { TagAnalyticsWidget } from '../components/analytics/TagAnalyticsWidget';
 
 const ProfilePage: React.FC = () => {
   const { user } = useAuth();
@@ -472,14 +473,19 @@ const ProfilePage: React.FC = () => {
       </motion.div>
       </div>
 
-      {/* Yearly Heatmap Calendar - Full Width */}
+      {/* Yearly Heatmap Calendar & Focus Tags Grid */}
       <motion.div 
         initial={{ opacity: 0, y: 20 }} 
         animate={{ opacity: 1, y: 0 }} 
         transition={{ duration: 0.6, delay: 0.2 }}
-        className="w-full"
+        className="w-full grid grid-cols-1 lg:grid-cols-3 gap-8"
       >
-        <FocusActivityWidget streakDates={streakDates} />
+        <div className="lg:col-span-2">
+          <FocusActivityWidget streakDates={streakDates} />
+        </div>
+        <div className="lg:col-span-1">
+          {user?.id && <TagAnalyticsWidget userId={user.id} />}
+        </div>
       </motion.div>
 
       {/* Style customization is now handled by the Style button in the header */}
