@@ -54,7 +54,7 @@ const FlowAnalytics: React.FC = () => {
       <header className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-8">
         <div>
           <h1 className="text-4xl md:text-6xl font-display font-light text-white tracking-tight">
-            Flow <span className="text-white/40">Analytics</span>
+            Focus <span className="text-white/40">Analytics</span>
           </h1>
         </div>
 

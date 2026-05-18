@@ -7,6 +7,7 @@ export interface FocusSessionData {
   elapsed_seconds?: number;
   status: 'active' | 'completed' | 'abandoned';
   started_at: string;
+  tag?: string | null;
 }
 
 const STREAK_THRESHOLD_SECONDS = 300; // 5 minutes minimum to qualify for streak
@@ -30,7 +31,8 @@ export const logFocusSession = async (session: FocusSessionData) => {
         p_duration_seconds: session.duration_seconds,
         p_elapsed_seconds: elapsed,
         p_status: session.status,
-        p_started_at: session.started_at
+        p_started_at: session.started_at,
+        p_tag: session.tag || null
       });
 
     if (rpcError) {
