@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Komorebie - Under the Hood</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400;1,9..40,500&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  
+  <style>
+    /* DESIGN SYSTEM TOKENS */
+    :root {
+      /* Backgrounds */
+      --color-bg:             #FAF7F2;       
+      --color-bg-warm:        #F5F0E8;       
+      --color-bg-code:        #1E1E2E;       
+      --color-text:           #2C2A28;       
+      --color-text-secondary: #6B6560;       
+      --color-text-muted:     #9E9790;       
+      --color-border:         #E5DFD6;       
+      --color-border-light:   #EEEBE5;       
+      --color-surface:        #FFFFFF;       
+      --color-surface-warm:   #FDF9F3;       
+
+      /* Accent - Forest Green */
+      --color-accent:         #2D8B55;
+      --color-accent-hover:   #236B42;
+      --color-accent-light:   #E8F5EE;
+      --color-accent-muted:   #86C5A0;
+
+      /* Semantic */
+      --color-success:        #2D8B55;
+      --color-success-light:  #E8F5EE;
+      --color-error:          #C93B3B;
+      --color-error-light:    #FDE8E8;
+      --color-info:           #2A7B9B;
+      --color-info-light:     #E4F2F7;
+
+      /* Actors */
+      --color-actor-1:        #2D8B55;       /* App / UI */
+      --color-actor-2:        #2A7B9B;       /* Supabase / DB */
+      --color-actor-3:        #D4A843;       /* AI Sidekick */
+      --color-actor-4:        #D94F30;       /* 3D Context */
+      --color-actor-5:        #7B6DAA;       /* Edge Functions */
+
+      /* Fonts */
+      --font-display:  'Bricolage Grotesque', Georgia, serif;
+      --font-body:     'DM Sans', -apple-system, sans-serif;
+      --font-mono:     'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+
+      /* Scale */
+      --text-xs:   0.75rem;
+      --text-sm:   0.875rem;
+      --text-base: 1rem;
+      --text-lg:   1.125rem;
+      --text-xl:   1.25rem;
+      --text-2xl:  1.5rem;
+      --text-3xl:  1.875rem;
+      --text-4xl:  2.25rem;
+      --text-5xl:  3rem;
+      --text-6xl:  3.75rem;
+
+      /* Leading */
+      --leading-tight:  1.15;
+      --leading-snug:   1.3;
+      --leading-normal: 1.6;
+      --leading-loose:  1.8;
+
+      /* Spacing */
+      --space-1:  0.25rem;
+      --space-2:  0.5rem;
+      --space-3:  0.75rem;
+      --space-4:  1rem;
+      --space-5:  1.25rem;
+      --space-6:  1.5rem;
+      --space-8:  2rem;
+      --space-10: 2.5rem;
+      --space-12: 3rem;
+      --space-16: 4rem;
+      --space-20: 5rem;
+      --space-24: 6rem;
+
+      /* Layout */
+      --content-width:     800px;
+      --content-width-wide: 1000px;
+      --nav-height:        50px;
+      
+      /* Radius */
+      --radius-sm:  8px;
+      --radius-md:  12px;
+      --radius-lg:  16px;
+      --radius-full: 9999px;
+
+      /* Shadows */
+      --shadow-sm:  0 1px 2px rgba(44, 42, 40, 0.05);
+      --shadow-md:  0 4px 12px rgba(44, 42, 40, 0.08);
+      --shadow-lg:  0 8px 24px rgba(44, 42, 40, 0.1);
+      --shadow-xl:  0 16px 48px rgba(44, 42, 40, 0.12);
+
+      /* Transitions */
+      --ease-out:    cubic-bezier(0.16, 1, 0.3, 1);
+      --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+      --duration-fast:   150ms;
+      --duration-normal: 300ms;
+      --duration-slow:   500ms;
+      --stagger-delay:   120ms;
+    }
+
+    /* GLOBAL STYLES */
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: var(--font-body);
+      color: var(--color-text);
+      background: var(--color-bg);
+      background-image: radial-gradient(ellipse at 20% 50%, rgba(45, 139, 85, 0.03) 0%, transparent 50%);
+      line-height: var(--leading-normal);
+      font-size: var(--text-base);
+    }
+    
+    html {
+      scroll-snap-type: y proximity;
+      scroll-behavior: smooth;
+    }
+
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb {
+      background: var(--color-border);
+      border-radius: var(--radius-full);
+    }
+
+    h1, h2, h3, h4, h5 { font-family: var(--font-display); line-height: var(--leading-tight); margin: 0; color: var(--color-text); }
+    h1 { font-size: var(--text-5xl); font-weight: 800; }
+    h2 { font-size: var(--text-3xl); font-weight: 700; margin-bottom: var(--space-4); }
+    h3 { font-size: var(--text-2xl); font-weight: 600; margin-bottom: var(--space-3); }
+    p { margin-top: 0; margin-bottom: var(--space-4); }
+    
+    button { font-family: var(--font-body); font-size: var(--text-sm); font-weight: 600; cursor: pointer; border: none; padding: var(--space-2) var(--space-4); border-radius: var(--radius-sm); transition: all var(--duration-fast); }
+    button.primary { background: var(--color-accent); color: white; }
+    button.primary:hover { background: var(--color-accent-hover); }
+    button.secondary { background: var(--color-surface); border: 1px solid var(--color-border); color: var(--color-text); }
+    button.secondary:hover { background: var(--color-bg-warm); }
+
+    /* LAYOUT */
+    .module {
+      min-height: 100dvh;
+      scroll-snap-align: start;
+      padding: var(--space-16) var(--space-6);
+      padding-top: calc(var(--nav-height) + var(--space-12));
+    }
+    .module:nth-child(even) { background: var(--color-bg-warm); }
+    .module-content { max-width: var(--content-width); margin: 0 auto; }
+    .screen { margin-bottom: var(--space-16); }
+    
+    /* HEADER */
+    .module-header { margin-bottom: var(--space-12); position: relative; }
+    .module-number { position: absolute; font-size: var(--text-6xl); font-family: var(--font-display); font-weight: 800; color: var(--color-accent); opacity: 0.1; top: -1.5rem; left: -1rem; z-index: 0; pointer-events: none; }
+    .module-title { font-size: var(--text-4xl); position: relative; z-index: 1; }
+    .module-subtitle { font-size: var(--text-lg); color: var(--color-text-secondary); margin-top: var(--space-2); }
+
+    /* ANIMATIONS */
+    .animate-in { opacity: 0; transform: translateY(20px); transition: opacity var(--duration-slow) var(--ease-out), transform var(--duration-slow) var(--ease-out); }
+    .animate-in.visible { opacity: 1; transform: translateY(0); }
+    .stagger-children > .animate-in { transition-delay: calc(var(--stagger-index, 0) * var(--stagger-delay)); }
+
+    /* NAV */
+    .nav { position: fixed; top: 0; left: 0; width: 100%; height: var(--nav-height); background: rgba(255,255,255,0.9); backdrop-filter: blur(8px); z-index: 100; border-bottom: 1px solid var(--color-border); }
+    .progress-bar { position: absolute; bottom: -1px; left: 0; height: 2px; background: var(--color-accent); width: 0%; transition: width 0.1s linear; }
+    .nav-inner { max-width: var(--content-width-wide); margin: 0 auto; height: 100%; display: flex; align-items: center; justify-content: space-between; padding: 0 var(--space-6); }
+    .nav-title { font-weight: 600; font-family: var(--font-display); font-size: var(--text-sm); letter-spacing: 0.05em; text-transform: uppercase; }
+    .nav-dots { display: flex; gap: var(--space-3); }
+    .nav-dot { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--color-border); padding: 0; background: transparent; }
+    .nav-dot.active { border-color: var(--color-accent); background: var(--color-accent); box-shadow: 0 0 0 2px var(--color-bg), 0 0 0 4px var(--color-accent-light); }
+    .nav-dot.visited { background: var(--color-accent); border-color: var(--color-accent); }
+
+    /* TOOLTIPS */
+    .term { border-bottom: 1.5px dashed var(--color-accent-muted); cursor: pointer; position: relative; font-weight: 500; }
+    .term:hover, .term.active { border-bottom-color: var(--color-accent); color: var(--color-accent); }
+    .term-tooltip {
+      position: fixed; background: var(--color-bg-code); color: #CDD6F4; padding: var(--space-3) var(--space-4); border-radius: var(--radius-sm); font-size: var(--text-sm); font-family: var(--font-body); line-height: var(--leading-normal); width: max(200px, min(320px, 80vw)); box-shadow: var(--shadow-lg); pointer-events: none; opacity: 0; transition: opacity var(--duration-fast); z-index: 10000;
+    }
+    .term-tooltip::after { content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); border: 6px solid transparent; border-top-color: var(--color-bg-code); }
+    .term-tooltip.visible { opacity: 1; }
+    .term-tooltip.flip { bottom: auto; top: calc(100% + 8px); }
+    .term-tooltip.flip::after { top: auto; bottom: 100%; border-top-color: transparent; border-bottom-color: var(--color-bg-code); }
+
+    /* CODE BLOCKS */
+    pre, code { white-space: pre-wrap; word-break: break-word; overflow-x: hidden; }
+    .translation-code::-webkit-scrollbar, pre::-webkit-scrollbar { display: none; }
+    .code-keyword  { color: #CBA6F7; }  
+    .code-string   { color: #A6E3A1; }  
+    .code-function { color: #89B4FA; }  
+    .code-comment  { color: #6C7086; }  
+    .code-number   { color: #FAB387; }  
+    .code-property { color: #F9E2AF; }  
+    .code-operator { color: #94E2D5; }  
+
+    /* TRANSLATION BLOCKS */
+    .translation-block { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border-radius: var(--radius-md); overflow: hidden; box-shadow: var(--shadow-md); margin: var(--space-8) 0; }
+    .translation-code { background: var(--color-bg-code); color: #CDD6F4; padding: var(--space-6); font-family: var(--font-mono); font-size: var(--text-sm); line-height: 1.7; position: relative; }
+    .translation-english { background: var(--color-surface-warm); padding: var(--space-6); font-size: var(--text-sm); line-height: 1.7; border-left: 3px solid var(--color-accent); }
+    .translation-label { position: absolute; top: var(--space-2); right: var(--space-3); font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.1em; opacity: 0.5; }
+    .translation-english .translation-label { color: var(--color-text-muted); position: static; display: block; margin-bottom: var(--space-2); text-align: right; }
+    .tl { margin-bottom: var(--space-2); padding: var(--space-1) 0; border-bottom: 1px solid var(--color-border-light); }
+    .tl:last-child { border-bottom: none; }
+
+    /* PATTERN CARDS */
+    .pattern-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--space-4); margin: var(--space-6) 0; }
+    .pattern-card { background: var(--color-surface); border-radius: var(--radius-md); padding: var(--space-6); box-shadow: var(--shadow-sm); transition: transform var(--duration-normal) var(--ease-out), box-shadow var(--duration-normal); }
+    .pattern-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); }
+    .pattern-icon { width: 40px; height: 40px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font-size: 1.5rem; color: white; margin-bottom: var(--space-4); }
+
+    /* STEP CARDS */
+    .step-cards { display: flex; flex-direction: column; gap: var(--space-3); margin: var(--space-6) 0; }
+    .step-card { display: flex; align-items: flex-start; gap: var(--space-4); padding: var(--space-4) var(--space-5); background: var(--color-surface); border-radius: var(--radius-md); border-left: 3px solid var(--color-accent); box-shadow: var(--shadow-sm); }
+    .step-num { width: 32px; height: 32px; border-radius: 50%; background: var(--color-accent); color: white; font-weight: 700; display: flex; align-items: center; justify-content: center; font-family: var(--font-display); flex-shrink: 0; }
+    .step-body p { margin: var(--space-1) 0 0; color: var(--color-text-secondary); font-size: var(--text-sm); }
+
+    /* CALLOUTS */
+    .callout { display: flex; gap: var(--space-4); padding: var(--space-5); border-radius: var(--radius-md); margin: var(--space-6) 0; }
+    .callout-accent { border-left: 4px solid var(--color-accent); background: var(--color-accent-light); }
+    .callout-icon { font-size: 1.5rem; }
+    .callout-title { display: block; font-family: var(--font-display); font-weight: 700; margin-bottom: var(--space-1); color: var(--color-text); }
+    .callout-content p { margin: 0; color: var(--color-text-secondary); }
+
+    /* QUIZ */
+    .quiz-container { background: var(--color-surface); padding: var(--space-6); border-radius: var(--radius-lg); box-shadow: var(--shadow-md); margin: var(--space-8) 0; }
+    .quiz-question-block { margin-bottom: var(--space-6); }
+    .quiz-question { font-size: var(--text-lg); margin-bottom: var(--space-4); }
+    .quiz-options { display: flex; flex-direction: column; gap: var(--space-3); }
+    .quiz-option { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-4); border: 2px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface); cursor: pointer; width: 100%; transition: border-color var(--duration-fast), background var(--duration-fast); text-align: left; }
+    .quiz-option:hover { border-color: var(--color-accent-muted); }
+    .quiz-option.selected { border-color: var(--color-accent); background: var(--color-accent-light); }
+    .quiz-option.correct { border-color: var(--color-success); background: var(--color-success-light); }
+    .quiz-option.incorrect { border-color: var(--color-error); background: var(--color-error-light); }
+    .quiz-option-radio { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--color-border); transition: all var(--duration-fast); flex-shrink: 0; }
+    .quiz-option.selected .quiz-option-radio { border-color: var(--color-accent); background: var(--color-accent); box-shadow: inset 0 0 0 3px white; }
+    .quiz-feedback { max-height: 0; overflow: hidden; opacity: 0; transition: max-height var(--duration-normal), opacity var(--duration-normal); }
+    .quiz-feedback.show { max-height: 300px; opacity: 1; padding: var(--space-3); margin-top: var(--space-3); border-radius: var(--radius-sm); font-size: var(--text-sm); }
+    .quiz-feedback.success { background: var(--color-success-light); color: var(--color-success); border-left: 3px solid var(--color-success); }
+    .quiz-feedback.error { background: var(--color-error-light); color: var(--color-error); border-left: 3px solid var(--color-error); }
+    .quiz-controls { display: flex; gap: var(--space-3); margin-top: var(--space-6); }
+
+    /* MESSAGE FLOW ANIMATION */
+    .flow-animation { background: var(--color-surface); padding: var(--space-6); border-radius: var(--radius-lg); box-shadow: var(--shadow-md); margin: var(--space-8) 0; position: relative; }
+    .flow-actors { display: flex; justify-content: space-between; position: relative; margin-bottom: var(--space-8); padding: 0 var(--space-4); }
+    .flow-actors::before { content: ''; position: absolute; top: 24px; left: 10%; right: 10%; height: 2px; background: var(--color-border-light); z-index: 0; }
+    .flow-actor { display: flex; flex-direction: column; align-items: center; z-index: 1; position: relative; }
+    .flow-actor-icon { width: 48px; height: 48px; border-radius: 50%; background: var(--color-bg-warm); border: 2px solid var(--color-border); display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--color-text-secondary); margin-bottom: var(--space-2); background: var(--color-surface); transition: all var(--duration-normal); }
+    .flow-actor span { font-size: var(--text-xs); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-text-muted); }
+    .flow-actor.active .flow-actor-icon { border-color: var(--color-accent); color: var(--color-accent); box-shadow: 0 0 0 4px var(--color-accent-light); transform: scale(1.1); }
+    .flow-packet { position: absolute; width: 16px; height: 16px; border-radius: 50%; background: var(--color-accent); top: 16px; left: 0; opacity: 0; z-index: 2; transition: left 0.6s var(--ease-in-out), opacity 0.2s; }
+    .flow-packet.moving { opacity: 1; }
+    .flow-step-label { text-align: center; font-size: var(--text-base); font-weight: 500; height: 3rem; margin-bottom: var(--space-4); }
+    .flow-controls { display: flex; justify-content: center; gap: var(--space-4); align-items: center; }
+    .flow-progress { font-size: var(--text-xs); color: var(--color-text-muted); font-family: var(--font-mono); }
+
+    /* ICON ROWS */
+    .icon-rows { display: flex; flex-direction: column; gap: var(--space-4); margin: var(--space-6) 0; }
+    .icon-row { display: flex; align-items: center; gap: var(--space-4); padding: var(--space-4); background: var(--color-surface); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); }
+    .icon-row p { margin: 0; color: var(--color-text-secondary); font-size: var(--text-sm); }
+    .icon-circle { width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; flex-shrink: 0; }
+
+    /* CHAT ANIMATION */
+    .chat-window { background: var(--color-surface); border-radius: var(--radius-lg); box-shadow: var(--shadow-md); margin: var(--space-8) 0; display: flex; flex-direction: column; overflow: hidden; }
+    .chat-messages { padding: var(--space-6); min-height: 250px; display: flex; flex-direction: column; gap: var(--space-4); background: var(--color-bg-warm); }
+    .chat-message { display: flex; gap: var(--space-3); max-width: 85%; }
+    .chat-message.right { align-self: flex-end; flex-direction: row-reverse; }
+    .chat-avatar { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; flex-shrink: 0; font-size: var(--text-sm); }
+    .chat-bubble { padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg); background: var(--color-surface); box-shadow: var(--shadow-sm); font-size: var(--text-sm); }
+    .chat-message.right .chat-bubble { background: var(--color-accent); color: white; border-bottom-right-radius: 4px; }
+    .chat-message:not(.right) .chat-bubble { border-bottom-left-radius: 4px; }
+    .chat-sender { font-size: var(--text-xs); font-weight: 700; margin-bottom: var(--space-1); display: block; opacity: 0.8; }
+    .chat-message.right .chat-sender { display: none; }
+    .chat-bubble p { margin: 0; }
+    .chat-typing { display: flex; gap: var(--space-3); padding: var(--space-2) var(--space-6) var(--space-4); }
+    .chat-typing-dots { display: flex; gap: 4px; padding: var(--space-3); background: var(--color-surface); border-radius: 16px; border-bottom-left-radius: 4px; align-items: center; box-shadow: var(--shadow-sm); }
+    .typing-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--color-text-muted); animation: typingBounce 1.4s infinite; }
+    .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes typingBounce { 0%, 60%, 100% { transform: translateY(0); } 30% { transform: translateY(-4px); } }
+    @keyframes fadeSlideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .chat-controls { padding: var(--space-4); background: var(--color-surface); border-top: 1px solid var(--color-border); display: flex; justify-content: space-between; align-items: center; }
+
+    /* FILE TREE */
+    .file-tree { font-family: var(--font-mono); font-size: var(--text-sm); }
+    .ft-folder, .ft-file { padding: var(--space-2) var(--space-3); border-left: 2px solid var(--color-border-light); margin-left: var(--space-4); }
+    .ft-folder > .ft-name { color: var(--color-accent); font-weight: 600; }
+    .ft-folder > .ft-name::before { content: '📁 '; }
+    .ft-file > .ft-name::before { content: '📄 '; }
+    .ft-desc { color: var(--color-text-secondary); font-family: var(--font-body); margin-left: var(--space-2); font-size: var(--text-xs); }
+    .ft-children { margin-left: var(--space-4); }
+
+    @media (max-width: 768px) {
+      .translation-block { grid-template-columns: 1fr; }
+      .translation-english { border-left: none; border-top: 3px solid var(--color-accent); }
+      .pattern-cards { grid-template-columns: 1fr; }
+      .module { padding: var(--space-8) var(--space-4); padding-top: calc(var(--nav-height) + var(--space-8)); }
+      :root { --text-4xl: 1.875rem; --text-5xl: 2.25rem; --text-6xl: 3rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav class="nav">
+    <div class="progress-bar" id="progress-bar" role="progressbar" aria-valuenow="0"></div>
+    <div class="nav-inner">
+      <span class="nav-title">Komorebie Under the Hood</span>
+      <div class="nav-dots">
+        <button class="nav-dot" onclick="scrollToModule(1)" aria-label="Module 1"></button>
+        <button class="nav-dot" onclick="scrollToModule(2)" aria-label="Module 2"></button>
+        <button class="nav-dot" onclick="scrollToModule(3)" aria-label="Module 3"></button>
+        <button class="nav-dot" onclick="scrollToModule(4)" aria-label="Module 4"></button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- MODULE 1: WHAT IS KOMOREBIE? -->
+  <section class="module" id="module-1">
+    <div class="module-content">
+      <header class="module-header animate-in">
+        <span class="module-number">01</span>
+        <h1 class="module-title">The Sanctuary Experience</h1>
+        <p class="module-subtitle">What happens when you sit down for a deep work session?</p>
+      </header>
+
+      <div class="module-body stagger-children">
+        <section class="screen animate-in">
+          <p>Imagine you open Komorebie to study. You see a beautiful 3D room, an ambient <span class="term" data-definition="A soothing audio loop that plays in the background to help you focus.">soundscape</span>, and a large timer. You start a 50-minute session on "Deep Work".</p>
+          <p>Komorebie is built differently from generic productivity apps. It’s a <strong>premium sanctuary</strong> designed to feel tactile and immersive. But how does it keep track of your time without breaking the vibe?</p>
+          
+          <div class="callout callout-accent">
+            <div class="callout-icon">💡</div>
+            <div class="callout-content">
+              <strong class="callout-title">The "Sanctuary vs. Focus" Pattern</strong>
+              <p>The app splits the experience in two: <strong>Sanctuary Mode</strong> (rich 3D, leaderboards, customization) and <strong>Focus Mode</strong> (hides distractions, reduces motion, shows only the timer). This separation is built deep into the routing.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="screen animate-in">
+          <h2 class="screen-heading">The Heartbeat: The Timer</h2>
+          <p>When you start a session, a circular progress bar ticks down smoothly. Let's look at how the <code>FocusSession</code> <span class="term" data-definition="A reusable piece of UI in React, like a Lego block. A component can be a button, a timer, or a whole page.">component</span> renders this without causing the entire app to stutter.</p>
+          
+          <div class="translation-block">
+            <div class="translation-code">
+              <span class="translation-label">FocusSession.tsx</span>
+              <pre><code>
+<span class="code-keyword">const</span> FocusSession = () => {
+  <span class="code-keyword">const</span> { timeLeft, duration, isActive } = <span class="code-function">useZenClock</span>();
+  
+  <span class="code-comment">// Calculate percentage for the SVG circle</span>
+  <span class="code-keyword">const</span> progress = (timeLeft / (duration * <span class="code-number">60</span>)) * <span class="code-number">100</span>;
+
+  <span class="code-keyword">return</span> (
+    <span class="code-tag">&lt;svg&gt;</span>
+      <span class="code-tag">&lt;motion.circle</span>
+        <span class="code-attr">strokeDasharray</span>=<span class="code-string">"942"</span>
+        <span class="code-attr">animate</span>={{ <span class="code-property">strokeDashoffset</span>: <span class="code-number">942</span> - (<span class="code-number">942</span> * progress) / <span class="code-number">100</span> }}
+        <span class="code-attr">transition</span>={{ <span class="code-property">duration</span>: <span class="code-number">1</span>, <span class="code-property">ease</span>: <span class="code-string">"linear"</span> }}
+      <span class="code-tag">/&gt;</span>
+    <span class="code-tag">&lt;/svg&gt;</span>
+  );
+};</code></pre>
+            </div>
+            <div class="translation-english">
+              <span class="translation-label">Plain English</span>
+              <div class="translation-lines">
+                <p class="tl">First, get the current time left from the global "Zen Clock" memory.</p>
+                <p class="tl">Calculate how far along we are (from 0 to 100%).</p>
+                <p class="tl">Draw a circle using SVG graphics.</p>
+                <p class="tl">Use Framer Motion to smoothly animate the circle drawing itself as the percentage drops. It moves perfectly linearly every second.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="screen animate-in">
+          <div class="quiz-container">
+            <div class="quiz-question-block" data-question="q1" data-correct="q1-c">
+              <h3 class="quiz-question">Why does the timer read from a global "ZenClock" instead of keeping its own time?</h3>
+              <div class="quiz-options">
+                <button class="quiz-option" data-value="q1-a" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>Because React requires timers to be global.</span>
+                </button>
+                <button class="quiz-option" data-value="q1-b" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>To save memory on the user's device.</span>
+                </button>
+                <button class="quiz-option" data-value="q1-c" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>So the timer keeps ticking even if the user navigates to another page in the app.</span>
+                </button>
+              </div>
+              <div class="quiz-feedback" id="q1-feedback"></div>
+            </div>
+            <div class="quiz-controls">
+              <button class="primary" onclick="checkQuiz('module-1')">Check Answer</button>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </section>
+
+  <!-- MODULE 2: MEET THE ACTORS -->
+  <section class="module" id="module-2">
+    <div class="module-content">
+      <header class="module-header animate-in">
+        <span class="module-number">02</span>
+        <h1 class="module-title">Meet the Actors</h1>
+        <p class="module-subtitle">The cast of characters making up the Komorebie architecture.</p>
+      </header>
+
+      <div class="module-body stagger-children">
+        <section class="screen animate-in">
+          <p>Every app is like a play. The code is the script, and different technologies act out specific roles. If you know the actors, you can tell an AI exactly where to put a new feature.</p>
+          
+          <div class="icon-rows">
+            <div class="icon-row">
+              <div class="icon-circle" style="background: var(--color-actor-1); color: white;">UI</div>
+              <div>
+                <strong>The Stage: React & Framer Motion</strong>
+                <p>The user interface. Buttons, menus, text, and buttery smooth animations.</p>
+              </div>
+            </div>
+            <div class="icon-row">
+              <div class="icon-circle" style="background: var(--color-actor-4); color: white;">3D</div>
+              <div>
+                <strong>The Set Designer: React Three Fiber (R3F)</strong>
+                <p>Builds the 3D sanctuary room. It translates React code into 3D objects the browser can render.</p>
+              </div>
+            </div>
+            <div class="icon-row">
+              <div class="icon-circle" style="background: var(--color-actor-2); color: white;">DB</div>
+              <div>
+                <strong>The Memory: Supabase (Postgres)</strong>
+                <p>The database. It remembers who you are, how much mana you've earned, and your flashcards.</p>
+              </div>
+            </div>
+            <div class="icon-row">
+              <div class="icon-circle" style="background: var(--color-actor-5); color: white;">AI</div>
+              <div>
+                <strong>The Sidekick: Edge Functions + Gemini AI</strong>
+                <p>Server-side logic that securely talks to the AI to summarize your notes without exposing API keys.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="screen animate-in">
+          <h2 class="screen-heading">The Project Structure</h2>
+          <p>When you ask an AI to "add a feature," knowing which folder it belongs in makes the AI 10x smarter. Here is how Komorebie is organized.</p>
+          
+          <div class="file-tree" style="background: var(--color-surface); padding: var(--space-4); border-radius: var(--radius-md); box-shadow: var(--shadow-sm);">
+            <div class="ft-folder open">
+              <span class="ft-name">komorebie-app/src/</span>
+              <span class="ft-desc">The main frontend application</span>
+              <div class="ft-children">
+                <div class="ft-folder">
+                  <span class="ft-name">components/</span>
+                  <span class="ft-desc">UI pieces (buttons, timer, 3D scenes)</span>
+                </div>
+                <div class="ft-folder">
+                  <span class="ft-name">context/</span>
+                  <span class="ft-desc">Global memories (Auth, Clock, Soundscape)</span>
+                </div>
+                <div class="ft-folder">
+                  <span class="ft-name">pages/</span>
+                  <span class="ft-desc">Full screens (FocusSession, Leaderboard)</span>
+                </div>
+                <div class="ft-folder">
+                  <span class="ft-name">hooks/</span>
+                  <span class="ft-desc">Custom reusable logic (useHabits, useFriends)</span>
+                </div>
+              </div>
+            </div>
+            <div class="ft-folder">
+              <span class="ft-name">supabase/</span>
+              <span class="ft-desc">Backend configuration</span>
+              <div class="ft-children">
+                <div class="ft-folder">
+                  <span class="ft-name">migrations/</span>
+                  <span class="ft-desc">Instructions for creating database tables</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="screen animate-in">
+          <div class="quiz-container">
+            <div class="quiz-question-block" data-question="q2" data-correct="q2-b">
+              <h3 class="quiz-question">Scenario: You want to add a new "Dark Mode" toggle that changes colors across the entire app. Where does the logic to remember the user's choice belong?</h3>
+              <div class="quiz-options">
+                <button class="quiz-option" data-value="q2-a" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>In a UI component inside <code>components/</code>.</span>
+                </button>
+                <button class="quiz-option" data-value="q2-b" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>In a global memory state inside <code>context/</code>.</span>
+                </button>
+                <button class="quiz-option" data-value="q2-c" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>In the database under <code>supabase/migrations/</code>.</span>
+                </button>
+              </div>
+              <div class="quiz-feedback" id="q2-feedback"></div>
+            </div>
+            <div class="quiz-controls">
+              <button class="primary" onclick="checkQuiz('module-2')">Check Answer</button>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </section>
+
+  <!-- MODULE 3: DATA FLOW -->
+  <section class="module" id="module-3">
+    <div class="module-content">
+      <header class="module-header animate-in">
+        <span class="module-number">03</span>
+        <h1 class="module-title">The Data Flow</h1>
+        <p class="module-subtitle">Tracing the journey when you start a session.</p>
+      </header>
+
+      <div class="module-body stagger-children">
+        <section class="screen animate-in">
+          <p>Code is just data moving from place to place. Let's trace what happens the moment you click "Start Focus".</p>
+          
+          <div class="flow-animation" id="flow-1">
+            <div class="flow-actors">
+              <div class="flow-actor" id="flow-actor-ui">
+                <div class="flow-actor-icon">🖥️</div>
+                <span>Focus UI</span>
+              </div>
+              <div class="flow-actor" id="flow-actor-ctx">
+                <div class="flow-actor-icon">🧠</div>
+                <span>ZenClock</span>
+              </div>
+              <div class="flow-actor" id="flow-actor-db">
+                <div class="flow-actor-icon">🗄️</div>
+                <span>Supabase</span>
+              </div>
+            </div>
+            <div class="flow-packet" id="flow-packet-1"></div>
+            <div class="flow-step-label" id="flow-label-1">Click "Next Step" to begin</div>
+            <div class="flow-controls">
+              <button class="secondary" onclick="flowNext1()">Next Step</button>
+              <button class="secondary" onclick="flowReset1()">Restart</button>
+              <span class="flow-progress" id="flow-prog-1">Step 0 / 3</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="screen animate-in">
+          <h2 class="screen-heading">The App Router</h2>
+          <p>Komorebie decides what to show you using a <span class="term" data-definition="A system that matches the URL you visit (like /app/focus) to the specific React screen it should display on the page.">Router</span>. It acts as the air traffic controller for the app.</p>
+          
+          <div class="translation-block">
+            <div class="translation-code">
+              <span class="translation-label">App.tsx</span>
+              <pre><code>
+<span class="code-tag">&lt;Routes&gt;</span>
+  <span class="code-comment">{/* Landing Page */}</span>
+  <span class="code-tag">&lt;Route</span> <span class="code-attr">path</span>=<span class="code-string">"/"</span> <span class="code-attr">element</span>={<span class="code-tag">&lt;RootHandler /&gt;</span>} <span class="code-tag">/&gt;</span>
+  
+  <span class="code-comment">{/* Main App (Sanctuary Mode) */}</span>
+  <span class="code-tag">&lt;Route</span> <span class="code-attr">path</span>=<span class="code-string">"/app"</span> <span class="code-attr">element</span>={
+    <span class="code-tag">&lt;ProtectedRoute&gt;</span>
+      <span class="code-tag">&lt;AppRoot&gt;&lt;AppLayout /&gt;&lt;/AppRoot&gt;</span>
+    <span class="code-tag">&lt;/ProtectedRoute&gt;</span>
+  }<span class="code-tag">&gt;</span>
+    <span class="code-tag">&lt;Route</span> <span class="code-attr">path</span>=<span class="code-string">"habits"</span> <span class="code-attr">element</span>={<span class="code-tag">&lt;HabitsPage /&gt;</span>} <span class="code-tag">/&gt;</span>
+  <span class="code-tag">&lt;/Route&gt;</span>
+<span class="code-tag">&lt;/Routes&gt;</span></code></pre>
+            </div>
+            <div class="translation-english">
+              <span class="translation-label">Plain English</span>
+              <div class="translation-lines">
+                <p class="tl">Define all the possible URLs in our application.</p>
+                <p class="tl">If they visit the home URL (<code>/</code>), run a check to see if they are logged in or a first-time visitor.</p>
+                <p class="tl">If they visit <code>/app</code>, first make sure they are logged in (Protected Route). If they are, wrap the screen in the 3D App Root.</p>
+                <p class="tl">If the URL specifically is <code>/app/habits</code>, load the Habits page inside that secure shell.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="screen animate-in">
+          <div class="quiz-container">
+            <div class="quiz-question-block" data-question="q4" data-correct="q4-b">
+              <h3 class="quiz-question">Scenario: You want to add a page to manage music loops under `/app/music`. Where do you add this instruction?</h3>
+              <div class="quiz-options">
+                <button class="quiz-option" data-value="q4-a" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>In a UI component file like `SoundscapeSelector.tsx`.</span>
+                </button>
+                <button class="quiz-option" data-value="q4-b" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>In `App.tsx` where the `<Routes>` are defined.</span>
+                </button>
+                <button class="quiz-option" data-value="q4-c" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>In the Supabase database.</span>
+                </button>
+              </div>
+              <div class="quiz-feedback" id="q4-feedback"></div>
+            </div>
+            <div class="quiz-controls">
+              <button class="primary" onclick="checkQuiz('module-3')">Check Answer</button>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </section>
+
+  <!-- MODULE 4: THE AI SIDEKICK -->
+  <section class="module" id="module-4">
+    <div class="module-content">
+      <header class="module-header animate-in">
+        <span class="module-number">04</span>
+        <h1 class="module-title">The Intelligent Sidekick</h1>
+        <p class="module-subtitle">How AI safely generates flashcards from your notes.</p>
+      </header>
+
+      <div class="module-body stagger-children">
+        <section class="screen animate-in">
+          <p>Komorebie features an AI sidekick that reads your notes and automatically creates flashcards. But giving a website direct access to an AI brain is dangerous—hackers could steal your AI budget. So, the app uses an <span class="term" data-definition="A tiny piece of backend code that runs securely on a server, acting as a middleman between the app and external services like Gemini AI.">Edge Function</span>.</p>
+          
+          <div class="chat-window">
+            <div class="chat-messages" id="chat-messages-1">
+              <div class="chat-message right" data-msg="0" data-sender="actor-1" style="display:none">
+                <div class="chat-bubble">
+                  <p>Here are my study notes about Biology. Make flashcards!</p>
+                </div>
+              </div>
+              <div class="chat-message" data-msg="1" data-sender="actor-5" style="display:none">
+                <div class="chat-avatar" style="background: var(--color-actor-5)">EF</div>
+                <div class="chat-bubble">
+                  <span class="chat-sender" style="color: var(--color-actor-5)">Edge Function</span>
+                  <p>I got the notes. I will securely add our secret API key and ask Gemini to format this as flashcards.</p>
+                </div>
+              </div>
+              <div class="chat-message" data-msg="2" data-sender="actor-3" style="display:none">
+                <div class="chat-avatar" style="background: var(--color-actor-3)">AI</div>
+                <div class="chat-bubble">
+                  <span class="chat-sender" style="color: var(--color-actor-3)">Gemini AI</span>
+                  <p>Done! Returning 10 flashcards formatted perfectly as data.</p>
+                </div>
+              </div>
+              <div class="chat-message" data-msg="3" data-sender="actor-5" style="display:none">
+                <div class="chat-avatar" style="background: var(--color-actor-5)">EF</div>
+                <div class="chat-bubble">
+                  <span class="chat-sender" style="color: var(--color-actor-5)">Edge Function</span>
+                  <p>Saving these flashcards directly into the Supabase database for the user.</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="chat-typing" id="chat-typing-1" style="display:none">
+              <div class="chat-avatar" id="typing-avatar-1">?</div>
+              <div class="chat-typing-dots">
+                <span class="typing-dot"></span>
+                <span class="typing-dot"></span>
+                <span class="typing-dot"></span>
+              </div>
+            </div>
+
+            <div class="chat-controls">
+              <button class="secondary" onclick="playChatNext1()">Next Message</button>
+              <button class="secondary" onclick="playChatAll1()">Play All</button>
+              <button class="secondary" onclick="resetChat1()">Replay</button>
+              <span class="flow-progress" id="chat-prog-1">0 / 4</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="screen animate-in">
+          <div class="quiz-container">
+            <div class="quiz-question-block" data-question="q3" data-correct="q3-c">
+              <h3 class="quiz-question">Why don't we let the Frontend (React) talk to Gemini AI directly?</h3>
+              <div class="quiz-options">
+                <button class="quiz-option" data-value="q3-a" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>React doesn't know how to send messages to external services.</span>
+                </button>
+                <button class="quiz-option" data-value="q3-b" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>The frontend is too slow to process AI responses.</span>
+                </button>
+                <button class="quiz-option" data-value="q3-c" onclick="selectOption(this)">
+                  <div class="quiz-option-radio"></div>
+                  <span>Because anyone can read frontend code, meaning they could steal the secret API password.</span>
+                </button>
+              </div>
+              <div class="quiz-feedback" id="q3-feedback"></div>
+            </div>
+            <div class="quiz-controls">
+              <button class="primary" onclick="checkQuiz('module-4')">Check Answer</button>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    // NAVIGATION PROGRESS
+    const progressBar = document.getElementById('progress-bar');
+    const navDots = document.querySelectorAll('.nav-dot');
+    const modules = document.querySelectorAll('.module');
+
+    function updateProgressBar() {
+      const scrollTop = window.scrollY;
+      const scrollHeight = document.documentElement.scrollHeight - window.innerHeight;
+      const progress = (scrollTop / scrollHeight) * 100;
+      progressBar.style.width = progress + '%';
+
+      // Update dots
+      let currentModule = 0;
+      modules.forEach((mod, i) => {
+        const rect = mod.getBoundingClientRect();
+        if (rect.top <= window.innerHeight / 2) {
+          currentModule = i;
+        }
+      });
+
+      navDots.forEach((dot, i) => {
+        dot.classList.remove('active');
+        if (i === currentModule) dot.classList.add('active');
+        if (i <= currentModule) dot.classList.add('visited');
+      });
+    }
+
+    window.addEventListener('scroll', () => {
+      requestAnimationFrame(updateProgressBar);
+    }, { passive: true });
+
+    function scrollToModule(index) {
+      document.getElementById(`module-${index}`).scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // ANIMATE ON SCROLL
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { rootMargin: '0px 0px -10% 0px', threshold: 0.1 });
+
+    document.querySelectorAll('.animate-in').forEach(el => observer.observe(el));
+    document.querySelectorAll('.stagger-children').forEach(parent => {
+      Array.from(parent.children).forEach((child, i) => {
+        child.style.setProperty('--stagger-index', i);
+      });
+    });
+
+    // TOOLTIPS
+    let activeTooltip = null;
+    function positionTooltip(term, tip) {
+      const rect = term.getBoundingClientRect();
+      const tipWidth = 300;
+      let left = rect.left + rect.width / 2 - tipWidth / 2;
+      left = Math.max(8, Math.min(left, window.innerWidth - tipWidth - 8));
+      
+      document.body.appendChild(tip);
+      const tipHeight = tip.offsetHeight;
+      tip.style.left = left + 'px';
+      
+      if (rect.top - tipHeight - 8 < 0) {
+        tip.style.top = (rect.bottom + 8) + 'px';
+        tip.classList.add('flip');
+      } else {
+        tip.style.top = (rect.top - tipHeight - 8) + 'px';
+        tip.classList.remove('flip');
+      }
+    }
+
+    document.querySelectorAll('.term').forEach(term => {
+      const tip = document.createElement('span');
+      tip.className = 'term-tooltip';
+      tip.textContent = term.dataset.definition;
+
+      term.addEventListener('mouseenter', () => {
+        if (activeTooltip && activeTooltip !== tip) {
+          activeTooltip.classList.remove('visible');
+          activeTooltip.remove();
+        }
+        positionTooltip(term, tip);
+        requestAnimationFrame(() => tip.classList.add('visible'));
+        activeTooltip = tip;
+      });
+
+      term.addEventListener('mouseleave', () => {
+        tip.classList.remove('visible');
+        setTimeout(() => { if (!tip.classList.contains('visible')) tip.remove(); }, 150);
+        activeTooltip = null;
+      });
+
+      term.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (activeTooltip && activeTooltip !== tip) {
+          activeTooltip.classList.remove('visible');
+          activeTooltip.remove();
+        }
+        if (tip.classList.contains('visible')) {
+          tip.classList.remove('visible');
+          tip.remove();
+          activeTooltip = null;
+        } else {
+          positionTooltip(term, tip);
+          requestAnimationFrame(() => tip.classList.add('visible'));
+          activeTooltip = tip;
+        }
+      });
+    });
+
+    document.addEventListener('click', () => {
+      if (activeTooltip) {
+        activeTooltip.classList.remove('visible');
+        activeTooltip.remove();
+        activeTooltip = null;
+      }
+    });
+
+    // QUIZ LOGIC
+    window.selectOption = function(btn) {
+      const block = btn.closest('.quiz-question-block');
+      if (block.querySelector('.quiz-option').disabled) return;
+      block.querySelectorAll('.quiz-option').forEach(o => o.classList.remove('selected'));
+      btn.classList.add('selected');
+    };
+
+    window.checkQuiz = function(sectionId) {
+      const container = document.querySelector(`#${sectionId} .quiz-container`);
+      const questions = container.querySelectorAll('.quiz-question-block');
+      
+      const explanations = {
+        'q1': {
+          true: "Exactly! By keeping the state in the ZenClock context, the timer persists globally. If it was local to the component, changing pages would destroy the component and reset the timer.",
+          false: "Not quite. React components get destroyed when you navigate away from them. If the timer lived inside the component, it would reset if you accidentally clicked a different tab."
+        },
+        'q2': {
+          true: "Spot on! Context is used for state that needs to be accessed by many different UI components globally.",
+          false: "Not quite. While UI components display it, and DB stores it permanently, the immediate 'memory' that tells all UI components what theme to render lives in the global Context."
+        },
+        'q4': {
+          true: "Right! App.tsx acts as the air traffic controller defining all valid URLs.",
+          false: "Not quite. First we must define the route in App.tsx before a URL will work."
+        },
+        'q3': {
+          true: "Exactly! Any code shipped to the browser can be inspected by the user. If we put our Gemini API key in the React code, anyone could steal it and rack up a massive bill on our account.",
+          false: "Not quite. The real issue is security, not capability or speed."
+        }
+      };
+
+      questions.forEach(q => {
+        const selected = q.querySelector('.quiz-option.selected');
+        const feedback = q.querySelector('.quiz-feedback');
+        const correctValue = q.dataset.correct;
+        const qId = q.dataset.question;
+
+        if (!selected) {
+          feedback.textContent = 'Pick an answer first!';
+          feedback.className = 'quiz-feedback show error';
+          return;
+        }
+
+        if (selected.dataset.value === correctValue) {
+          selected.classList.add('correct');
+          feedback.innerHTML = '<strong>Exactly!</strong> ' + explanations[qId].true;
+          feedback.className = 'quiz-feedback show success';
+        } else {
+          selected.classList.add('incorrect');
+          q.querySelector(`[data-value="${correctValue}"]`).classList.add('correct');
+          feedback.innerHTML = '<strong>Not quite.</strong> ' + explanations[qId].false;
+          feedback.className = 'quiz-feedback show error';
+        }
+
+        q.querySelectorAll('.quiz-option').forEach(o => o.disabled = true);
+      });
+    };
+
+    // FLOW ANIMATION LOGIC
+    const flowSteps1 = [
+      { from: 'ui', to: 'ctx', label: 'User clicks Play → UI tells ZenClock to start', highlight: 'ctx', packet: true },
+      { from: 'ctx', to: 'ui', label: 'ZenClock ticks → UI circle updates visually', highlight: 'ui', packet: false },
+      { from: 'ctx', to: 'db', label: 'Session ends → ZenClock logs time to Supabase', highlight: 'db', packet: true }
+    ];
+
+    let flowStepIdx1 = 0;
+    window.flowNext1 = function() {
+      if (flowStepIdx1 >= flowSteps1.length) return;
+      const step = flowSteps1[flowStepIdx1];
+
+      document.querySelectorAll('#flow-1 .flow-actor').forEach(a => a.classList.remove('active'));
+      document.getElementById(`flow-actor-${step.highlight}`).classList.add('active');
+
+      if (step.packet) {
+        const packet = document.getElementById('flow-packet-1');
+        const fromEl = document.getElementById(`flow-actor-${step.from}`);
+        const toEl = document.getElementById(`flow-actor-${step.to}`);
+        
+        packet.classList.remove('moving');
+        packet.style.transition = 'none';
+        
+        // Use timeout to allow transition to reset
+        setTimeout(() => {
+          packet.style.left = (fromEl.offsetLeft + 24 - 8) + 'px';
+          
+          setTimeout(() => {
+            packet.style.transition = 'left 0.6s var(--ease-in-out), opacity 0.2s';
+            packet.classList.add('moving');
+            packet.style.left = (toEl.offsetLeft + 24 - 8) + 'px';
+            
+            setTimeout(() => { packet.classList.remove('moving'); }, 600);
+          }, 50);
+        }, 10);
+      }
+
+      document.getElementById('flow-label-1').textContent = step.label;
+      flowStepIdx1++;
+      document.getElementById('flow-prog-1').textContent = `Step ${flowStepIdx1} / ${flowSteps1.length}`;
+    };
+
+    window.flowReset1 = function() {
+      flowStepIdx1 = 0;
+      document.querySelectorAll('#flow-1 .flow-actor').forEach(a => a.classList.remove('active'));
+      document.getElementById('flow-label-1').textContent = 'Click "Next Step" to begin';
+      document.getElementById('flow-prog-1').textContent = `Step 0 / ${flowSteps1.length}`;
+    };
+
+    // CHAT LOGIC
+    let chatIndex1 = 0;
+    const chatMsgs1 = document.querySelectorAll('#chat-messages-1 .chat-message');
+    const chatActors1 = {
+      'actor-1': { initials: 'U', color: 'var(--color-actor-1)' },
+      'actor-5': { initials: 'EF', color: 'var(--color-actor-5)' },
+      'actor-3': { initials: 'AI', color: 'var(--color-actor-3)' }
+    };
+
+    window.playChatNext1 = function() {
+      if (chatIndex1 >= chatMsgs1.length) return;
+      const msg = chatMsgs1[chatIndex1];
+      const sender = msg.dataset.sender;
+      const typing = document.getElementById('chat-typing-1');
+
+      if (sender !== 'actor-1') {
+        const avatar = document.getElementById('typing-avatar-1');
+        avatar.textContent = chatActors1[sender].initials;
+        avatar.style.background = chatActors1[sender].color;
+        typing.style.display = 'flex';
+        
+        setTimeout(() => {
+          typing.style.display = 'none';
+          msg.style.display = 'flex';
+          msg.style.animation = 'fadeSlideUp 0.3s var(--ease-out)';
+          chatIndex1++;
+          document.getElementById('chat-prog-1').textContent = `${chatIndex1} / ${chatMsgs1.length}`;
+        }, 800);
+      } else {
+        msg.style.display = 'flex';
+        msg.style.animation = 'fadeSlideUp 0.3s var(--ease-out)';
+        chatIndex1++;
+        document.getElementById('chat-prog-1').textContent = `${chatIndex1} / ${chatMsgs1.length}`;
+      }
+    };
+
+    window.playChatAll1 = function() {
+      const interval = setInterval(() => {
+        if (chatIndex1 >= chatMsgs1.length) { clearInterval(interval); return; }
+        playChatNext1();
+      }, 1200);
+    };
+
+    window.resetChat1 = function() {
+      chatIndex1 = 0;
+      chatMsgs1.forEach(msg => msg.style.display = 'none');
+      document.getElementById('chat-prog-1').textContent = `0 / ${chatMsgs1.length}`;
+    };
+
+    // Initialize progress on load
+    updateProgressBar();
+  </script>
+</body>
+</html>

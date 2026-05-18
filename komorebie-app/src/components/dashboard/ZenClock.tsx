@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform, animate } from 'framer-motion';
 import { Music, Check, Volume2 } from 'lucide-react';
-import { useZenClock } from '../../context/ZenClockContext';
+import { useZenClock } from '../../hooks/useZenClock';
 
 const ALARM_PRESETS = [
   { id: 'none', name: 'No Alarm', url: 'none' },

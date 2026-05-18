@@ -17,7 +17,7 @@ import { useDataSync } from '../context/DataSyncContext';
 import { supabase } from '../lib/supabase';
 import GlassCard from '../components/ui/GlassCard';
 import ZenSelect from '../components/ui/ZenSelect';
-import { useZenClock } from '../context/ZenClockContext';
+import { useZenClock } from '../hooks/useZenClock';
 
 /**
  * SettingsPage (FE-11)
