@@ -20,7 +20,7 @@ export const ADMIN_MUSIC = [
 ];
 
 export const PUBLIC_BACKGROUNDS: Background[] = [
-  { id: 'zen-morning', name: 'Zen Morning', url: getR2PublicUrl('backgrounds/left1.webp'), type: 'image' },
+  { id: 'library-sunset', name: 'Library Sunset', url: getR2PublicUrl('backgrounds/left1.webp'), type: 'image' },
   { id: 'quiet-afternoon', name: 'Quiet Afternoon', url: getR2PublicUrl('backgrounds/left2.webp'), type: 'image' },
   { id: 'starlight-sanctuary', name: 'Starlight Sanctuary', url: getR2PublicUrl('backgrounds/left3.webp'), type: 'image' },
   { id: 'misty-forest', name: 'Mist Forest', url: getR2PublicUrl('backgrounds/forest.webp'), type: 'image' },
@@ -28,6 +28,11 @@ export const PUBLIC_BACKGROUNDS: Background[] = [
   { id: 'snow-mountain', name: 'Snow Mountain', url: getR2PublicUrl('backgrounds/snowmountain.webp'), type: 'image' },
   { id: 'cosmic-nebula', name: 'Cosmic Nebula', url: getR2PublicUrl('backgrounds/space.webp'), type: 'image' },
   { id: 'deep-space', name: 'Deep Space', url: getR2PublicUrl('backgrounds/space2.webp'), type: 'image' },
+  { id: 'violet-higanbana', name: 'Violet Higanbana', url: getR2PublicUrl('backgrounds/flower.webp'), type: 'image' },
+  { id: 'forest-totoro', name: 'Forest Totoro', url: getR2PublicUrl('backgrounds/left.webp'), type: 'image' },
+  { id: 'sunset-lake', name: 'Sunset Lake', url: getR2PublicUrl('backgrounds/pexels-jplenio-1642770.jpg'), type: 'image' },
+  { id: 'crescent-sea', name: 'Crescent Sea', url: getR2PublicUrl('backgrounds/pexels-jplenio-2816056.jpg'), type: 'image' },
+  { id: 'gothic-rose-castle', name: 'Gothic Rose Castle', url: getR2PublicUrl('backgrounds/roses.webp'), type: 'image' },
 ];
 
 export const LIVE_BACKGROUNDS: Background[] = [
@@ -42,6 +47,12 @@ export const SPECIAL_BACKGROUNDS: Background[] = [
   { id: 'watching-eye', name: 'The Watching Eye', url: getR2PublicUrl('backgrounds/eye.webp'), type: 'image', isSpecial: true },
   { id: 'knight-sentinel', name: 'Knight Sentinel', url: getR2PublicUrl('backgrounds/abgknight.webp'), type: 'image', isSpecial: true },
   { id: 'franx-pilot', name: 'Franx Pilot', url: getR2PublicUrl('backgrounds/franx.webp'), type: 'image', isSpecial: true },
+  { id: 'gilded-gazebo', name: 'Gilded Gazebo', url: getR2PublicUrl('backgrounds/admin.webp'), type: 'image', isSpecial: true },
+  { id: 'noir-cigarette', name: 'Noir Cigarette', url: getR2PublicUrl('backgrounds/admin1.webp'), type: 'image', isSpecial: true },
+  { id: 'reze-riverfront', name: 'Reze Riverfront', url: getR2PublicUrl('backgrounds/admin7.webp'), type: 'image', isSpecial: true },
+  { id: 'ethereal-gaze', name: 'Ethereal Gaze', url: getR2PublicUrl('backgrounds/adminEYE.webp'), type: 'image', isSpecial: true },
+  { id: 'midnight-shoreline', name: 'Midnight Shoreline', url: getR2PublicUrl('backgrounds/adminnico1.webp'), type: 'image', isSpecial: true },
+  { id: 'floral-veil', name: 'Floral Veil', url: getR2PublicUrl('backgrounds/adminreze1.webp'), type: 'image', isSpecial: true },
 ];
 
 export const SPECIAL_LIVE_BACKGROUNDS: Background[] = [
