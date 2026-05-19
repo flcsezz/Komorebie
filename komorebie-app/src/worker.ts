@@ -377,10 +377,29 @@ export default {
  */
 async function computeAndStoreStats(userId: string, env: Env, providedSql?: any, ctx?: ExecutionContext) {
   try {
-    const sql = providedSql || getSqlClient(env);
+    let row: any = null;
     
-    // Use the mega-sync function for single user too — extremely efficient
-    const [row] = await sql`SELECT * FROM get_mega_sync_data(ARRAY[${userId}]::uuid[])`;
+    try {
+      const sql = providedSql || getSqlClient(env);
+      // Use the mega-sync function for single user too — extremely efficient
+      const rows = await sql`SELECT * FROM get_mega_sync_data(ARRAY[${userId}]::uuid[])`;
+      row = rows[0];
+    } catch (dbErr) {
+      console.warn('[Worker] Hyperdrive query failed, attempting Supabase REST fallback...', dbErr);
+      
+      const supabase = getSupabaseClient(env);
+      const { data, error } = await supabase.rpc('get_mega_sync_data', { user_ids: [userId] });
+      
+      if (error) {
+        console.error('[Worker] Supabase REST fallback also failed:', error);
+        throw error;
+      }
+      
+      if (data && data.length > 0) {
+        row = data[0];
+      }
+    }
+
     if (!row) throw new Error('User not found');
     
     const stats = computeAnalyticsFromMega(row.mega_payload);
