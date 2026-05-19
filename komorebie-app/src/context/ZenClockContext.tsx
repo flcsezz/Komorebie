@@ -103,8 +103,12 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const hasTriggeredCompletionRef = useRef<boolean>(false);
   // Debounce timer for cloud sync
   const syncDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Stable ref for currentTag — avoids tearing down heartbeat/sync callbacks on every keystroke
+  const currentTagRef = useRef(currentTag);
+  useEffect(() => { currentTagRef.current = currentTag; }, [currentTag]);
 
   // Raw cloud sync (no debounce) — used internally
+  // Uses currentTagRef instead of currentTag to avoid re-creating this callback on every keystroke
   const syncTimerToCloudImmediate = useCallback(async (
     active: boolean, 
     start: string | null, 
@@ -130,13 +134,13 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           session_duration: sessionDurSeconds,
           is_pomodoro: isPom,
           pomodoro_state: pomState,
-          tag: currentTag
+          tag: currentTagRef.current
         })
       });
     } catch (err) {
       console.error('Failed to sync timer to cloud:', err);
     }
-  }, [user, session, currentTag]);
+  }, [user, session]);
 
   // Debounced cloud sync — coalesces rapid state changes (500ms trailing edge)
   const syncTimerToCloud = useCallback((
@@ -488,7 +492,7 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             session_duration: sessionDur,
             is_pomodoro: isPomodoroMode,
             pomodoro_state: pomodoroState,
-            tag: currentTag
+            tag: currentTagRef.current
           })
         }).catch(err => console.error('[Zen] Heartbeat failed:', err));
 
@@ -503,7 +507,7 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         heartbeatRef.current = null;
       }
     };
-  }, [isActive, user, session, sessionStartTime, targetEndTime, duration, isPomodoroMode, pomodoroState, currentTag]);
+  }, [isActive, user, session, sessionStartTime, targetEndTime, duration, isPomodoroMode, pomodoroState]);
 
   // Handle timer tick and tab visibility
   useEffect(() => {

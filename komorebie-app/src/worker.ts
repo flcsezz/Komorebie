@@ -26,13 +26,23 @@ function jsonResponse(data: unknown, status = 200, extra: Record<string, string>
 // ─── Singleton Hyperdrive client (lazy) ───────────────────────────
 let sqlClient: postgres.Sql<any> | null = null;
 
+// Detect local Miniflare dev — Hyperdrive binding exposes *.hyperdrive.local
+// which can't actually route TCP in the workerd sandbox.
+function isLocalDev(env: Env): boolean {
+  try {
+    return env.HYPERDRIVE.connectionString.includes('.hyperdrive.local');
+  } catch {
+    return false;
+  }
+}
+
 function getSqlClient(env: Env) {
   if (!sqlClient) {
     sqlClient = postgres(env.HYPERDRIVE.connectionString, {
       ssl: 'require',
       max: 5,          // Lower pool — Workers are short-lived
       idle_timeout: 20,
-      connect_timeout: 5,
+      connect_timeout: 2,
       prepare: false,   // Transaction pooler doesn't support prepared statements
     });
   }
@@ -157,11 +167,13 @@ export default {
           const queryUserId = url.searchParams.get('userId');
           const targetUserId = (queryUserId && queryUserId !== 'undefined' && queryUserId !== 'null') ? queryUserId : user.id;
           const isOwnProfile = targetUserId === user.id;
+          const localDev = isLocalDev(env);
           
           // Check friendship for non-self queries
           let isFriend = false;
           if (!isOwnProfile && targetUserId) {
             try {
+              if (localDev) throw new Error('skip-hyperdrive');
               const sql = getSqlClient(env);
               const friendship = await sql`
                 SELECT status FROM friendships 
@@ -378,20 +390,30 @@ export default {
 async function computeAndStoreStats(userId: string, env: Env, providedSql?: any, ctx?: ExecutionContext) {
   try {
     let row: any = null;
+    const localDev = isLocalDev(env);
     
-    try {
-      const sql = providedSql || getSqlClient(env);
-      // Use the mega-sync function for single user too — extremely efficient
-      const rows = await sql`SELECT * FROM get_mega_sync_data(ARRAY[${userId}]::uuid[])`;
-      row = rows[0];
-    } catch (dbErr) {
-      console.warn('[Worker] Hyperdrive query failed, attempting Supabase REST fallback...', dbErr);
-      
+    // In local dev, skip Hyperdrive entirely — TCP through *.hyperdrive.local
+    // never works in the Miniflare/workerd sandbox. Go straight to REST.
+    if (!localDev) {
+      try {
+        const sql = providedSql || getSqlClient(env);
+        // Use the mega-sync function for single user too — extremely efficient
+        const rows = await sql`SELECT * FROM get_mega_sync_data(ARRAY[${userId}]::uuid[])`;
+        row = rows[0];
+      } catch (dbErr) {
+        console.warn('[Worker] Hyperdrive query failed, attempting Supabase REST fallback...', dbErr);
+      }
+    } else {
+      console.info('[Worker] Local dev detected — skipping Hyperdrive, using REST directly.');
+    }
+    
+    // REST fallback (or primary path in local dev)
+    if (!row) {
       const supabase = getSupabaseClient(env);
-      const { data, error } = await supabase.rpc('get_mega_sync_data', { user_ids: [userId] });
+      const { data, error } = await supabase.rpc('get_mega_sync_data', { target_user_ids: [userId] });
       
       if (error) {
-        console.error('[Worker] Supabase REST fallback also failed:', error);
+        console.error('[Worker] Supabase REST fallback failed:', error);
         throw error;
       }
       

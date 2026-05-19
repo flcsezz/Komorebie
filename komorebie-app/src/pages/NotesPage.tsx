@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Plus, 
@@ -53,6 +53,35 @@ const NotesPage: React.FC = () => {
     notes.find(n => n.id === selectedNoteId) || null, 
     [notes, selectedNoteId]
   );
+
+  // ─── Debounced auto-save for note title & content ───────────────
+  // Uses local state for instant typing responsiveness, then
+  // debounces the Supabase UPDATE to ~1 call/second max.
+  const [localTitle, setLocalTitle] = useState('');
+  const [localContent, setLocalContent] = useState('');
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Sync local state when a different note is selected
+  useEffect(() => {
+    if (selectedNote) {
+      setLocalTitle(selectedNote.title);
+      setLocalContent(selectedNote.content);
+    }
+  }, [selectedNote?.id]); // Only re-sync on note switch, not on every note update
+
+  const debouncedSave = useCallback((noteId: string, field: 'title' | 'content', value: string) => {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      updateNote(noteId, { [field]: value });
+    }, 1000);
+  }, [updateNote]);
+
+  // Cleanup debounce on unmount
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
+  }, []);
 
   const handleCreateNote = async () => {
     const newNote = await createNote({
@@ -212,8 +241,11 @@ const NotesPage: React.FC = () => {
                       <div className="flex-1">
                         <input 
                           type="text"
-                          value={selectedNote.title}
-                          onChange={(e) => updateNote(selectedNote.id, { title: e.target.value })}
+                          value={localTitle}
+                          onChange={(e) => {
+                            setLocalTitle(e.target.value);
+                            debouncedSave(selectedNote.id, 'title', e.target.value);
+                          }}
                           className="w-full bg-transparent border-none text-2xl font-display font-light text-white focus:outline-none placeholder:text-white/10"
                           placeholder="Note Title"
                         />
@@ -295,8 +327,11 @@ const NotesPage: React.FC = () => {
                         <div className="absolute inset-0 bg-sage-200/5 rounded-3xl blur-[100px] animate-breath opacity-20 pointer-events-none" />
                       )}
                       <textarea 
-                        value={selectedNote.content}
-                        onChange={(e) => updateNote(selectedNote.id, { content: e.target.value })}
+                        value={localContent}
+                        onChange={(e) => {
+                          setLocalContent(e.target.value);
+                          debouncedSave(selectedNote.id, 'content', e.target.value);
+                        }}
                         className={`w-full h-full bg-transparent border-none text-white/80 leading-relaxed focus:outline-none resize-none custom-scrollbar placeholder:text-white/5 font-light transition-all duration-1000 ${
                           isZenMode ? 'text-2xl px-12 py-12' : 'text-lg'
                         }`}

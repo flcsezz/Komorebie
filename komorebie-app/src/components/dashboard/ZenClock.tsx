@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform, animate } from 'framer-motion';
-import { Music, Check, Volume2, Tag } from 'lucide-react';
+import { Music, Check, Volume2, Tag, Plus } from 'lucide-react';
 import { useZenClock } from '../../hooks/useZenClock';
 
 const ALARM_PRESETS = [
@@ -33,6 +33,29 @@ const ZenClock: React.FC = () => {
 
   const [showAlarms, setShowAlarms] = useState(false);
   const alarmMenuRef = useRef<HTMLDivElement>(null);
+
+  // Local tag input — only commits to context (and cloud) on confirm
+  const [tagInput, setTagInput] = useState(currentTag || '');
+  const tagInputRef = useRef<HTMLInputElement>(null);
+
+  // Keep local input in sync when context tag changes externally (e.g. quick-tag click, cloud sync)
+  useEffect(() => {
+    setTagInput(currentTag || '');
+  }, [currentTag]);
+
+  const commitTag = () => {
+    const trimmed = tagInput.trim().substring(0, 20);
+    setCurrentTag(trimmed || null);
+    // Blur input after commit for cleaner UX
+    tagInputRef.current?.blur();
+  };
+
+  const handleTagKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      commitTag();
+    }
+  };
 
   // Click outside listener
   useEffect(() => {
@@ -356,21 +379,33 @@ const ZenClock: React.FC = () => {
           <Tag className={`w-3.5 h-3.5 ${currentTag ? 'text-sage-200 animate-pulse' : 'text-white/30'}`} />
           
           <input
+            ref={tagInputRef}
             type="text"
-            value={currentTag || ''}
-            onChange={(e) => {
-              const val = e.target.value.trim().substring(0, 20);
-              setCurrentTag(val || null);
-            }}
+            value={tagInput}
+            onChange={(e) => setTagInput(e.target.value.substring(0, 20))}
+            onKeyDown={handleTagKeyDown}
             disabled={isActive}
             placeholder="Add a tag..."
-            className="bg-transparent border-none outline-none text-[13px] text-white placeholder-white/35 font-sans font-medium w-32 tracking-wide focus:ring-0 p-0 text-center"
+            className="bg-transparent border-none outline-none text-[13px] text-white placeholder-white/35 font-sans font-medium w-32 tracking-wide focus:ring-0 focus-visible:outline-none p-0 text-center"
           />
 
-          {!isActive && currentTag && (
+          {/* Confirm button — only show when local input differs from committed tag */}
+          {!isActive && tagInput.trim() && tagInput.trim() !== (currentTag || '') && (
+            <motion.button
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0, opacity: 0 }}
+              onClick={commitTag}
+              className="w-5 h-5 rounded-full bg-sage-200/20 border border-sage-200/30 flex items-center justify-center text-sage-200 hover:bg-sage-200/30 transition-all cursor-pointer focus-visible:outline-none"
+            >
+              <Plus className="w-3 h-3" />
+            </motion.button>
+          )}
+
+          {!isActive && currentTag && tagInput.trim() === (currentTag || '') && (
             <button
-              onClick={() => setCurrentTag(null)}
-              className="text-white/30 hover:text-white transition-colors cursor-pointer"
+              onClick={() => { setCurrentTag(null); setTagInput(''); }}
+              className="text-white/30 hover:text-white transition-colors cursor-pointer focus-visible:outline-none"
             >
               <span className="text-[10px] font-bold">✕</span>
             </button>
@@ -379,7 +414,7 @@ const ZenClock: React.FC = () => {
 
         {/* Quick Tag Recommendations (Only show if not active) */}
         <AnimatePresence>
-          {!isActive && !currentTag && (
+          {!isActive && !currentTag && !tagInput.trim() && (
             <motion.div 
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
@@ -390,7 +425,7 @@ const ZenClock: React.FC = () => {
                 <button
                   key={t}
                   onClick={() => setCurrentTag(t)}
-                  className="px-3 py-1 rounded-full bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 text-[10px] font-mono text-white/40 hover:text-white transition-all duration-300 cursor-pointer uppercase tracking-wider"
+                  className="px-3 py-1 rounded-full bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 text-[10px] font-mono text-white/40 hover:text-white transition-all duration-300 cursor-pointer uppercase tracking-wider focus-visible:outline-none"
                 >
                   {t}
                 </button>
