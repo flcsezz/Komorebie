@@ -43,13 +43,13 @@ export const TagDonutChart: React.FC<TagDonutChartProps> = ({
       return { ...item, rawPercentage: pct };
     });
 
-    // Ensure any active segment has at least 5% (0.05) visual width to remain visible/hoverable when multiple tags exist
+    // Ensure any active segment has at least 1% (0.01) visual width to remain visible/hoverable when multiple tags exist
     const activeSegmentsCount = rawSegments.filter(s => s.total_seconds > 0).length;
     
     let adjustedSegments = rawSegments.map(s => {
       let pct = s.rawPercentage;
-      if (s.total_seconds > 0 && pct < 0.05 && activeSegmentsCount > 1) {
-        pct = 0.05;
+      if (s.total_seconds > 0 && pct < 0.01 && activeSegmentsCount > 1) {
+        pct = 0.01;
       }
       return { ...s, percentage: pct };
     });
