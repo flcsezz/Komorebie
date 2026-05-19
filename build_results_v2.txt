@@ -1,7 +1,0 @@
-
-> komorebie-app@0.0.0 build
-> tsc -b && vite build
-
-src/components/ui/OptimizedImage.tsx(35,22): error TS2304: Cannot find name 'useCallback'.
-src/components/ui/OptimizedImage.tsx(42,23): error TS2304: Cannot find name 'useCallback'.
-src/context/ZenClockContext.tsx(420,7): error TS2304: Cannot find name 'nextCycle'.

@@ -12,6 +12,8 @@ const FocusSession: React.FC = () => {
     duration,
     isActive,
     currentTag,
+    isSessionComplete,
+    completeSession,
     toggleTimer,
     resetTimer
   } = useZenClock();
@@ -22,11 +24,20 @@ const FocusSession: React.FC = () => {
   const task = location.state?.task || "Deep Work";
   const [showStopConfirm, setShowStopConfirm] = useState(false);
 
+  // Auto-navigate when session naturally completes (timer hits 0).
+  // `isSessionComplete` is set AFTER the session has been logged by the tick effect,
+  // so stats are guaranteed to be in Supabase before we navigate.
   React.useEffect(() => {
-    if (timeLeft === 0 && isActive) {
-      navigate('/app/analytics');
+    if (isSessionComplete) {
+      // Complete the session (resets state, awaits cloud sync) and navigate
+      const finish = async () => {
+        await completeSession();
+        await refresh(true);
+        navigate('/app/analytics');
+      };
+      finish();
     }
-  }, [timeLeft, isActive, navigate]);
+  }, [isSessionComplete, completeSession, refresh, navigate]);
 
   const onEnd = () => {
     setShowStopConfirm(true);
@@ -36,7 +47,7 @@ const FocusSession: React.FC = () => {
     setShowStopConfirm(false);
     await resetTimer();
     // Force-refresh analytics so stats are current before the page renders
-    refresh(true);
+    await refresh(true);
     navigate('/app/analytics');
   };
 

@@ -22,7 +22,7 @@ export interface ZenClockContextType {
   resetTimer: () => void;
   setSelectedAlarm: (alarm: string) => void;
   stopAlarm: () => void;
-  completeSession: () => void;
+  completeSession: () => Promise<void>;
   skipBreak: () => void;
 }
 
@@ -101,11 +101,16 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const lastLocalUpdateRef = useRef<number>(0);
   // Guard to prevent double-firing of completion logic within the tick effect
   const hasTriggeredCompletionRef = useRef<boolean>(false);
+  // Guard to prevent double-logging: true when logSessionIfQualified has already been called for this session
+  const sessionLoggedRef = useRef<boolean>(false);
   // Debounce timer for cloud sync
   const syncDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Stable ref for currentTag — avoids tearing down heartbeat/sync callbacks on every keystroke
   const currentTagRef = useRef(currentTag);
   useEffect(() => { currentTagRef.current = currentTag; }, [currentTag]);
+  // Stable ref for sessionStartTime — used in tick effect without adding it to deps
+  const sessionStartTimeRef = useRef(sessionStartTime);
+  useEffect(() => { sessionStartTimeRef.current = sessionStartTime; }, [sessionStartTime]);
 
   // Raw cloud sync (no debounce) — used internally
   // Uses currentTagRef instead of currentTag to avoid re-creating this callback on every keystroke
@@ -337,11 +342,12 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
    * After a long break ends, shows session complete (full 4-cycle set done).
    */
   const advancePomodoroPhase = useCallback(() => {
-    // Log the completed work period
-    if (pomodoroState === 'work') {
+    // Log the completed work period (if not already logged by tick)
+    if (pomodoroState === 'work' && !sessionLoggedRef.current) {
       // Include any overtime accrued before the tick detected 0
       const totalElapsedSeconds = duration * 60 + Math.abs(Math.min(0, timeLeft));
       logSessionIfQualified(totalElapsedSeconds, 'completed', sessionStartTime);
+      sessionLoggedRef.current = true;
     }
 
     let nextPomState: PomodoroState;
@@ -399,6 +405,7 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setSessionStartTime(startTime);
     setTargetEndTime(targetEnd);
     hasTriggeredCompletionRef.current = false; // Reset guard for the new phase
+    sessionLoggedRef.current = false; // Reset logging guard for the new phase
 
     // Sync the new phase to cloud
     syncTimerToCloud(true, startTime, nextDurationSeconds, true, nextPomState, nextDurationSeconds);
@@ -413,13 +420,15 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
    * 2. Pomodoro mode: after full 4-cycle set (long break ended)
    * 3. Fallback: if user manually triggers completion
    */
-  const completeSession = useCallback(() => {
+  const completeSession = useCallback(async () => {
     stopAlarm();
 
     // Log session if in non-pomodoro mode or if this is a manual completion during work
-    if (!isPomodoroMode || pomodoroState === 'work') {
+    // Skip if already logged by the natural-completion tick handler
+    if ((!isPomodoroMode || pomodoroState === 'work') && !sessionLoggedRef.current) {
       const totalElapsedSeconds = duration * 60 + Math.abs(Math.min(0, timeLeft));
-      logSessionIfQualified(totalElapsedSeconds, 'completed', sessionStartTime);
+      await logSessionIfQualified(totalElapsedSeconds, 'completed', sessionStartTime);
+      sessionLoggedRef.current = true;
     }
 
     setIsSessionComplete(false);
@@ -441,10 +450,11 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setTimeLeft(nextDuration * 60);
     setIsActive(false);
     hasTriggeredCompletionRef.current = false;
+    sessionLoggedRef.current = false;
     
     // SYNC: Clear active timer from cloud with the NEW state
-    syncTimerToCloudImmediate(false, null, nextDuration * 60, isPomodoroMode, nextPomState, nextDuration * 60);
-  }, [isPomodoroMode, pomodoroState, duration, timeLeft, sessionStartTime, stopAlarm, syncTimerToCloud, logSessionIfQualified]);
+    await syncTimerToCloudImmediate(false, null, nextDuration * 60, isPomodoroMode, nextPomState, nextDuration * 60);
+  }, [isPomodoroMode, pomodoroState, duration, timeLeft, sessionStartTime, stopAlarm, syncTimerToCloudImmediate, logSessionIfQualified]);
 
   const skipBreak = useCallback(() => {
     if (isPomodoroMode && (pomodoroState === 'shortBreak' || pomodoroState === 'longBreak')) {
@@ -461,6 +471,7 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setIsActive(true);
       setIsSessionComplete(false);
       hasTriggeredCompletionRef.current = false;
+      sessionLoggedRef.current = false;
 
       // SYNC: Start next pomodoro leg in cloud
       const startTime = new Date().toISOString();
@@ -469,7 +480,7 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setTargetEndTime(targetEnd);
       syncTimerToCloudImmediate(true, startTime, nextDuration * 60, isPomodoroMode, 'work', nextDuration * 60);
     }
-  }, [isPomodoroMode, pomodoroState, pomodoroCycle, stopAlarm, syncTimerToCloud]);
+  }, [isPomodoroMode, pomodoroState, pomodoroCycle, stopAlarm, syncTimerToCloudImmediate]);
 
   // Cloud heartbeat — writes updated_at every 30s while timer is active
   // This signals to other devices that the timer is still alive
@@ -535,7 +546,19 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               // Auto-advance to next Pomodoro phase
               advancePomodoroPhase();
             } else {
-              // Non-Pomodoro: play alarm and show "COMPLETE SESSION" button
+              // Non-Pomodoro: LOG the session immediately, then play alarm
+              // This is the critical fix — previously the session was never logged here,
+              // so stats never updated when the timer naturally expired.
+              if (!sessionLoggedRef.current) {
+                sessionLoggedRef.current = true;
+                // Use the stable ref to get sessionStartTime without adding it to effect deps
+                const startedAt = sessionStartTimeRef.current;
+                // Compute actual wall-clock elapsed from started_at to now
+                const wallClockElapsed = startedAt
+                  ? Math.round((Date.now() - new Date(startedAt).getTime()) / 1000)
+                  : duration * 60;
+                logSessionIfQualified(Math.max(wallClockElapsed, duration * 60), 'completed', startedAt);
+              }
               playAlarm();
               setIsSessionComplete(true);
             }
@@ -555,7 +578,7 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [isActive, targetEndTime, playAlarm, advancePomodoroPhase, isPomodoroMode, completeSession]);
+  }, [isActive, targetEndTime, playAlarm, advancePomodoroPhase, isPomodoroMode, completeSession, logSessionIfQualified, duration]);
 
   const toggleTimer = async () => {
     if (isSessionComplete) {
@@ -612,6 +635,7 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setSessionStartTime(startTime);
       setTargetEndTime(targetEnd);
       hasTriggeredCompletionRef.current = false;
+      sessionLoggedRef.current = false;
       
       // FULLSCREEN FIRST: Enter fullscreen immediately on user gesture to avoid network latency.
       // Doing this synchronously in the user click handler ensures browsers do not block the request.
@@ -683,6 +707,7 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setSessionStartTime(null);
       setTargetEndTime(null);
       hasTriggeredCompletionRef.current = false;
+      sessionLoggedRef.current = false;
       lastLocalUpdateRef.current = Date.now();
 
       // 2. Log in background (don't block the UI reset, but await if we want to ensure it completes before cloud sync)
