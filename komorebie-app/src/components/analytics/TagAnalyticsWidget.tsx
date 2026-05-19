@@ -125,7 +125,7 @@ export const TagAnalyticsWidget: React.FC<TagAnalyticsWidgetProps> = ({ userId }
         <p className="text-xs text-white/40 max-w-[200px] leading-relaxed">
           {timeRange === 'today' 
             ? "You haven't recorded any sessions today. Start a timer to see your distribution!" 
-            : "No sessions found. Your tag journey starts with your first focused minute."}
+            : "No sessions found. Your focus ray journey starts with your first focused minute."}
         </p>
         <button 
           onClick={() => setTimeRange('all')}
@@ -150,16 +150,16 @@ export const TagAnalyticsWidget: React.FC<TagAnalyticsWidgetProps> = ({ userId }
           </div>
           <div>
             <h3 className="text-sm font-display font-medium text-white tracking-wide uppercase">
-              Tag Distribution
+              Ray Distribution
             </h3>
             <p className="text-[10px] font-mono text-white/30 uppercase tracking-tighter">
               {timeRange === 'today' ? "Daily insights" : "Historical data"}
             </p>
           </div>
         </div>
-
+ 
         <div className="flex items-center gap-2">
-          {/* Focus mode tag filter */}
+          {/* Focus mode ray filter */}
           <button
             onClick={() => setExcludeUntagged(!excludeUntagged)}
             className={`
@@ -168,10 +168,10 @@ export const TagAnalyticsWidget: React.FC<TagAnalyticsWidgetProps> = ({ userId }
                 ? 'bg-sage-200/10 text-sage-200 border-sage-200/20 shadow-[0_0_15px_rgba(167,199,144,0.1)]' 
                 : 'bg-black/40 text-white/40 border-white/5 hover:text-white/60'}
             `}
-            title={excludeUntagged ? "Showing only categorized tags" : "Showing all sessions including Untagged"}
+            title={excludeUntagged ? "Showing only active rays" : "Showing all sessions including Pure Light"}
           >
             <Tag className="w-2.5 h-2.5" />
-            {excludeUntagged ? "Categorized" : "All Focus"}
+            {excludeUntagged ? "Active Rays" : "Full Spectrum"}
           </button>
 
           {/* Time range switcher */}
@@ -230,17 +230,17 @@ export const TagAnalyticsWidget: React.FC<TagAnalyticsWidgetProps> = ({ userId }
                   className="w-1.5 h-6 rounded-full transition-all group-hover:scale-y-110 cursor-pointer" 
                   style={{ backgroundColor: color, boxShadow: isHovered ? `0 0 10px ${color}` : 'none' }}
                   onClick={() => handleEditColor(item.tag)}
-                  title="Assign custom color"
+                  title="Customize Ray Color"
                 />
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
                     <div className="text-[11px] font-medium text-white/80 group-hover:text-white capitalize truncate">
-                      {item.tag}
+                      {item.tag === 'Untagged' ? 'Pure Light' : item.tag}
                     </div>
                     <button
                       onClick={() => handleEditColor(item.tag)}
                       className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded text-white/40 hover:text-sage-200 hover:scale-110 active:scale-90 cursor-pointer"
-                      title="Edit color"
+                      title="Tune Ray Color"
                     >
                       <Palette className="w-3 h-3" />
                     </button>
@@ -296,10 +296,10 @@ export const TagAnalyticsWidget: React.FC<TagAnalyticsWidgetProps> = ({ userId }
                   <Palette className="w-5 h-5 text-sage-200" />
                   <div>
                     <h4 className="text-sm font-display font-medium text-white uppercase tracking-wider">
-                      Assign Tag Color
+                      Tune Ray Aura
                     </h4>
                     <p className="text-[10px] font-mono text-white/40 uppercase">
-                      Customizing tag: {editingTag}
+                      Customizing ray: {editingTag === 'Untagged' ? 'Pure Light' : editingTag}
                     </p>
                   </div>
                 </div>
@@ -310,7 +310,7 @@ export const TagAnalyticsWidget: React.FC<TagAnalyticsWidgetProps> = ({ userId }
                   <X className="w-4 h-4" />
                 </button>
               </div>
-
+ 
               {/* Preview */}
               <div className="mb-6 p-4 rounded-2xl bg-white/[0.02] border border-white/5 flex items-center justify-center gap-3">
                 <div 
@@ -318,7 +318,7 @@ export const TagAnalyticsWidget: React.FC<TagAnalyticsWidgetProps> = ({ userId }
                   style={{ backgroundColor: selectedColor, boxShadow: `0 0 15px ${selectedColor}80` }}
                 />
                 <span className="text-xs font-semibold text-white/80 capitalize">
-                  {editingTag}
+                  {editingTag === 'Untagged' ? 'Pure Light' : editingTag}
                 </span>
                 <span className="text-[10px] font-mono text-white/30 lowercase">
                   ({selectedColor})
