@@ -9,6 +9,7 @@ interface TagDonutChartProps {
   onHover: (tag: string | null) => void;
   getTagColor: (tag: string) => string;
   onSelectSegment?: (tag: string) => void;
+  tagColors?: Record<string, string>;
 }
 
 const formatDuration = (seconds: number) => {
@@ -25,7 +26,8 @@ export const TagDonutChart: React.FC<TagDonutChartProps> = ({
   hoveredTag, 
   onHover, 
   getTagColor,
-  onSelectSegment
+  onSelectSegment,
+  tagColors = {}
 }) => {
   const size = 200;
   const strokeWidth = 14;
@@ -33,33 +35,52 @@ export const TagDonutChart: React.FC<TagDonutChartProps> = ({
   const circumference = 2 * Math.PI * radius;
 
   const chartSegments = useMemo(() => {
-    const hasOtherTags = data.some(item => item.tag !== 'Untagged' && item.total_seconds > 0);
-    const filteredData = hasOtherTags 
-      ? data.filter(item => item.tag !== 'Untagged')
-      : data;
+    const segmentTotalSeconds = data.reduce((acc, curr) => acc + curr.total_seconds, 0);
 
-    const segmentTotalSeconds = filteredData.reduce((acc, curr) => acc + curr.total_seconds, 0);
+    // Compute raw percentages
+    const rawSegments = data.map(item => {
+      const pct = segmentTotalSeconds > 0 ? (item.total_seconds / segmentTotalSeconds) : 0;
+      return { ...item, rawPercentage: pct };
+    });
+
+    // Ensure any active segment has at least 5% (0.05) visual width to remain visible/hoverable when multiple tags exist
+    const activeSegmentsCount = rawSegments.filter(s => s.total_seconds > 0).length;
+    
+    let adjustedSegments = rawSegments.map(s => {
+      let pct = s.rawPercentage;
+      if (s.total_seconds > 0 && pct < 0.05 && activeSegmentsCount > 1) {
+        pct = 0.05;
+      }
+      return { ...s, percentage: pct };
+    });
+
+    // Normalize adjusted percentages to sum to exactly 1.0
+    const sumAdjusted = adjustedSegments.reduce((acc, curr) => acc + curr.percentage, 0);
+    if (sumAdjusted > 0 && Math.abs(sumAdjusted - 1) > 0.001) {
+      adjustedSegments = adjustedSegments.map(s => ({
+        ...s,
+        percentage: s.percentage / sumAdjusted
+      }));
+    }
 
     let currentOffset = 0;
-    return filteredData.map((item) => {
-      const percentage = segmentTotalSeconds > 0 ? (item.total_seconds / segmentTotalSeconds) : 0;
+    return adjustedSegments.map((item) => {
       const segmentOffset = currentOffset;
-      currentOffset += percentage;
+      currentOffset += item.percentage;
       
       let color = getTagColor(item.tag);
       if (item.tag === 'Untagged') {
-        color = 'rgba(183, 201, 176, 0.45)'; // Glowing Sage color with opacity
+        color = tagColors['Untagged'] || 'rgba(183, 201, 176, 0.45)';
       }
       
       return {
         ...item,
-        percentage,
         offset: segmentOffset * circumference,
-        length: percentage * circumference,
+        length: item.percentage * circumference,
         color
       };
     });
-  }, [data, circumference, getTagColor]);
+  }, [data, circumference, getTagColor, tagColors]);
 
   const activeData = useMemo(() => 
     chartSegments.find(s => s.tag === hoveredTag) || null,

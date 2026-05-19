@@ -48,13 +48,13 @@ export const TagAnalyticsWidget: React.FC<TagAnalyticsWidgetProps> = ({ userId }
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState<'today' | 'all'>('today');
   const [hoveredTag, setHoveredTag] = useState<string | null>(null);
+  const [excludeUntagged, setExcludeUntagged] = useState<boolean>(false);
 
   const [editingTag, setEditingTag] = useState<string | null>(null);
   const [selectedColor, setSelectedColor] = useState<string>('#B7C9B0');
 
   const getTagColor = (tag: string) => {
-    if (tag === 'Untagged') return 'rgba(148, 163, 184, 0.5)';
-    return tagColors[tag] || getDefaultTagColor(tag);
+    return tagColors[tag] || (tag === 'Untagged' ? 'rgba(148, 163, 184, 0.5)' : getDefaultTagColor(tag));
   };
 
   useEffect(() => {
@@ -74,7 +74,6 @@ export const TagAnalyticsWidget: React.FC<TagAnalyticsWidgetProps> = ({ userId }
   }, [userId, timeRange]);
 
   const handleEditColor = (tag: string) => {
-    if (tag === 'Untagged') return;
     setEditingTag(tag);
     setSelectedColor(getTagColor(tag));
   };
@@ -101,7 +100,9 @@ export const TagAnalyticsWidget: React.FC<TagAnalyticsWidgetProps> = ({ userId }
     }
   };
 
-  const totalSeconds = tagData.reduce((acc, curr) => acc + curr.total_seconds, 0);
+  // Compute filtered tag data for donut chart & legend
+  const displayedTagData = tagData.filter(item => !excludeUntagged || item.tag !== 'Untagged');
+  const displayedTotalSeconds = displayedTagData.reduce((acc, curr) => acc + curr.total_seconds, 0);
 
   if (loading) {
     return (
@@ -157,43 +158,62 @@ export const TagAnalyticsWidget: React.FC<TagAnalyticsWidgetProps> = ({ userId }
           </div>
         </div>
 
-        <div className="flex bg-black/40 p-1 rounded-full border border-white/5">
-          {(['today', 'all'] as const).map((r) => (
-            <button
-              key={r}
-              onClick={() => setTimeRange(r)}
-              className={`
-                px-4 py-1.5 rounded-full text-[10px] font-mono uppercase tracking-widest transition-all cursor-pointer
-                ${timeRange === r 
-                  ? 'bg-sage-200/10 text-sage-200 shadow-[0_0_15px_rgba(167,199,144,0.1)] border border-sage-200/20' 
-                  : 'text-white/30 hover:text-white/60'}
-              `}
-            >
-              {r}
-            </button>
-          ))}
+        <div className="flex items-center gap-2">
+          {/* Focus mode tag filter */}
+          <button
+            onClick={() => setExcludeUntagged(!excludeUntagged)}
+            className={`
+              px-3 py-1.5 rounded-full text-[9px] font-mono uppercase tracking-wider transition-all cursor-pointer border flex items-center gap-1
+              ${excludeUntagged 
+                ? 'bg-sage-200/10 text-sage-200 border-sage-200/20 shadow-[0_0_15px_rgba(167,199,144,0.1)]' 
+                : 'bg-black/40 text-white/40 border-white/5 hover:text-white/60'}
+            `}
+            title={excludeUntagged ? "Showing only categorized tags" : "Showing all sessions including Untagged"}
+          >
+            <Tag className="w-2.5 h-2.5" />
+            {excludeUntagged ? "Categorized" : "All Focus"}
+          </button>
+
+          {/* Time range switcher */}
+          <div className="flex bg-black/40 p-1 rounded-full border border-white/5">
+            {(['today', 'all'] as const).map((r) => (
+              <button
+                key={r}
+                onClick={() => setTimeRange(r)}
+                className={`
+                  px-3.5 py-1 rounded-full text-[9px] font-mono uppercase tracking-widest transition-all cursor-pointer
+                  ${timeRange === r 
+                    ? 'bg-sage-200/10 text-sage-200 border border-sage-200/20' 
+                    : 'text-white/30 hover:text-white/60'}
+                `}
+              >
+                {r}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
-
+ 
       {/* Main Chart Section */}
       <div className="flex-1 flex flex-col items-center justify-center mb-10">
         <TagDonutChart 
-          data={tagData} 
-          totalSeconds={totalSeconds} 
+          data={displayedTagData} 
+          totalSeconds={displayedTotalSeconds} 
           hoveredTag={hoveredTag}
           onHover={setHoveredTag}
           getTagColor={getTagColor}
           onSelectSegment={handleEditColor}
+          tagColors={tagColors}
         />
       </div>
 
       {/* Interactive Legend Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 relative z-10">
-        {tagData.slice(0, 6).map((item) => {
+        {displayedTagData.slice(0, 6).map((item) => {
           const isHovered = hoveredTag === item.tag;
           const color = getTagColor(item.tag);
-          const pct = Math.round((item.total_seconds / totalSeconds) * 100);
-
+          const pct = displayedTotalSeconds > 0 ? Math.round((item.total_seconds / displayedTotalSeconds) * 100) : 0;
+ 
           return (
             <motion.div
               key={item.tag}
@@ -217,15 +237,13 @@ export const TagAnalyticsWidget: React.FC<TagAnalyticsWidgetProps> = ({ userId }
                     <div className="text-[11px] font-medium text-white/80 group-hover:text-white capitalize truncate">
                       {item.tag}
                     </div>
-                    {item.tag !== 'Untagged' && (
-                      <button
-                        onClick={() => handleEditColor(item.tag)}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded text-white/40 hover:text-sage-200 hover:scale-110 active:scale-90 cursor-pointer"
-                        title="Edit color"
-                      >
-                        <Palette className="w-3 h-3" />
-                      </button>
-                    )}
+                    <button
+                      onClick={() => handleEditColor(item.tag)}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded text-white/40 hover:text-sage-200 hover:scale-110 active:scale-90 cursor-pointer"
+                      title="Edit color"
+                    >
+                      <Palette className="w-3 h-3" />
+                    </button>
                   </div>
                   <div className="text-[9px] font-mono text-white/30">
                     {item.session_count} {item.session_count === 1 ? 'session' : 'sessions'}
