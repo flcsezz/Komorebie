@@ -113,6 +113,8 @@ const ZenClock: React.FC = () => {
   const centerY = 250;
   const circumference = 2 * Math.PI * (radius + 15);
 
+  const canSkipBreak = isPomodoroMode && isActive && !isSessionComplete && (pomodoroState === 'shortBreak' || pomodoroState === 'longBreak');
+
   return (
     <motion.div 
       className={`relative flex flex-col items-center justify-center w-full transition-all duration-700 ease-in-out ${
@@ -321,7 +323,7 @@ const ZenClock: React.FC = () => {
               </motion.button>
 
               <AnimatePresence>
-                {isPomodoroMode && isActive && !isSessionComplete && (pomodoroState === 'shortBreak' || pomodoroState === 'longBreak') && (
+                {canSkipBreak && (
                   <motion.button
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
