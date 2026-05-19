@@ -315,7 +315,6 @@ export default {
       const sql = getSqlClient(env);
       
       // 1 TRIP to Postgres for ALL 50 users' data
-      console.log(`[Cron] Fetching mega-payload for ${userIds.length} users via Hyperdrive...`);
       const results = await sql`SELECT * FROM get_mega_sync_data(${userIds}::uuid[])`;
       
       const now = new Date().toISOString();
