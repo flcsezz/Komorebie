@@ -374,21 +374,27 @@ export interface TagAnalyticData {
   session_count: number;
 }
 
-export const fetchTagAnalytics = async (userId: string): Promise<TagAnalyticData[]> => {
+export const fetchTagAnalytics = async (userId: string, range: 'today' | 'all' = 'all'): Promise<TagAnalyticData[]> => {
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from('focus_sessions')
-      .select('tag, elapsed_seconds')
-      .eq('user_id', userId)
-      .not('tag', 'is', null);
+      .select('tag, elapsed_seconds, started_at')
+      .eq('user_id', userId);
+
+    if (range === 'today') {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      query = query.gte('started_at', today.toISOString());
+    }
+
+    const { data, error } = await query;
 
     if (error) throw error;
 
     const aggregates: Record<string, { total_seconds: number; session_count: number }> = {};
 
     for (const session of (data || [])) {
-      const tag = session.tag;
-      if (!tag) continue;
+      const tag = session.tag || 'Untagged';
       
       const seconds = session.elapsed_seconds || 0;
       if (!aggregates[tag]) {

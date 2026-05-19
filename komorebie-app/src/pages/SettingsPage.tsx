@@ -12,9 +12,11 @@ import {
   Timer,
   User,
   Palette,
-  Bell,
   VolumeX,
-  Volume1
+  Volume1,
+  Tag,
+  X,
+  RotateCcw
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useDataSync } from '../context/DataSyncContext';
@@ -23,6 +25,7 @@ import { supabase } from '../lib/supabase';
 import GlassCard from '../components/ui/GlassCard';
 import ZenSelect from '../components/ui/ZenSelect';
 import { useZenClock } from '../hooks/useZenClock';
+import { fetchTagAnalytics } from '../lib/analytics';
 
 const THEME_PRESETS = [
   { 
@@ -65,13 +68,90 @@ const THEME_PRESETS = [
  */
 const SettingsPage: React.FC = () => {
   const { user, signOut } = useAuth();
-  const { profile, refresh } = useDataSync();
+  const { profile, refresh, tagColors, setTagColor } = useDataSync();
   const { setDuration } = useZenClock();
   const { setBackground } = useBackground();
   
   const [activeTab, setActiveTab] = useState<'focus' | 'audio' | 'account' | 'theme' | 'data'>('focus');
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // Tag Color Customizer State
+  const [uniqueTags, setUniqueTags] = useState<string[]>([]);
+  const [editingTag, setEditingTag] = useState<string | null>(null);
+  const [selectedTagColor, setSelectedTagColor] = useState<string>('#B7C9B0');
+
+  const getDefaultTagColor = (tag: string) => {
+    if (tag === 'Untagged') return 'rgba(148, 163, 184, 0.5)';
+    let hash = 0;
+    for (let i = 0; i < tag.length; i++) {
+      hash = tag.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const hue = Math.abs(hash % 360);
+    return `hsl(${hue}, 70%, 65%)`;
+  };
+
+  const PRESET_COLORS = [
+    { name: 'Sage', value: '#B7C9B0' },
+    { name: 'Forest', value: '#829B74' },
+    { name: 'Sakura', value: '#EFC7C8' },
+    { name: 'Sunset Gold', value: '#D4AF37' },
+    { name: 'Lavender', value: '#BDB2FF' },
+    { name: 'Ocean Blue', value: '#A0C4FF' },
+    { name: 'Teal', value: '#9BF6FF' },
+    { name: 'Mint', value: '#CAFFBF' },
+    { name: 'Apricot', value: '#FFD6A5' },
+    { name: 'Coral', value: '#FFADAD' },
+  ];
+
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+    const loadTags = async () => {
+      try {
+        const data = await fetchTagAnalytics(user.id, 'all');
+        if (active) {
+          const tags = data
+            .map((item) => item.tag)
+            .filter((tag): tag is string => !!tag && tag !== 'Untagged');
+          setUniqueTags(tags);
+        }
+      } catch (err) {
+        console.error('Failed to load tags for customization:', err);
+      }
+    };
+    loadTags();
+    return () => {
+      active = false;
+    };
+  }, [user]);
+
+  const handleEditTagColor = (tag: string) => {
+    setEditingTag(tag);
+    setSelectedTagColor(tagColors[tag] || getDefaultTagColor(tag));
+  };
+
+  const handleSaveTagColor = async () => {
+    if (editingTag) {
+      await setTagColor(editingTag, selectedTagColor);
+      setEditingTag(null);
+    }
+  };
+
+  const handleResetTagColor = async () => {
+    if (editingTag && user) {
+      const { error } = await supabase
+        .from('tag_colors')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('tag', editingTag);
+      
+      if (!error) {
+        refresh();
+      }
+      setEditingTag(null);
+    }
+  };
 
   // Focus Settings State
   const [workDur, setWorkDur] = useState('25');
@@ -519,6 +599,70 @@ const SettingsPage: React.FC = () => {
                     </div>
                   </div>
                 </GlassCard>
+
+                {/* Tag Color Settings Card */}
+                <motion.div
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mt-6"
+                >
+                  <GlassCard className="p-6">
+                    <h2 className="text-lg font-bold text-white/80 mb-4 flex items-center gap-3">
+                      <Tag className="w-5 h-5 text-sage-200" />
+                      Tag Colors
+                    </h2>
+                    <p className="text-xs text-white/40 leading-relaxed mb-6">
+                      Assign premium, custom colors to your focus tags. These colors sync across all devices and update your analytics charts automatically.
+                    </p>
+
+                    {uniqueTags.length === 0 ? (
+                      <div className="text-center py-8 text-xs text-white/25 font-mono uppercase tracking-widest border border-dashed border-white/10 rounded-2xl bg-white/[0.01]">
+                        No tags found. Start focusing to create tags!
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {uniqueTags.map((tag) => {
+                          const customColor = tagColors[tag];
+                          const displayColor = customColor || getDefaultTagColor(tag);
+                          
+                          return (
+                            <div 
+                              key={tag}
+                              className="flex items-center justify-between p-3 rounded-2xl bg-white/2 border border-white/5 hover:border-white/10 transition-all group"
+                            >
+                              <div className="flex items-center gap-3 min-w-0">
+                                <button
+                                  onClick={() => handleEditTagColor(tag)}
+                                  className="w-5 h-5 rounded-full relative cursor-pointer border border-white/10 flex-shrink-0 transition-transform hover:scale-115 active:scale-95"
+                                  style={{ 
+                                    backgroundColor: displayColor, 
+                                    boxShadow: `0 0 12px ${displayColor}40` 
+                                  }}
+                                  title="Change Tag Color"
+                                >
+                                  {customColor && (
+                                    <div className="absolute inset-1 rounded-full border border-white/40" />
+                                  )}
+                                </button>
+                                <span className="text-sm text-white/85 capitalize font-medium truncate">
+                                  {tag}
+                                </span>
+                              </div>
+
+                              <button
+                                onClick={() => handleEditTagColor(tag)}
+                                className="px-3 py-1.5 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/15 text-[10px] font-bold uppercase tracking-wider text-white/60 hover:text-white transition-all cursor-pointer flex items-center gap-1.5"
+                              >
+                                <Palette className="w-3.5 h-3.5 text-sage-200" />
+                                Color
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </GlassCard>
+                </motion.div>
               </motion.div>
             )}
 
@@ -578,6 +722,119 @@ const SettingsPage: React.FC = () => {
           </footer>
         </div>
       </div>
+
+      {/* Zen Tag Color Picker Modal */}
+      <AnimatePresence>
+        {editingTag && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setEditingTag(null)}
+              className="absolute inset-0 bg-slate-950/80 backdrop-blur-md"
+            />
+            
+            {/* Modal Body */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              transition={{ type: "spring", duration: 0.5 }}
+              className="relative w-full max-w-sm bg-slate-900/90 border border-white/10 p-6 rounded-3xl shadow-2xl backdrop-blur-2xl z-10"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-2.5">
+                  <Palette className="w-5 h-5 text-sage-200" />
+                  <div>
+                    <h4 className="text-sm font-display font-medium text-white uppercase tracking-wider">
+                      Assign Tag Color
+                    </h4>
+                    <p className="text-[10px] font-mono text-white/40 uppercase">
+                      Customizing tag: {editingTag}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setEditingTag(null)}
+                  className="p-1 rounded-xl bg-white/5 border border-white/5 text-white/50 hover:text-white transition-all cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Preview */}
+              <div className="mb-6 p-4 rounded-2xl bg-white/[0.02] border border-white/5 flex items-center justify-center gap-3">
+                <div 
+                  className="w-4 h-4 rounded-full transition-all duration-500 shadow-lg"
+                  style={{ backgroundColor: selectedTagColor, boxShadow: `0 0 15px ${selectedTagColor}80` }}
+                />
+                <span className="text-xs font-semibold text-white/80 capitalize">
+                  {editingTag}
+                </span>
+                <span className="text-[10px] font-mono text-white/30 lowercase">
+                  ({selectedTagColor})
+                </span>
+              </div>
+
+              {/* Color Selection Grid */}
+              <div className="grid grid-cols-5 gap-3.5 mb-6">
+                {PRESET_COLORS.map((preset) => {
+                  const isSelected = selectedTagColor.toLowerCase() === preset.value.toLowerCase();
+                  return (
+                    <button
+                      key={preset.name}
+                      onClick={() => setSelectedTagColor(preset.value)}
+                      className={`
+                        w-8 h-8 rounded-full relative cursor-pointer transition-all duration-300 hover:scale-110
+                        ${isSelected ? 'ring-2 ring-white ring-offset-2 ring-offset-slate-950 scale-110 shadow-lg' : 'opacity-80 hover:opacity-100'}
+                      `}
+                      style={{ backgroundColor: preset.value }}
+                      title={preset.name}
+                    >
+                      {isSelected && (
+                        <div className="absolute inset-0 rounded-full border border-white/40 scale-120 animate-pulse" />
+                      )}
+                    </button>
+                  );
+                })}
+                
+                {/* Custom Color Input Wrapper */}
+                <div className="relative w-8 h-8 rounded-full border border-white/10 overflow-hidden flex items-center justify-center bg-gradient-to-tr from-pink-500 via-purple-500 to-blue-500 hover:scale-110 transition-all cursor-pointer">
+                  <input
+                    type="color"
+                    value={selectedTagColor.startsWith('#') ? selectedTagColor : '#B7C9B0'}
+                    onChange={(e) => setSelectedTagColor(e.target.value)}
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                    title="Custom Color"
+                  />
+                  <span className="text-[10px] font-bold text-white pointer-events-none">+</span>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3">
+                <button
+                  onClick={handleResetTagColor}
+                  className="flex-1 px-4 py-2.5 rounded-xl border border-white/5 bg-white/5 text-[10px] font-mono uppercase tracking-widest text-white/40 hover:text-white hover:bg-white/10 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                  title="Reset to automatically generated color"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  Reset
+                </button>
+                <button
+                  onClick={handleSaveTagColor}
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-sage-200 text-slate-950 text-[10px] font-bold uppercase tracking-widest hover:bg-sage-100 active:scale-98 transition-all shadow-[0_0_20px_rgba(183,201,176,0.2)] flex items-center justify-center cursor-pointer"
+                >
+                  Save Color
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 };
