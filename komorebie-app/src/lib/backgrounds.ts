@@ -30,8 +30,8 @@ export const PUBLIC_BACKGROUNDS: Background[] = [
   { id: 'deep-space', name: 'Deep Space', url: getR2PublicUrl('backgrounds/space2.webp'), type: 'image' },
   { id: 'violet-higanbana', name: 'Violet Higanbana', url: getR2PublicUrl('backgrounds/flower.webp'), type: 'image' },
   { id: 'forest-totoro', name: 'Forest Totoro', url: getR2PublicUrl('backgrounds/left.webp'), type: 'image' },
-  { id: 'sunset-lake', name: 'Sunset Lake', url: getR2PublicUrl('backgrounds/pexels-jplenio-1642770.jpg'), type: 'image' },
-  { id: 'crescent-sea', name: 'Crescent Sea', url: getR2PublicUrl('backgrounds/pexels-jplenio-2816056.jpg'), type: 'image' },
+  { id: 'sunset-lake', name: 'Sunset Lake', url: getR2PublicUrl('backgrounds/pexels-jplenio-1642770.webp'), type: 'image' },
+  { id: 'crescent-sea', name: 'Crescent Sea', url: getR2PublicUrl('backgrounds/pexels-jplenio-2816056.webp'), type: 'image' },
   { id: 'gothic-rose-castle', name: 'Gothic Rose Castle', url: getR2PublicUrl('backgrounds/roses.webp'), type: 'image' },
 ];
 
