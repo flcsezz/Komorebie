@@ -1,17 +1,23 @@
 # Agent Instructions
 
+## Session Startup Ritual (MANDATORY)
+EVERY single session MUST start with the following sequence before any other action:
+1. Check pwd and run `git log --oneline -20` to establish ground truth of recent commits.
+2. Read `.agents/CURRENT_SESSION.md` (if it exists) to understand the current session's goal.
+3. Read `.agents/progress-log.json` to see what was just completed.
+4. Read `.agents/tasks.json` to find the highest-priority incomplete task (`"passes": false`). Do NOT edit or remove tasks, only update `passes` to `true` when verified.
+5. If `.agents/CURRENT_SESSION.md` does not exist or is empty, the initializer agent must wipe it and write the immediate focus for the current session based on the highest priority task.
+
 ## Mission
 - Build `Komorebie` as a premium deep-work product.
 - Optimize for calm, convenience, and focus.
 - Focus mode is a hard constraint: no unnecessary UI, motion, or social noise.
 
-## First Read
-1. `.agents/context/product.md`
-2. `.agents/context/design-system.md`
-3. `.agents/context/information-architecture.md`
-4. `.agents/context/user-flows.md`
-5. `.agents/tasks/task-board.md`
-6. `.agents/comms/decisions.md`
+## Core Directives for Hallucination Reduction
+1. **Git as Ground Truth:** Commit after every meaningful change. If a commit doesn't exist for a task, the feature wasn't done.
+2. **Test Before Marking Done:** Never claim success without verification. Test the feature end-to-end (e.g., hit the actual Supabase endpoint and check the response, or verify the UI component renders without errors) before marking a task as done.
+3. **Narrow Task Scope:** Focus on ONE feature or task per session.
+4. **Structured Output:** Update `.agents/tasks.json` (set `"passes": true`) and append to `.agents/progress-log.json` instead of writing free-form progress text. DO NOT alter the JSON schema or remove tasks.
 
 ## Project Reality
 - Real app lives in `komorebie-app/`
@@ -26,56 +32,12 @@
 - Main app entry: `komorebie-app/src/pages/TaskCapture.tsx`
 - Focus mode: `komorebie-app/src/pages/FocusSession.tsx`
 - Analytics prototype: `komorebie-app/src/pages/FlowAnalytics.tsx`
-- 3D environment: `komorebie-app/src/components/three/ZenEnvironment.tsx`
-- Styling foundation: `komorebie-app/src/index.css`
 
 ## Source Of Truth
-- Product: `.agents/context/product.md`
-- Design system: `.agents/context/design-system.md`
-- IA and routes: `.agents/context/information-architecture.md`
-- User flows: `.agents/context/user-flows.md`
-- Workflow: `.agents/context/workflow.md`
-- Active tasks: `.agents/tasks/task-board.md`
-- Detailed tickets: `.agents/tasks/agent-tickets.md`
-- Known issues: `komorebie-bug-review.md`
-
-## Working Rules
-- Claim work in `.agents/tasks/task-board.md` before major changes
-- Read the relevant context docs before editing code
-- Match the `Zen System`: calm, minimalist, restorative
-- Prefer low-friction flows over clever UI
-- Keep focus mode isolated from navigation, analytics, companion, and social surfaces
-- Do not introduce naming drift; use `Komorebie` unless the user renames the product
-
-## Documents To Update
-- Update `.agents/tasks/task-board.md` when claiming, blocking, or finishing work
-- Update `.agents/comms/decisions.md` when architecture, UX, or scope decisions change
-- Update `.agents/comms/handoffs.md` when you stop with incomplete work
-- Update `.agents/context/information-architecture.md` if routes or page purpose change
-- Update `.agents/context/user-flows.md` if user journeys change
-- Update `komorebie-bug-review.md` when you find or fix important bugs
-
-## Commands
-- Install deps: `npm install` in `komorebie-app/`
-- Dev server: `npm run dev`
-- Build: `npm run build`
-- Lint: `npm run lint`
-- List files: `rg --files`
-- Find text: `rg "pattern" komorebie-app/src`
-
-## File-Scoped Commands
-| Task | Command |
-|------|---------|
-| Lint repo app | `cd komorebie-app && npm run lint` |
-| Build repo app | `cd komorebie-app && npm run build` |
-| Read routes | `sed -n '1,220p' komorebie-app/src/App.tsx` |
-| Find page references | `rg "LandingPage|TaskCapture|FocusSession|FlowAnalytics" komorebie-app/src` |
-
-## Current Priorities
-- Finish sitemap and route skeleton
-- Audit current UI against Zen System and focus constraints
-- Fix prototype bugs before adding many new surfaces
-- Reduce initial bundle cost by lazy-loading routes and 3D where possible
+- High Level Goals: `PLAN.md`
+- Active Tasks: `.agents/tasks.json`
+- Progress Log: `.agents/progress-log.json`
+- Product/Design/IA: `.agents/context/` directory files
 
 ## Commit Attribution
 - AI commits MUST include:
