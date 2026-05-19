@@ -33,21 +33,33 @@ export const TagDonutChart: React.FC<TagDonutChartProps> = ({
   const circumference = 2 * Math.PI * radius;
 
   const chartSegments = useMemo(() => {
+    const hasOtherTags = data.some(item => item.tag !== 'Untagged' && item.total_seconds > 0);
+    const filteredData = hasOtherTags 
+      ? data.filter(item => item.tag !== 'Untagged')
+      : data;
+
+    const segmentTotalSeconds = filteredData.reduce((acc, curr) => acc + curr.total_seconds, 0);
+
     let currentOffset = 0;
-    return data.map((item) => {
-      const percentage = totalSeconds > 0 ? (item.total_seconds / totalSeconds) : 0;
+    return filteredData.map((item) => {
+      const percentage = segmentTotalSeconds > 0 ? (item.total_seconds / segmentTotalSeconds) : 0;
       const segmentOffset = currentOffset;
       currentOffset += percentage;
+      
+      let color = getTagColor(item.tag);
+      if (item.tag === 'Untagged') {
+        color = 'rgba(183, 201, 176, 0.45)'; // Glowing Sage color with opacity
+      }
       
       return {
         ...item,
         percentage,
         offset: segmentOffset * circumference,
         length: percentage * circumference,
-        color: getTagColor(item.tag)
+        color
       };
     });
-  }, [data, totalSeconds, circumference, getTagColor]);
+  }, [data, circumference, getTagColor]);
 
   const activeData = useMemo(() => 
     chartSegments.find(s => s.tag === hoveredTag) || null,
