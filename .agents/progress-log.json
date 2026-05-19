@@ -20,6 +20,19 @@
       "commit": "PENDING",
       "tested": true,
       "notes": "Implemented custom color assignment for focus tags with real-time donut chart sync, interactive segments, cloud persistence via Supabase tag_colors, and an elegant Zen Tag Color settings manager."
+    },
+    {
+      "date": "2026-05-19T08:55:00Z",
+      "task_id": "BUGFIX-STATS",
+      "commit": "c5b2ac7",
+      "tested": true,
+    },
+    {
+      "date": "2026-05-19T11:00:00Z",
+      "task_id": "BUGFIX-STATS-SYNC",
+      "commit": "PENDING",
+      "tested": true,
+      "notes": "Fixed root cause of 'focus time today/all time not updating'. Solved RLS block in the Cloudflare Worker's Supabase REST fallback by passing down the user authHeader. This ensures the worker can fetch focus_sessions data successfully, computing totals and avoiding cache resets to 0. Also wired up missing edge-computed fields like 'todayFocusSeconds' inside analyticsCache to optimize frontend computation."
     }
   ]
 }

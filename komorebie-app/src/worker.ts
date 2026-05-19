@@ -225,7 +225,7 @@ export default {
           }
 
           // Senior Level: Single-Trip Compute
-          const stats = await computeAndStoreStats(targetUserId, env, null, ctx);
+          const stats = await computeAndStoreStats(targetUserId, env, null, ctx, authHeader);
           
           if (!isOwnProfile && !isFriend) {
             stats.deadlines = [];
@@ -387,7 +387,7 @@ export default {
 /**
  * Optimized analytics computation from a pre-fetched mega payload.
  */
-async function computeAndStoreStats(userId: string, env: Env, providedSql?: any, ctx?: ExecutionContext) {
+async function computeAndStoreStats(userId: string, env: Env, providedSql?: any, ctx?: ExecutionContext, authHeader?: string) {
   try {
     let row: any = null;
     const localDev = isLocalDev(env);
@@ -409,7 +409,7 @@ async function computeAndStoreStats(userId: string, env: Env, providedSql?: any,
     
     // REST fallback (or primary path in local dev)
     if (!row) {
-      const supabase = getSupabaseClient(env);
+      const supabase = getSupabaseClient(env, authHeader);
       const { data, error } = await supabase.rpc('get_mega_sync_data', { target_user_ids: [userId] });
       
       if (error) {
@@ -457,6 +457,12 @@ function computeAnalyticsFromMega(mega: any) {
   const deadlines = mega.deadlines || [];
 
   const validSessions = sessions.filter((s: any) => s.status === 'completed' || (s.elapsed_seconds || 0) >= 300);
+  
+  console.log(`[DEBUG] sessions count: ${sessions.length}, valid: ${validSessions.length}`);
+  if (sessions.length > 0) {
+    console.log(`[DEBUG] top session:`, JSON.stringify(sessions[0]));
+  }
+  
   const totalSeconds = validSessions.reduce((acc: number, s: any) => acc + (s.elapsed_seconds || 0), 0);
   const totalHours = Math.round((totalSeconds / 3600) * 10) / 10;
   const today = new Date().toISOString().split('T')[0];

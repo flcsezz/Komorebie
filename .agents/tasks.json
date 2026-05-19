@@ -71,6 +71,13 @@
       "description": "Edge-function contract.",
       "passes": false,
       "priority": 10
+    },
+    {
+      "id": "BUGFIX-STATS-SYNC",
+      "title": "Fix Analytics Stats Synchronization (Focus Time / Sessions)",
+      "description": "Fixed bug where focus time and sessions count weren't updating due to RLS restriction in edge worker REST fallback and missing fields in DataSyncContext cache.",
+      "passes": true,
+      "priority": 11
     }
   ]
 }

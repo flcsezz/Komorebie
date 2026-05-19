@@ -27,6 +27,10 @@ export interface CachedAnalytics {
   totalSeconds?: number;
   totalSessions?: number;
   tasksDone?: number;
+  todayFocusSeconds?: number;
+  sessionsToday?: number;
+  completedToday?: number;
+  tasksDoneToday?: number;
 }
 
 export interface DailyStats {
@@ -155,6 +159,10 @@ class AnalyticsCacheStore {
           totalSeconds: data.totalSeconds,
           totalSessions: data.totalSessions,
           tasksDone: data.tasksDone,
+          todayFocusSeconds: data.todayFocusSeconds,
+          sessionsToday: data.sessionsToday,
+          completedToday: data.completedToday,
+          tasksDoneToday: data.tasksDoneToday,
           fetchedAt: Date.now(),
         };
         this.cache.set(userId, entry);
@@ -258,18 +266,18 @@ export function computeStats(data: CachedAnalytics) {
   const sessionsTodayList = validSessions.filter((s) =>
     toLocalISO(new Date(s.started_at)) === today
   );
-  const todayFocusSeconds = sessionsTodayList.reduce((acc: number, s) => acc + (s.elapsed_seconds || 0), 0);
+  const todayFocusSeconds = data.todayFocusSeconds !== undefined ? data.todayFocusSeconds : sessionsTodayList.reduce((acc: number, s) => acc + (s.elapsed_seconds || 0), 0);
 
-  const sessionsToday = sessions.filter((s) =>
+  const sessionsToday = data.sessionsToday !== undefined ? data.sessionsToday : sessions.filter((s) =>
     toLocalISO(new Date(s.started_at)) === today
   ).length;
 
-  const completedToday = sessions.filter((s) =>
+  const completedToday = data.completedToday !== undefined ? data.completedToday : sessions.filter((s) =>
     s.status === 'completed' && toLocalISO(new Date(s.started_at)) === today
   ).length;
 
   const tasksDone = data.tasksDone !== undefined ? data.tasksDone : data.tasks.length;
-  const tasksDoneToday = data.tasks.filter((t) =>
+  const tasksDoneToday = data.tasksDoneToday !== undefined ? data.tasksDoneToday : data.tasks.filter((t) =>
     t.completed_at && toLocalISO(new Date(t.completed_at)) === today
   ).length;
 
