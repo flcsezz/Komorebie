@@ -146,7 +146,7 @@ export const TagDonutChart: React.FC<TagDonutChartProps> = ({
                 className="text-[10px] font-mono uppercase tracking-widest mb-0.5 opacity-60"
                 style={{ color: activeData.color }}
               >
-                {activeData.tag === 'Untagged' ? 'Pure Light' : activeData.tag}
+                {activeData.tag}
               </div>
               <div className="text-2xl font-display font-light text-white leading-none">
                 {formatDuration(activeData.total_seconds)}

@@ -114,14 +114,14 @@ const SettingsPage: React.FC = () => {
           const tags = data
             .map((item) => item.tag)
             .filter((tag): tag is string => !!tag);
-          // Always ensure 'Untagged' is included if user has any sessions to let them customize Pure Light
+          // Always ensure 'Untagged' is included if user has any sessions to let them customize Untagged
           if (tags.length > 0 && !tags.includes('Untagged')) {
             tags.push('Untagged');
           }
           setUniqueTags(tags);
         }
       } catch (err) {
-        console.error('Failed to load rays for customization:', err);
+        console.error('Failed to load tags for customization:', err);
       }
     };
     loadTags();
@@ -604,7 +604,7 @@ const SettingsPage: React.FC = () => {
                   </div>
                 </GlassCard>
 
-                {/* Ray Color Settings Card */}
+                {/* Tag Color Settings Card */}
                 <motion.div
                   initial={{ opacity: 0, y: 15 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -613,15 +613,15 @@ const SettingsPage: React.FC = () => {
                   <GlassCard className="p-6">
                     <h2 className="text-lg font-bold text-white/80 mb-4 flex items-center gap-3">
                       <Tag className="w-5 h-5 text-sage-200" />
-                      Ray Colors
+                      Tag Colors
                     </h2>
                     <p className="text-xs text-white/40 leading-relaxed mb-6">
-                      Assign premium, custom colors to your focus rays. These colors sync across all devices and update your analytics charts automatically.
+                      Assign premium, custom colors to your focus tags. These colors sync across all devices and update your analytics charts automatically.
                     </p>
 
                     {uniqueTags.length === 0 ? (
                       <div className="text-center py-8 text-xs text-white/25 font-mono uppercase tracking-widest border border-dashed border-white/10 rounded-2xl bg-white/[0.01]">
-                        No focus rays found yet. Start focused sessions to shine your rays!
+                        No tags found. Start focusing to create tags!
                       </div>
                     ) : (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -642,14 +642,14 @@ const SettingsPage: React.FC = () => {
                                     backgroundColor: displayColor, 
                                     boxShadow: `0 0 12px ${displayColor}40` 
                                   }}
-                                  title="Change Ray Color"
+                                  title="Change Tag Color"
                                 >
                                   {customColor && (
                                     <div className="absolute inset-1 rounded-full border border-white/40" />
                                   )}
                                 </button>
                                 <span className="text-sm text-white/85 capitalize font-medium truncate">
-                                  {tag === 'Untagged' ? 'Pure Light' : tag}
+                                  {tag}
                                 </span>
                               </div>
 
@@ -754,10 +754,10 @@ const SettingsPage: React.FC = () => {
                   <Palette className="w-5 h-5 text-sage-200" />
                   <div>
                     <h4 className="text-sm font-display font-medium text-white uppercase tracking-wider">
-                      Tune Ray Aura
+                      Assign Tag Color
                     </h4>
                     <p className="text-[10px] font-mono text-white/40 uppercase">
-                      Customizing ray: {editingTag === 'Untagged' ? 'Pure Light' : editingTag}
+                      Customizing tag: {editingTag}
                     </p>
                   </div>
                 </div>
@@ -776,7 +776,7 @@ const SettingsPage: React.FC = () => {
                   style={{ backgroundColor: selectedTagColor, boxShadow: `0 0 15px ${selectedTagColor}80` }}
                 />
                 <span className="text-xs font-semibold text-white/80 capitalize">
-                  {editingTag === 'Untagged' ? 'Pure Light' : editingTag}
+                  {editingTag}
                 </span>
                 <span className="text-[10px] font-mono text-white/30 lowercase">
                   ({selectedTagColor})
