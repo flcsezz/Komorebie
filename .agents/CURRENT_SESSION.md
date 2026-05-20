@@ -7,8 +7,8 @@ It contains the narrowed scope of work for the active agent.
 - **Goal**: Deliver high-craft implementation designs, absolute 0-cost tool recommendations, and execute full-workspace integrity checks/bug fixing for Komorebie app.
 
 ## Status
-- [ ] Task identified & planned
-- [ ] Discord RPC architecture designed
-- [ ] Production 0-cost stack finalized
-- [ ] Workspace bug-hunting and integrity audit performed
-- [ ] Progress log updated
+- [x] Task identified & planned
+- [x] Discord RPC architecture designed
+- [x] Production 0-cost stack finalized
+- [x] Workspace bug-hunting and integrity audit performed
+- [x] Progress log updated

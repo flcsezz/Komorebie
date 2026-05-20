@@ -97,7 +97,7 @@
       "id": "DISCORD-RPC-AND-PROD-PLAN",
       "title": "Discord RPC integration & 0-cost Production Planning",
       "description": "Architect a custom Discord Rich Presence flow for ZenClock focusing sessions (displaying live streak and focus times) and design a high-quality 0-cost analytics, error tracking, and MCP stack. Run deep repository integrity checks.",
-      "passes": false,
+      "passes": true,
       "priority": 14
     }
   ]
