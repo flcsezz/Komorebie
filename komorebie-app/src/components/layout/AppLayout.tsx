@@ -8,7 +8,7 @@ import {
   Crown, Menu, ChevronDown, Maximize, Minimize,
   Calendar, Music, Image as ImageIcon,
   Trophy, Clock, BarChart3, Flame, Sparkles, Check,
-  ListChecks, Settings, Palette
+  ListChecks, Settings
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useDataSync } from '../../context/DataSyncContext';
@@ -18,9 +18,8 @@ import ResilientVideo from '../ui/ResilientVideo';
 import OnboardingOverlay from '../profile/OnboardingOverlay';
 import ConfirmModal from '../ui/ConfirmModal';
 import { getRequestCount } from '../../lib/friends';
-import { supabase } from '../../lib/supabase';
 import { useBackground } from '../../context/BackgroundContext';
-import { getVisibleBackgrounds, ALL_BACKGROUNDS } from '../../lib/backgrounds';
+import { ALL_BACKGROUNDS } from '../../lib/backgrounds';
 import OptimizedImage from '../ui/OptimizedImage';
 import { ADMIN_EMAIL } from '../../lib/backgrounds';
 import { TIERS, ADMIN_OVERRIDE_KEY, type TierKey } from '../../lib/leagues';
@@ -241,8 +240,7 @@ const AppLayout: React.FC = () => {
     }
   }, [backgroundOverride]);
 
-  const [showBgPicker, setShowBgPicker] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState(true);
+const [isCollapsed, setIsCollapsed] = useState(true);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
 
@@ -258,7 +256,8 @@ const AppLayout: React.FC = () => {
   }, []);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [friendRequestBadge, setFriendRequestBadge] = useState(0);
-  const { background, backgroundType } = useBackground();
+  const { backgroundType } = useBackground();
+   const activeBg = backgroundOverride || bgImage;
   
   // Fetch friend request count for badge
   const fetchFriendBadge = useCallback(async () => {
@@ -342,26 +341,8 @@ const AppLayout: React.FC = () => {
     }
   };
 
-  // Manual Background Change Handler (called by picker)
-  const handleBgChange = useCallback(async (newBg: string) => {
-    setBgImage(newBg);
-    localStorage.setItem('komorebie-bg', newBg);
-    
-    if (user) {
-      try {
-        await supabase.from('profiles').update({ preferred_bg: newBg }).eq('id', user.id);
-        // Update the ref so the sync effect doesn't revert it
-        lastSyncedBgRef.current = newBg;
-        await refresh(); 
-      } catch (err) {
-        console.error('Failed to update background preference:', err);
-      }
-    }
-  }, [user, refresh]);
-
-  const activeBg = background || bgImage;
-  const isVideoByExtension = activeBg ? /\.(mp4|webm|mov|ogg)($|\?)/i.test(activeBg) : false;
-  const isVideo = backgroundType === 'video' || isVideoByExtension || (ALL_BACKGROUNDS.find(b => b.url === activeBg)?.type === 'video');
+const isVideoByExtension = activeBg ? /\.(mp4|webm|mov|ogg)($|\?)/i.test(activeBg) : false;
+   const isVideo = backgroundType === 'video' || isVideoByExtension || (ALL_BACKGROUNDS.find(b => b.url === activeBg)?.type === 'video');
 
   // 2. Main app initialization
   // Use the premium InitialLoader instead of a plain spinner for a better UX
@@ -569,66 +550,16 @@ const AppLayout: React.FC = () => {
                 <span className="hidden md:inline">Go Premium</span>
               </button>
 
-              {!isMobile && (
-                <button 
-                  onClick={toggleFullscreen}
-                  className="flex items-center gap-2 px-4 py-1.5 bg-white/5 border border-white/10 rounded-full transition-colors hover:bg-white/10 text-white/40 hover:text-white cursor-pointer"
-                >
-                  {isFullscreen ? <Minimize className="w-3.5 h-3.5" strokeWidth={2} /> : <Maximize className="w-3.5 h-3.5" strokeWidth={2} />}
-                  <span className="text-[11px] font-bold tracking-wide">{isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}</span>
-                </button>
-              )}
-              
-              <div className="relative flex items-center ml-2">
-                <button 
-                  onClick={() => setShowBgPicker(!showBgPicker)}
-                  className="p-2 bg-white/5 border border-white/10 rounded-full transition-colors hover:bg-white/10 text-white/40 hover:text-white cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage-200/50"
-                  aria-label="Change Background"
-                  aria-expanded={showBgPicker}
-                >
-                  <Palette className="w-3.5 h-3.5" strokeWidth={1.5} />
-                </button>
-                
-                <AnimatePresence>
-                  {showBgPicker && (
-                    <motion.div 
-                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                      className="absolute top-12 left-0 w-48 bg-slate-950/80 backdrop-blur-2xl border border-white/10 rounded-2xl p-2 z-[100] shadow-2xl"
-                    >
-                      <h5 className="px-3 py-2 text-[10px] uppercase tracking-widest text-white/50 font-bold">Backgrounds</h5>
-                      <div className="space-y-1">
-                        {getVisibleBackgrounds(user?.email).map((bg) => (
-                          <button
-                            key={bg.id}
-                            onClick={() => {
-                              handleBgChange(bg.url);
-                              setShowBgPicker(false);
-                            }}
-                            className={`w-full text-left px-3 py-2 rounded-xl text-[11px] transition-colors flex items-center gap-2 ${
-                              bgImage === bg.url ? 'bg-sage-200/15 text-white font-bold' : 'text-white/50 hover:bg-white/5 hover:text-white'
-                            }`}
-                          >
-                            {bg.type === 'video' ? (
-                              <video 
-                                src={bg.url} 
-                                className="w-6 h-4 rounded object-cover border border-white/10" 
-                                muted 
-                                playsInline 
-                              />
-                            ) : (
-                              <div className="w-6 h-4 rounded bg-cover bg-center border border-white/10 bg-optimize-quality" style={{ backgroundImage: `url(${bg.url})` }} />
-                            )}
-                            {bg.name}
-                          </button>
-                        ))}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            </div>
+{!isMobile && (
+                 <button 
+                   onClick={toggleFullscreen}
+                   className="flex items-center gap-2 px-4 py-1.5 bg-white/5 border border-white/10 rounded-full transition-colors hover:bg-white/10 text-white/40 hover:text-white cursor-pointer"
+                 >
+                   {isFullscreen ? <Minimize className="w-3.5 h-3.5" strokeWidth={2} /> : <Maximize className="w-3.5 h-3.5" strokeWidth={2} />}
+                   <span className="text-[11px] font-bold tracking-wide">{isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}</span>
+                 </button>
+               )}
+             </div>
             
             {/* Premium, Animated Mana Pill dropdown trigger */}
             <div className="relative">
