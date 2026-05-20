@@ -3,6 +3,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Tag, PieChart, Activity, Palette, X, RotateCcw } from 'lucide-react';
 import { TagDonutChart } from './TagDonutChart';
 import { useDataSync } from '../../context/DataSyncContext';
+import { useAuth } from '../../context/AuthContext';
+import { useAnalytics } from '../../hooks/useAnalytics';
+import { computeTagStats } from '../../lib/aggregation';
 import { supabase } from '../../lib/supabase';
 
 interface TagAnalyticsWidgetProps {
@@ -42,15 +45,37 @@ const PRESET_COLORS = [
 ];
 
 export const TagAnalyticsWidget: React.FC<TagAnalyticsWidgetProps> = ({ userId }) => {
-  const { tagData: syncTagData, tagColors, setTagColor, refresh } = useDataSync();
+  const { user: currentUser } = useAuth();
+  const isCurrentUser = !userId || userId === currentUser?.id;
+
+  // Consume pre-computed tag data from DataSyncContext for logged-in user
+  const { tagData: syncTagData, tagColors: syncTagColors, setTagColor, refresh: refreshSync, loading: syncLoading } = useDataSync();
+
+  // If friend/other user, load via useAnalytics
+  const { sessions: friendSessions, loading: friendLoading, refresh: refreshFriend } = useAnalytics(isCurrentUser ? null : userId);
+
   const [timeRange, setTimeRange] = useState<'today' | 'all'>('today');
   const [hoveredTag, setHoveredTag] = useState<string | null>(null);
   const [excludeUntagged, setExcludeUntagged] = useState<boolean>(false);
   const [editingTag, setEditingTag] = useState<string | null>(null);
   const [selectedColor, setSelectedColor] = useState<string>('#B7C9B0');
 
-  // Consume pre-computed tag data from DataSyncContext — no independent Supabase fetch.
-  const tagData = timeRange === 'today' ? syncTagData.today : syncTagData.all;
+  // Compute friend tag statistics dynamically
+  const friendTagData = useMemo(() => {
+    if (isCurrentUser) return { today: [], all: [] };
+    return {
+      today: computeTagStats(friendSessions, 'today'),
+      all:   computeTagStats(friendSessions, 'all'),
+    };
+  }, [friendSessions, isCurrentUser]);
+
+  // Derived state resolution based on current user view
+  const loading = isCurrentUser ? syncLoading : friendLoading;
+  const tagColors = isCurrentUser ? syncTagColors : {};
+  const tagData = isCurrentUser 
+    ? (timeRange === 'today' ? syncTagData.today : syncTagData.all)
+    : (timeRange === 'today' ? friendTagData.today : friendTagData.all);
+  const refresh = isCurrentUser ? refreshSync : refreshFriend;
 
   // Compute filtered tag data for donut chart & legend
   const displayedTagData = tagData.filter(item => !excludeUntagged || item.tag !== 'Untagged');
@@ -164,7 +189,7 @@ export const TagAnalyticsWidget: React.FC<TagAnalyticsWidgetProps> = ({ userId }
     }
   };
 
-  if (tagData.length === 0) {
+  if (loading) {
     return (
       <div className="bg-slate-900/40 border border-white/10 backdrop-blur-xl rounded-3xl p-8 min-h-[400px] flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
