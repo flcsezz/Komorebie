@@ -3,12 +3,11 @@ This file is wiped and rewritten at the start of each new session.
 It contains the narrowed scope of work for the active agent.
 
 ## Active Task
-- **DISCORD-RPC-AND-PROD-PLAN**: Plan Discord Custom Rich Presence integration, design 0-cost production stack (analytics, error-tracking, developer MCPs), and run systematic integrity/bug-hunting.
-- **Goal**: Deliver high-craft implementation designs, absolute 0-cost tool recommendations, and execute full-workspace integrity checks/bug fixing for Komorebie app.
+- **BUILD-FIX**: Fix compilation and syntax errors inside the codebase.
+- **Goal**: Resolve React compile/type issues in `AppLayout.tsx` and ensure `npm run build` completes successfully.
 
 ## Status
-- [x] Task identified & planned
-- [x] Discord RPC architecture designed
-- [x] Production 0-cost stack finalized
-- [x] Workspace bug-hunting and integrity audit performed
-- [x] Progress log updated
+- [x] Build error identified (typos/control-character corruption and duplicate variable declarations)
+- [x] AppLayout.tsx code restored and redundant declaration removed
+- [x] Linter audit and compilation checks passed cleanly
+- [x] Progress log and git history updated
