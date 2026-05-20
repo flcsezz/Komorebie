@@ -7,6 +7,7 @@ export interface PublicProfile {
   username: string;
   display_name: string;
   avatar_url: string | null;
+  bio?: string | null;
   current_streak: number;
   best_streak: number;
   preferred_bg: string | null;
@@ -29,7 +30,7 @@ export interface FriendRequest {
 
 // ─── Profile Fields Selection ───────────────────────────────
 
-const PROFILE_SELECT = 'id, username, display_name, avatar_url, current_streak, best_streak, preferred_bg, profile_bg, unmuted_audio';
+const PROFILE_SELECT = 'id, username, display_name, avatar_url, bio, current_streak, best_streak, preferred_bg, profile_bg, unmuted_audio';
 
 // ─── Search ─────────────────────────────────────────────────
 

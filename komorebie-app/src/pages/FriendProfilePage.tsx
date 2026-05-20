@@ -59,7 +59,7 @@ const FriendProfilePage: React.FC = () => {
 
   const friendTier = getTierForSeconds(stats.weekSeconds);
 
-  const displayProfile = cachedProfile || profile;
+  const displayProfile = (cachedProfile || profile) as any;
   const isFocusing = profile && presences[profile.id]?.is_active;
   const fadeIntervalRef = useRef<any>(null);
 

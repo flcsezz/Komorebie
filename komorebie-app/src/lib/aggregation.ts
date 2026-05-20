@@ -97,10 +97,18 @@ export interface RawTask {
 }
 
 export interface RawProfile {
+  id?: string;
+  username?: string;
+  display_name?: string | null;
+  avatar_url?: string | null;
+  bio?: string | null;
   mana_points?: number;
   current_streak?: number;
   best_streak?: number;
   daily_goal_seconds?: number;
+  preferred_bg?: string | null;
+  profile_bg?: string | null;
+  unmuted_audio?: boolean | string | null;
   [key: string]: unknown;
 }
 

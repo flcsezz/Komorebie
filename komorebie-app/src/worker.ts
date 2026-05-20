@@ -101,7 +101,25 @@ export default {
             
             const now = new Date().toISOString();
             
-            // 1. D1 edge cache (low-latency own-device sync)
+            // 1. Supabase (primary source of truth for cross-device/user presence)
+            const sbResult = await supabase.from('active_timers').upsert({
+              user_id: user.id,
+              is_active: !!body.is_active,
+              started_at: body.started_at,
+              duration_seconds: body.duration_seconds ?? 0,
+              session_duration: body.session_duration ?? 0,
+              is_pomodoro: !!body.is_pomodoro,
+              pomodoro_state: body.pomodoro_state ?? 'focus',
+              tag: body.tag ?? null,
+              updated_at: now
+            });
+
+            if (sbResult.error) {
+              console.error('[Worker] Timer Supabase sync error:', sbResult.error);
+              return jsonResponse({ error: 'Failed to write to primary store (Supabase)', details: sbResult.error.message }, 500);
+            }
+
+            // 2. D1 edge cache (low-latency own-device sync)
             const d1Promise = env.komorebie_db.prepare(`
               INSERT INTO active_timers (
                 user_id, is_active, started_at, duration_seconds, 
@@ -128,26 +146,13 @@ export default {
               now
             ).run();
 
-            // 2. Supabase (primary source for cross-user presence)
-            const sbPromise = supabase.from('active_timers').upsert({
-              user_id: user.id,
-              is_active: !!body.is_active,
-              started_at: body.started_at,
-              duration_seconds: body.duration_seconds ?? 0,
-              session_duration: body.session_duration ?? 0,
-              is_pomodoro: !!body.is_pomodoro,
-              pomodoro_state: body.pomodoro_state ?? 'focus',
-              tag: body.tag ?? null,
-              updated_at: now
-            });
-
-            const [, sbResult] = await Promise.all([d1Promise, sbPromise]);
-            
-            if (sbResult.error) {
-              console.error('[Worker] Timer Supabase sync error:', sbResult.error);
+            if (ctx) {
+              ctx.waitUntil(d1Promise.catch((err: any) => console.error('[Worker] D1 timer write failed:', err)));
+            } else {
+              await d1Promise.catch((err: any) => console.error('[Worker] D1 timer write failed:', err));
             }
 
-            return jsonResponse({ success: true, sb_sync: !sbResult.error, latency: Date.now() - requestStart });
+            return jsonResponse({ success: true, latency: Date.now() - requestStart });
           } 
           
           if (request.method === 'GET') {
@@ -279,8 +284,16 @@ export default {
             return jsonResponse({ error: 'Payload too large' }, 413);
           }
 
+          const parsedPayload = typeof body.payload === 'string' ? JSON.parse(body.payload) : body.payload;
+          const { error: sbError } = await supabase.from(body.data_type).upsert(parsedPayload);
+          
+          if (sbError) {
+            console.error(`[Worker] Supabase write failed for ${body.data_type}:`, sbError);
+            return jsonResponse({ error: `Primary database write failed: ${sbError.message}` }, 500);
+          }
+
           const now = new Date().toISOString();
-          await env.komorebie_db.prepare(`
+          const d1Promise = env.komorebie_db.prepare(`
             INSERT INTO data_cache (user_id, data_type, payload, updated_at)
             VALUES (?, ?, ?, ?)
             ON CONFLICT (user_id, data_type) DO UPDATE SET
@@ -288,12 +301,14 @@ export default {
               updated_at = excluded.updated_at
           `).bind(user.id, body.data_type, payloadStr, now).run();
 
-          const parsedPayload = typeof body.payload === 'string' ? JSON.parse(body.payload) : body.payload;
-          const { error: sbError } = await supabase.from(body.data_type).upsert(parsedPayload);
-          
+          if (ctx) {
+            ctx.waitUntil(d1Promise.catch((err: any) => console.error('[Worker] D1 cache write failed:', err)));
+          } else {
+            await d1Promise.catch((err: any) => console.error('[Worker] D1 cache write failed:', err));
+          }
+
           return jsonResponse({
             success: true,
-            warning: sbError ? sbError.message : undefined,
             latency: Date.now() - requestStart
           });
         }
@@ -456,7 +471,7 @@ async function computeAndStoreStats(userId: string, env: Env, providedSql?: any,
  * Now it imports from aggregation.ts — the single source of truth — ensuring
  * the worker and client compute IDENTICAL numbers from the same raw data.
  */
-import { computeStats, buildStreakDates } from './lib/aggregation';
+import { computeStats } from './lib/aggregation';
 
 function computeAnalyticsFromMega(mega: any) {
   const payload = {

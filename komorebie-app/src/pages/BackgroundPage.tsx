@@ -28,7 +28,7 @@ const BackgroundPage: React.FC = () => {
   // Sync selection with profile when it loads
   React.useEffect(() => {
     if (profile?.preferred_bg) {
-      setSelectedId(profile.preferred_bg);
+      setSelectedId(profile.preferred_bg || null);
     }
   }, [profile?.preferred_bg]);
   const [collectionType, setCollectionType] = useState<'standard' | 'live'>('standard');
@@ -156,7 +156,7 @@ const BackgroundPage: React.FC = () => {
                 isHovered={hoveredId === bg.id}
                 isAdmin={isAdmin}
                 isLocked={!isAdmin && (!!bg.price || !!bg.tier)}
-                currentProfileBg={profile?.profile_bg}
+                currentProfileBg={profile?.profile_bg || null}
                 onHover={() => setHoveredId(bg.id)}
                 onLeave={() => setHoveredId(null)}
                 onSelect={(target) => handleSelect(bg, target)}
@@ -213,7 +213,7 @@ const BackgroundPage: React.FC = () => {
                   isHovered={hoveredId === bg.id}
                   isAdmin={isAdmin}
                   isLocked={false} // Admins can access everything
-                  currentProfileBg={profile?.profile_bg}
+                  currentProfileBg={profile?.profile_bg || null}
                   onHover={() => setHoveredId(bg.id)}
                   onLeave={() => setHoveredId(null)}
                   onSelect={(target) => handleSelect(bg, target)}

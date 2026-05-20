@@ -54,6 +54,13 @@
       "commit": "af66af2",
       "tested": true,
       "notes": "P0 fixes deployed: (1) sessionsToday/completedToday now use validSessions filter in worker.ts. (2) toLocalISO in analyticsCache.ts and analytics.ts standardized to UTC via toISOString(). (3) secure_log_focus_session RPC updated in Supabase DB to accept p_tag DEFAULT NULL — tags now stored on every session log."
+    },
+    {
+      "date": "2026-05-20T09:35:00Z",
+      "task_id": "BUGFIX-STATS-REF-P1",
+      "commit": "9a6adef",
+      "tested": true,
+      "notes": "Unified aggregation pipeline (aggregation.ts) for identical metrics on client/worker. Implemented atomic complete_focus_session() RPC to insert sessions, upsert streaks, update profiles in 1 transaction. Rewrote spend_mana() atomically. Added index CONCURRENTLY to focus_sessions and streaks. Fixed heartbeat dependency array in ZenClockContext."
     }
   ]
 }
