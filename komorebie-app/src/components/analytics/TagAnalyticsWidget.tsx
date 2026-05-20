@@ -1,7 +1,6 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Tag, PieChart, Activity, Palette, X, RotateCcw } from 'lucide-react';
-import { fetchTagAnalytics, type TagAnalyticData } from '../../lib/analytics';
 import { TagDonutChart } from './TagDonutChart';
 import { useDataSync } from '../../context/DataSyncContext';
 import { supabase } from '../../lib/supabase';
@@ -43,19 +42,20 @@ const PRESET_COLORS = [
 ];
 
 export const TagAnalyticsWidget: React.FC<TagAnalyticsWidgetProps> = ({ userId }) => {
-  const { tagColors, setTagColor, refresh } = useDataSync();
-  const [tagData, setTagData] = useState<TagAnalyticData[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { tagData: syncTagData, tagColors, setTagColor, refresh } = useDataSync();
   const [timeRange, setTimeRange] = useState<'today' | 'all'>('today');
   const [hoveredTag, setHoveredTag] = useState<string | null>(null);
   const [excludeUntagged, setExcludeUntagged] = useState<boolean>(false);
-
   const [editingTag, setEditingTag] = useState<string | null>(null);
   const [selectedColor, setSelectedColor] = useState<string>('#B7C9B0');
+
+  // Consume pre-computed tag data from DataSyncContext — no independent Supabase fetch.
+  const tagData = timeRange === 'today' ? syncTagData.today : syncTagData.all;
 
   // Compute filtered tag data for donut chart & legend
   const displayedTagData = tagData.filter(item => !excludeUntagged || item.tag !== 'Untagged');
   const displayedTotalSeconds = displayedTagData.reduce((acc, curr) => acc + curr.total_seconds, 0);
+
 
   // Compute unique colors for all active tags to ensure no duplicate colors exist on chart/legend
   const uniqueTagColors = useMemo(() => {
@@ -134,21 +134,8 @@ export const TagAnalyticsWidget: React.FC<TagAnalyticsWidgetProps> = ({ userId }
     return uniqueTagColors[tag] || tagColors[tag] || (tag === 'Untagged' ? 'rgba(148, 163, 184, 0.5)' : getDefaultTagColor(tag));
   };
 
-  useEffect(() => {
-    let active = true;
-    const load = async () => {
-      setLoading(true);
-      const data = await fetchTagAnalytics(userId, timeRange);
-      if (active) {
-        setTagData(data);
-        setLoading(false);
-      }
-    };
-    load();
-    return () => {
-      active = false;
-    };
-  }, [userId, timeRange]);
+
+  // Tag color helpers
 
   const handleEditColor = (tag: string) => {
     setEditingTag(tag);
@@ -177,7 +164,7 @@ export const TagAnalyticsWidget: React.FC<TagAnalyticsWidgetProps> = ({ userId }
     }
   };
 
-  if (loading) {
+  if (tagData.length === 0) {
     return (
       <div className="bg-slate-900/40 border border-white/10 backdrop-blur-xl rounded-3xl p-8 min-h-[400px] flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">

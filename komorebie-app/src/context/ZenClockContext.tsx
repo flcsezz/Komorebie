@@ -482,19 +482,22 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, [isPomodoroMode, pomodoroState, pomodoroCycle, stopAlarm, syncTimerToCloudImmediate]);
 
-  // Cloud heartbeat — writes updated_at every 30s while timer is active
-  // This signals to other devices that the timer is still alive
+  // Cloud heartbeat — writes every 70s while active.
+  // Dep array intentionally excludes isPomodoroMode/pomodoroState:
+  // they are read from refs inside the callback and do NOT need to
+  // recreate the interval on Pomodoro phase changes (which caused
+  // a ~70s gap in heartbeats on every phase transition).
   useEffect(() => {
     if (isActive && user && session && sessionStartTime && targetEndTime) {
       heartbeatRef.current = setInterval(() => {
         const remaining = Math.ceil((targetEndTime - Date.now()) / 1000);
         const sessionDur = duration * 60;
-        
+
         fetch('/api/timer/sync', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`
+            Authorization: `Bearer ${session.access_token}`,
           },
           body: JSON.stringify({
             is_active: true,
@@ -503,11 +506,10 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             session_duration: sessionDur,
             is_pomodoro: isPomodoroMode,
             pomodoro_state: pomodoroState,
-            tag: currentTagRef.current
-          })
+            tag: currentTagRef.current,
+          }),
         }).catch(err => console.error('[Zen] Heartbeat failed:', err));
 
-        // Mark as local update to prevent the real-time listener from echoing
         lastLocalUpdateRef.current = Date.now();
       }, 70_000);
     }
@@ -518,7 +520,8 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         heartbeatRef.current = null;
       }
     };
-  }, [isActive, user, session, sessionStartTime, targetEndTime, duration, isPomodoroMode, pomodoroState]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isActive, user, session, sessionStartTime, targetEndTime, duration]);
 
   // Handle timer tick and tab visibility
   useEffect(() => {

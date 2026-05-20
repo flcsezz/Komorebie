@@ -40,6 +40,20 @@
       "commit": "8f4d271",
       "tested": true,
       "notes": "Completed implementation of user-defined tag creation, 6-tag limits, atomic delete/migration, edge sync, and resolved Tag Analytics Widget color consistency and dashboard layout adjustments."
+    },
+    {
+      "date": "2026-05-20T09:20:00Z",
+      "task_id": "ARCH-AUDIT",
+      "commit": "N/A",
+      "tested": true,
+      "notes": "Full principal-engineer infrastructure audit. Identified 3 root causes of stats mismatch: (1) sessionsToday used all sessions vs validSessions for focus time, (2) toLocalISO was local-time in client but UTC in worker, (3) secure_log_focus_session RPC missing p_tag param silently dropping session tags. Identified 18 additional red flags including mana lost-update race, get_mega_sync_data N×M query pattern, missing indexes, and D1 eventual consistency risks. See infrastructure_audit.md."
+    },
+    {
+      "date": "2026-05-20T09:23:00Z",
+      "task_id": "BUGFIX-STATS-MISMATCH-P0",
+      "commit": "af66af2",
+      "tested": true,
+      "notes": "P0 fixes deployed: (1) sessionsToday/completedToday now use validSessions filter in worker.ts. (2) toLocalISO in analyticsCache.ts and analytics.ts standardized to UTC via toISOString(). (3) secure_log_focus_session RPC updated in Supabase DB to accept p_tag DEFAULT NULL — tags now stored on every session log."
     }
   ]
 }

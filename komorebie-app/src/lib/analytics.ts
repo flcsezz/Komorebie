@@ -1,4 +1,7 @@
 import { supabase } from './supabase';
+import { toUTCDate } from './aggregation';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface FocusSessionData {
   user_id: string;
@@ -10,205 +13,61 @@ export interface FocusSessionData {
   tag?: string | null;
 }
 
-const STREAK_THRESHOLD_SECONDS = 300; // 5 minutes minimum to qualify for streak
+// ─── Session logging ──────────────────────────────────────────────────────────
 
+/**
+ * Log a completed focus session using the atomic complete_focus_session RPC.
+ *
+ * One database round-trip handles:
+ *   - Session INSERT (with tag)
+ *   - Streak UPSERT (atomic, no lost-update)
+ *   - Mana UPDATE   (atomic, no lost-update)
+ *   - active_timers deactivation
+ *   - Duplicate detection (rate-limit guard)
+ *
+ * Previously required 3 separate client-side calls with race windows.
+ */
 export const logFocusSession = async (session: FocusSessionData) => {
   try {
-    const elapsed = session.elapsed_seconds || session.duration_seconds;
-    const isQualified = elapsed >= STREAK_THRESHOLD_SECONDS;
+    const elapsed = session.elapsed_seconds ?? session.duration_seconds;
 
-    // Force status to abandoned if session is shorter than 5 minutes
-    if (!isQualified) {
-      session.status = 'abandoned';
-    }
-
-    // --- Atomic Multi-Device Logging ---
-    // We use a custom RPC to ensure that only ONE device can "consume"
-    // an active timer and log a session. This prevents double-counting.
-    const { data: rpcData, error: rpcError } = await supabase
-      .rpc('secure_log_focus_session', {
-        p_task_id: session.task_id || null,
-        p_duration_seconds: session.duration_seconds,
-        p_elapsed_seconds: elapsed,
-        p_status: session.status,
-        p_started_at: session.started_at,
-        p_tag: session.tag || null
-      });
-
-    if (rpcError) {
-      console.error('[Analytics] RPC error:', rpcError.message);
-      throw rpcError;
-    }
-
-    if (!rpcData.success) {
-      console.warn('[Analytics] Session rejected by server:', rpcData.error);
+    if (elapsed < 300) {
+      console.warn('[Analytics] Session too short (<5 min), not logging.');
       return null;
     }
 
-    // The 'rpcData.data' now contains the values as processed by the DB (including the wall-clock trigger)
-    const verifiedData = rpcData.data;
-    const verifiedElapsed = verifiedData.elapsed_seconds || 0;
-    console.log(`[Analytics] Session verified & logged. DB Verified: ${verifiedElapsed}s`);
+    const { data, error } = await supabase.rpc('complete_focus_session', {
+      p_task_id:       session.task_id ?? null,
+      p_duration_secs: session.duration_seconds,
+      p_elapsed_secs:  elapsed,
+      p_status:        session.status,
+      p_started_at:    session.started_at,
+      p_tag:           session.tag ?? null,
+    });
 
-    // ONLY update stats (streaks, mana, daily totals) if the session is qualified (>= 5 mins)
-    if (verifiedElapsed >= STREAK_THRESHOLD_SECONDS) {
-      await updateStreak(session.user_id, verifiedElapsed);
-      await updateProfileMana(session.user_id, Math.floor(verifiedElapsed / 60));
+    if (error) {
+      console.error('[Analytics] complete_focus_session RPC error:', error.message);
+      throw error;
     }
 
-    return verifiedData;
-  } catch (error) {
-    console.error('[Analytics] Error logging focus session:', error);
+    if (!data?.success) {
+      console.warn('[Analytics] Session rejected by server:', data?.error);
+      return null;
+    }
+
+    console.log(
+      `[Analytics] Session logged atomically. Elapsed: ${data.elapsed_seconds}s, ` +
+      `Mana +${data.mana_earned}, Streak: ${data.current_streak}`
+    );
+    return data;
+  } catch (err) {
+    console.error('[Analytics] logFocusSession error:', err);
     return null;
   }
 };
 
-// UTC date string — must match the worker and analyticsCache.ts conventions.
-const toLocalISO = (date: Date) => date.toISOString().split('T')[0];
+// ─── Deadline helpers ─────────────────────────────────────────────────────────
 
-const updateStreak = async (userId: string, seconds: number) => {
-  const today = toLocalISO(new Date());
-
-  try {
-    // Attempt to get existing streak for today
-    const { data: existing, error: fetchError } = await supabase
-      .from('streaks')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('focus_date', today)
-      .single();
-
-    if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 is "no rows found"
-      throw fetchError;
-    }
-
-    if (existing) {
-      // Update existing record - daily stats only grow if the session is qualified
-      const { error: updateError } = await supabase
-        .from('streaks')
-        .update({
-          total_focus_seconds: (existing.total_focus_seconds || 0) + seconds,
-          sessions_count: (existing.sessions_count || 0) + 1,
-          streak_qualified: true // Since this session is qualified (>= 5 mins)
-        })
-        .eq('id', existing.id);
-
-      if (updateError) throw updateError;
-    } else {
-      // Create new record for today
-      const { error: insertError } = await supabase
-        .from('streaks')
-        .insert([
-          {
-            user_id: userId,
-            focus_date: today,
-            total_focus_seconds: seconds,
-            sessions_count: 1,
-            streak_qualified: true
-          }
-        ]);
-
-      if (insertError) throw insertError;
-    }
-    
-    // Recalculate current streak & best streak
-    await recalculateStreak(userId);
-
-  } catch (error) {
-    console.error('Error updating streak:', error);
-  }
-};
-
-/**
- * Recalculates current streak by walking backward from today
- * Only days with streak_qualified = true count
- */
-export const recalculateStreak = async (userId: string) => {
-  try {
-    const { data: streakDays, error } = await supabase
-      .from('streaks')
-      .select('focus_date, streak_qualified')
-      .eq('user_id', userId)
-      .eq('streak_qualified', true)
-      .order('focus_date', { ascending: false });
-
-    if (error) throw error;
-
-    let currentStreak = 0;
-    const todayStr = toLocalISO(new Date());
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = toLocalISO(yesterday);
-
-    if (streakDays && streakDays.length > 0) {
-      // Create a set for fast lookup of qualified dates
-      const qualifiedDates = new Set(streakDays.map(d => d.focus_date));
-      
-      // Streak is active if either today or yesterday is qualified
-      if (qualifiedDates.has(todayStr) || qualifiedDates.has(yesterdayStr)) {
-        // Start from either today (if qualified) or yesterday
-        const checkDate = qualifiedDates.has(todayStr) ? new Date() : yesterday;
-        
-        while (qualifiedDates.has(toLocalISO(checkDate))) {
-          currentStreak++;
-          checkDate.setDate(checkDate.getDate() - 1);
-        }
-      }
-    }
-
-    // Get current best_streak
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('best_streak')
-      .eq('id', userId)
-      .single();
-
-    const bestStreak = Math.max(profile?.best_streak || 0, currentStreak);
-
-    // Update profile
-    const { error: updateError } = await supabase
-      .from('profiles')
-      .update({
-        current_streak: currentStreak,
-        best_streak: bestStreak,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', userId);
-
-    if (updateError) throw updateError;
-
-    return { currentStreak, bestStreak };
-  } catch (error) {
-    console.error('Error recalculating streak:', error);
-    return { currentStreak: 0, bestStreak: 0 };
-  }
-};
-
-const updateProfileMana = async (userId: string, manaToAdd: number) => {
-  try {
-    const { data: profile, error: fetchError } = await supabase
-      .from('profiles')
-      .select('mana_points')
-      .eq('id', userId)
-      .single();
-    
-    if (fetchError) throw fetchError;
-
-    const { error: updateError } = await supabase
-      .from('profiles')
-      .update({
-        mana_points: (profile.mana_points || 0) + manaToAdd,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', userId);
-
-    if (updateError) throw updateError;
-  } catch (error) {
-    console.error('Error updating profile mana:', error);
-  }
-};
-
-// Deadline helpers
 export interface DeadlineData {
   id?: string;
   user_id: string;
@@ -222,7 +81,6 @@ export interface DeadlineData {
 
 export const createDeadline = async (deadline: DeadlineData) => {
   try {
-    // First create a calendar event for the deadline
     const { data: eventData, error: eventError } = await supabase
       .from('events')
       .insert([{
@@ -239,7 +97,6 @@ export const createDeadline = async (deadline: DeadlineData) => {
 
     if (eventError) throw eventError;
 
-    // Create the deadline with a link to the calendar event
     const { data, error } = await supabase
       .from('deadlines')
       .insert([{
@@ -255,8 +112,8 @@ export const createDeadline = async (deadline: DeadlineData) => {
 
     if (error) throw error;
     return data;
-  } catch (error) {
-    console.error('Error creating deadline:', error);
+  } catch (err) {
+    console.error('[Analytics] createDeadline error:', err);
     return null;
   }
 };
@@ -264,39 +121,27 @@ export const createDeadline = async (deadline: DeadlineData) => {
 export const updateDeadline = async (id: string, updates: Partial<DeadlineData>) => {
   try {
     const { data, error } = await supabase
-      .from('deadlines')
-      .update(updates)
-      .eq('id', id)
-      .select()
-      .single();
-
+      .from('deadlines').update(updates).eq('id', id).select().single();
     if (error) throw error;
     return data;
-  } catch (error) {
-    console.error('Error updating deadline:', error);
+  } catch (err) {
+    console.error('[Analytics] updateDeadline error:', err);
     return null;
   }
 };
 
 export const deleteDeadline = async (id: string) => {
   try {
-    // Get the deadline to find linked calendar event
     const { data: deadline } = await supabase
-      .from('deadlines')
-      .select('calendar_event_id')
-      .eq('id', id)
-      .single();
-
-    // Delete linked calendar event if exists
+      .from('deadlines').select('calendar_event_id').eq('id', id).single();
     if (deadline?.calendar_event_id) {
       await supabase.from('events').delete().eq('id', deadline.calendar_event_id);
     }
-
     const { error } = await supabase.from('deadlines').delete().eq('id', id);
     if (error) throw error;
     return true;
-  } catch (error) {
-    console.error('Error deleting deadline:', error);
+  } catch (err) {
+    console.error('[Analytics] deleteDeadline error:', err);
     return false;
   }
 };
@@ -308,61 +153,61 @@ export const fetchDeadlines = async (userId: string) => {
       .select('*')
       .eq('user_id', userId)
       .order('deadline_date', { ascending: true });
-
     if (error) throw error;
     return data || [];
-  } catch (error) {
-    console.error('Error fetching deadlines:', error);
+  } catch (err) {
+    console.error('[Analytics] fetchDeadlines error:', err);
     return [];
   }
 };
+
+// ─── Leaderboard helpers (social) ────────────────────────────────────────────
+
 export const fetchTodayFocusForUsers = async (userIds: string[]) => {
-  if (!userIds || userIds.length === 0) return {};
-  const today = toLocalISO(new Date());
+  if (!userIds?.length) return {};
+  const today = toUTCDate(new Date());
   try {
     const { data, error } = await supabase
       .from('streaks')
       .select('user_id, total_focus_seconds')
       .in('user_id', userIds)
       .eq('focus_date', today);
-    
     if (error) throw error;
-    
     return (data || []).reduce((acc: Record<string, number>, curr) => {
       acc[curr.user_id] = curr.total_focus_seconds;
       return acc;
     }, {});
   } catch (err) {
-    console.error('Error fetching today focus for users:', err);
+    console.error('[Analytics] fetchTodayFocusForUsers error:', err);
     return {};
   }
 };
 
 export const fetchWeeklyFocusForUsers = async (userIds: string[]) => {
-  if (!userIds || userIds.length === 0) return {};
-  
-  const lastWeek = new Date();
-  lastWeek.setDate(lastWeek.getDate() - 7);
-  const lastWeekStr = toLocalISO(lastWeek);
-
+  if (!userIds?.length) return {};
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() - 7);
+  const lastWeekStr = d.toISOString().split('T')[0];
   try {
     const { data, error } = await supabase
       .from('streaks')
       .select('user_id, total_focus_seconds')
       .in('user_id', userIds)
       .gte('focus_date', lastWeekStr);
-    
     if (error) throw error;
-    
     return (data || []).reduce((acc: Record<string, number>, curr) => {
       acc[curr.user_id] = (acc[curr.user_id] || 0) + curr.total_focus_seconds;
       return acc;
     }, {});
   } catch (err) {
-    console.error('Error fetching weekly focus for users:', err);
+    console.error('[Analytics] fetchWeeklyFocusForUsers error:', err);
     return {};
   }
 };
+
+// ─── Tag analytics (legacy / external callers only) ──────────────────────────
+// TagAnalyticsWidget now reads from DataSyncContext.tagData (pre-computed).
+// This is only retained for callers that may still invoke it directly.
 
 export interface TagAnalyticData {
   tag: string;
@@ -370,44 +215,40 @@ export interface TagAnalyticData {
   session_count: number;
 }
 
-export const fetchTagAnalytics = async (userId: string, range: 'today' | 'all' = 'all'): Promise<TagAnalyticData[]> => {
+/** @deprecated Use useDataSync().tagData — no independent Supabase call needed. */
+export const fetchTagAnalytics = async (
+  userId: string,
+  range: 'today' | 'all' = 'all'
+): Promise<TagAnalyticData[]> => {
   try {
     let query = supabase
       .from('focus_sessions')
-      .select('tag, elapsed_seconds, started_at')
-      .eq('user_id', userId);
+      .select('tag, elapsed_seconds, started_at, status')
+      .eq('user_id', userId)
+      .gte('elapsed_seconds', 300);
 
     if (range === 'today') {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      query = query.gte('started_at', today.toISOString());
+      const todayStart = new Date();
+      todayStart.setUTCHours(0, 0, 0, 0);
+      query = query.gte('started_at', todayStart.toISOString());
     }
 
     const { data, error } = await query;
-
     if (error) throw error;
 
-    const aggregates: Record<string, { total_seconds: number; session_count: number }> = {};
-
-    for (const session of (data || [])) {
-      const tag = session.tag || 'Untagged';
-      
-      const seconds = session.elapsed_seconds || 0;
-      if (!aggregates[tag]) {
-        aggregates[tag] = { total_seconds: 0, session_count: 0 };
-      }
-      
-      aggregates[tag].total_seconds += seconds;
-      aggregates[tag].session_count += 1;
+    const agg: Record<string, { total_seconds: number; session_count: number }> = {};
+    for (const s of (data || [])) {
+      const tag = s.tag || 'Untagged';
+      if (!agg[tag]) agg[tag] = { total_seconds: 0, session_count: 0 };
+      agg[tag].total_seconds += s.elapsed_seconds ?? 0;
+      agg[tag].session_count += 1;
     }
 
-    return Object.entries(aggregates).map(([tag, stats]) => ({
-      tag,
-      total_seconds: stats.total_seconds,
-      session_count: stats.session_count
-    })).sort((a, b) => b.total_seconds - a.total_seconds);
-  } catch (error) {
-    console.error('Error fetching tag analytics:', error);
+    return Object.entries(agg)
+      .map(([tag, v]) => ({ tag, total_seconds: v.total_seconds, session_count: v.session_count }))
+      .sort((a, b) => b.total_seconds - a.total_seconds);
+  } catch (err) {
+    console.error('[Analytics] fetchTagAnalytics error:', err);
     return [];
   }
 };

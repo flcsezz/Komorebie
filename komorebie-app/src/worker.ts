@@ -447,106 +447,34 @@ async function computeAndStoreStats(userId: string, env: Env, providedSql?: any,
   }
 }
 
+
 /**
- * Pure logic function to compute analytics from a raw JSON payload.
- * Keeps logic consistent between Cron and individual API hits.
+ * Thin adapter: convert a mega_payload from get_mega_sync_data into the
+ * stats object that the analytics/stats endpoint returns.
+ *
+ * Previously this was a 100-line duplicate of client-side aggregation logic.
+ * Now it imports from aggregation.ts — the single source of truth — ensuring
+ * the worker and client compute IDENTICAL numbers from the same raw data.
  */
+import { computeStats, buildStreakDates } from './lib/aggregation';
+
 function computeAnalyticsFromMega(mega: any) {
-  const profile = mega.profile || {};
-  const sessions = mega.sessions || [];
-  const streaks = mega.streaks || [];
-  const tasks = mega.tasks || [];
-  const deadlines = mega.deadlines || [];
-
-  // A "valid" session: completed status OR elapsed >= 5 minutes (300s).
-  // This is the canonical definition used for ALL stats — ensuring Focus time,
-  // Sessions count, and completedToday are always computed from the same set.
-  const validSessions = sessions.filter((s: any) => s.status === 'completed' || (s.elapsed_seconds || 0) >= 300);
-
-  const totalSeconds = validSessions.reduce((acc: number, s: any) => acc + (s.elapsed_seconds || 0), 0);
-  const totalHours = Math.round((totalSeconds / 3600) * 10) / 10;
-
-  // Use UTC date string throughout the worker — matches DB CURRENT_DATE (UTC).
-  // The client analyticsCache also uses UTC via toISOString(), ensuring alignment.
-  const today = new Date().toISOString().split('T')[0];
-
-  const toDateStr = (val: any) => {
-    if (!val) return '';
-    const s = val instanceof Date ? val.toISOString() : String(val);
-    return s.split('T')[0];
+  const payload = {
+    profile:   mega.profile   || {},
+    sessions:  mega.sessions  || [],
+    streaks:   mega.streaks   || [],
+    tasks:     mega.tasks     || [],
+    deadlines: mega.deadlines || [],
   };
 
-  // All three "today" metrics derived from the same validSessions — no divergence.
-  const sessionsTodayList = validSessions.filter((s: any) => toDateStr(s.started_at) === today);
-  const todayFocusSeconds = sessionsTodayList.reduce((acc: number, s: any) => acc + (s.elapsed_seconds || 0), 0);
-  const sessionsToday = sessionsTodayList.length;
-  const completedToday = sessionsTodayList.filter((s: any) => s.status === 'completed').length;
-  
-  const tasksDone = tasks.filter((t: any) => t.is_completed).length;
-  const tasksDoneToday = tasks.filter((t: any) => t.is_completed && t.completed_at && toDateStr(t.completed_at) === today).length;
-
-  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  const weeklyData = [];
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    const dStr = d.toISOString().split('T')[0];
-    const entry = streaks.find((s: any) => s.focus_date === dStr);
-    weeklyData.push({
-      date: dStr,
-      day: dayNames[d.getDay()],
-      focusSeconds: entry ? entry.total_focus_seconds : 0,
-      sessionsCount: entry ? entry.sessions_count : 0,
-      streakQualified: entry ? entry.streak_qualified : false,
-      tasksDone: tasks.filter((t: any) => t.is_completed && t.completed_at && toDateStr(t.completed_at) === dStr).length
-    });
-  }
-
-  const now = new Date();
-  const day = now.getDay(); 
-  const diffToMonday = day === 0 ? 6 : day - 1;
-  const monday = new Date(now);
-  monday.setDate(now.getDate() - diffToMonday);
-  const mondayStr = monday.toISOString().split('T')[0];
-  const weekSeconds = streaks
-    .filter((s: any) => s.focus_date >= mondayStr)
-    .reduce((acc: number, s: any) => acc + (s.total_focus_seconds || 0), 0);
-
-  let currentStreak = 0;
-  const qualifiedDates = new Set(streaks.filter((s: any) => s.streak_qualified).map((s: any) => s.focus_date));
-  if (qualifiedDates.size > 0) {
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = yesterday.toISOString().split('T')[0];
-    const isAlive = qualifiedDates.has(today) || qualifiedDates.has(yesterdayStr);
-    if (isAlive) {
-      const checkDate = qualifiedDates.has(today) ? new Date() : yesterday;
-      while (qualifiedDates.has(checkDate.toISOString().split('T')[0])) {
-        currentStreak++;
-        checkDate.setDate(checkDate.getDate() - 1);
-      }
-    }
-  }
+  const stats = computeStats(payload);
 
   return {
-    totalSeconds,
-    totalHours,
-    totalSessions: validSessions.length,
-    sessionsToday,
-    completedToday,
-    tasksDone,
-    tasksDoneToday,
-    currentStreak: Math.max(currentStreak, profile.current_streak || 0),
-    bestStreak: Math.max(currentStreak, profile.best_streak || 0),
-    mana: profile.mana_points || 0,
-    todayFocusSeconds,
-    weeklyData,
-    weekSeconds,
-    weekHours: Math.round((weekSeconds / 3600) * 10) / 10,
-    profile,
-    deadlines,
-    streaks,
-    sessions,
-    tasks
+    ...stats,
+    profile:   payload.profile,
+    deadlines: payload.deadlines,
+    streaks:   payload.streaks,
+    sessions:  payload.sessions,
+    tasks:     payload.tasks,
   };
 }
