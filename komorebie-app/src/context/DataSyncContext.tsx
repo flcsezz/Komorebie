@@ -40,6 +40,9 @@ interface DataSyncContextType {
   profile: any;
   streakDates: Map<string, any>;
   deadlines: any[];
+  tagColors: Record<string, string>;
+  setTagColor: (tag: string, color: string) => Promise<void>;
+  deleteTag: (tag: string) => Promise<void>;
   loading: boolean;
   refresh: (force?: boolean) => Promise<void>;
 }
@@ -67,9 +70,59 @@ export const DataSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const { user } = useAuth();
   const [data, setData] = useState<CachedAnalytics | null>(null);
   const [rankings, setRankings] = useState<SyncRankings>({ globalRank: null, leagueRank: null, totalUsers: 0 });
+  const [tagColors, setTagColors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const hasDataRef = useRef(false);
-  
+
+  // Load tag colors directly from Supabase
+  const loadTagColors = useCallback(async (userId: string) => {
+    try {
+      const { data: tcData, error: tcErr } = await supabase
+        .from('tag_colors')
+        .select('tag, color')
+        .eq('user_id', userId);
+      
+      if (tcErr) throw tcErr;
+      
+      const colors = (tcData || []).reduce((acc: Record<string, string>, curr) => {
+        acc[curr.tag] = curr.color;
+        return acc;
+      }, {});
+      setTagColors(colors);
+    } catch (err) {
+      console.error('DataSync: failed to fetch tag colors', err);
+    }
+  }, []);
+
+  const setTagColor = useCallback(async (tag: string, color: string) => {
+    if (!user?.id) return;
+
+    // Optimistic update
+    setTagColors(prev => ({
+      ...prev,
+      [tag]: color
+    }));
+
+    try {
+      const { error } = await supabase
+        .from('tag_colors')
+        .upsert({
+          user_id: user.id,
+          tag,
+          color,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id,tag'
+        });
+
+      if (error) throw error;
+    } catch (err) {
+      console.error('DataSync: failed to save tag color', err);
+      // Revert or reload from server to stay in sync
+      loadTagColors(user.id);
+    }
+  }, [user?.id, loadTagColors]);
+
   // Keep ref in sync with state
   useEffect(() => { hasDataRef.current = !!data; }, [data]);
 
@@ -143,7 +196,7 @@ export const DataSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       ] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
         supabase.from('focus_sessions')
-          .select('id, status, elapsed_seconds, started_at')
+          .select('id, status, elapsed_seconds, started_at, tag')
           .eq('user_id', userId)
           .order('started_at', { ascending: false })
           .limit(500),
@@ -191,6 +244,7 @@ export const DataSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const refresh = useCallback(async (force = false) => {
     if (!user?.id) {
       setData(null);
+      setTagColors({});
       setLoading(false);
       return;
     }
@@ -199,6 +253,9 @@ export const DataSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (!hasDataRef.current || force) {
       setLoading(true);
     }
+
+    // Fire off tag colors fetch in parallel
+    loadTagColors(user.id);
 
     try {
       // ─── Step 1: Check in-memory cache first ───────────────────────
@@ -306,6 +363,44 @@ export const DataSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, [user, fetchRankings, fetchDirectFromSupabase]);
 
+  const deleteTag = useCallback(async (tag: string) => {
+    if (!user?.id) return;
+
+    // Optimistic update
+    setTagColors(prev => {
+      const updated = { ...prev };
+      delete updated[tag];
+      return updated;
+    });
+
+    try {
+      // 1. Delete the tag color entry
+      const { error: deleteErr } = await supabase
+        .from('tag_colors')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('tag', tag);
+
+      if (deleteErr) throw deleteErr;
+
+      // 2. Set tag to null for all focus sessions with this tag
+      const { error: updateErr } = await supabase
+        .from('focus_sessions')
+        .update({ tag: null })
+        .eq('user_id', user.id)
+        .eq('tag', tag);
+
+      if (updateErr) throw updateErr;
+
+      // 3. Invalidate cache and trigger update
+      await analyticsCache.invalidate(user.id);
+      refresh(true);
+    } catch (err) {
+      console.error('DataSync: failed to delete tag', err);
+      loadTagColors(user.id);
+    }
+  }, [user?.id, loadTagColors, refresh]);
+
   // Initial load + visibility-based refresh
   useEffect(() => {
     if (!user?.id) return;
@@ -353,6 +448,9 @@ export const DataSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     profile: data?.profile || null,
     streakDates,
     deadlines: data?.deadlines || [],
+    tagColors,
+    setTagColor,
+    deleteTag,
     loading,
     refresh,
   };

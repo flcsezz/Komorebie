@@ -26,13 +26,23 @@ function jsonResponse(data: unknown, status = 200, extra: Record<string, string>
 // ─── Singleton Hyperdrive client (lazy) ───────────────────────────
 let sqlClient: postgres.Sql<any> | null = null;
 
+// Detect local Miniflare dev — Hyperdrive binding exposes *.hyperdrive.local
+// which can't actually route TCP in the workerd sandbox.
+function isLocalDev(env: Env): boolean {
+  try {
+    return env.HYPERDRIVE.connectionString.includes('.hyperdrive.local');
+  } catch {
+    return false;
+  }
+}
+
 function getSqlClient(env: Env) {
   if (!sqlClient) {
     sqlClient = postgres(env.HYPERDRIVE.connectionString, {
       ssl: 'require',
       max: 5,          // Lower pool — Workers are short-lived
       idle_timeout: 20,
-      connect_timeout: 5,
+      connect_timeout: 2,
       prepare: false,   // Transaction pooler doesn't support prepared statements
     });
   }
@@ -157,11 +167,13 @@ export default {
           const queryUserId = url.searchParams.get('userId');
           const targetUserId = (queryUserId && queryUserId !== 'undefined' && queryUserId !== 'null') ? queryUserId : user.id;
           const isOwnProfile = targetUserId === user.id;
+          const localDev = isLocalDev(env);
           
           // Check friendship for non-self queries
           let isFriend = false;
           if (!isOwnProfile && targetUserId) {
             try {
+              if (localDev) throw new Error('skip-hyperdrive');
               const sql = getSqlClient(env);
               const friendship = await sql`
                 SELECT status FROM friendships 
@@ -213,7 +225,7 @@ export default {
           }
 
           // Senior Level: Single-Trip Compute
-          const stats = await computeAndStoreStats(targetUserId, env, null, ctx);
+          const stats = await computeAndStoreStats(targetUserId, env, null, ctx, authHeader);
           
           if (!isOwnProfile && !isFriend) {
             stats.deadlines = [];
@@ -254,7 +266,8 @@ export default {
 
           const ALLOWED_DATA_TYPES = [
             'tasks', 'habits', 'habit_logs', 'deadlines', 'user_preferences',
-            'notes', 'flashcard_decks', 'flashcard_cards', 'flashcard_study_sessions'
+            'notes', 'flashcard_decks', 'flashcard_cards', 'flashcard_study_sessions',
+            'tag_colors'
           ];
 
           if (!ALLOWED_DATA_TYPES.includes(body.data_type)) {
@@ -328,7 +341,8 @@ export default {
         const dataTypes = [
           'tasks', 'habits', 'habit_logs', 'deadlines', 
           'user_preferences', 'notes', 'flashcard_decks', 
-          'flashcard_cards', 'flashcard_study_sessions'
+          'flashcard_cards', 'flashcard_study_sessions',
+          'tag_colors'
         ];
 
         for (const type of dataTypes) {
@@ -375,12 +389,41 @@ export default {
 /**
  * Optimized analytics computation from a pre-fetched mega payload.
  */
-async function computeAndStoreStats(userId: string, env: Env, providedSql?: any, ctx?: ExecutionContext) {
+async function computeAndStoreStats(userId: string, env: Env, providedSql?: any, ctx?: ExecutionContext, authHeader?: string) {
   try {
-    const sql = providedSql || getSqlClient(env);
+    let row: any = null;
+    const localDev = isLocalDev(env);
     
-    // Use the mega-sync function for single user too — extremely efficient
-    const [row] = await sql`SELECT * FROM get_mega_sync_data(ARRAY[${userId}]::uuid[])`;
+    // In local dev, skip Hyperdrive entirely — TCP through *.hyperdrive.local
+    // never works in the Miniflare/workerd sandbox. Go straight to REST.
+    if (!localDev) {
+      try {
+        const sql = providedSql || getSqlClient(env);
+        // Use the mega-sync function for single user too — extremely efficient
+        const rows = await sql`SELECT * FROM get_mega_sync_data(ARRAY[${userId}]::uuid[])`;
+        row = rows[0];
+      } catch (dbErr) {
+        console.warn('[Worker] Hyperdrive query failed, attempting Supabase REST fallback...', dbErr);
+      }
+    } else {
+      console.info('[Worker] Local dev detected — skipping Hyperdrive, using REST directly.');
+    }
+    
+    // REST fallback (or primary path in local dev)
+    if (!row) {
+      const supabase = getSupabaseClient(env, authHeader);
+      const { data, error } = await supabase.rpc('get_mega_sync_data', { target_user_ids: [userId] });
+      
+      if (error) {
+        console.error('[Worker] Supabase REST fallback failed:', error);
+        throw error;
+      }
+      
+      if (data && data.length > 0) {
+        row = data[0];
+      }
+    }
+
     if (!row) throw new Error('User not found');
     
     const stats = computeAnalyticsFromMega(row.mega_payload);
@@ -416,6 +459,12 @@ function computeAnalyticsFromMega(mega: any) {
   const deadlines = mega.deadlines || [];
 
   const validSessions = sessions.filter((s: any) => s.status === 'completed' || (s.elapsed_seconds || 0) >= 300);
+  
+  console.log(`[DEBUG] sessions count: ${sessions.length}, valid: ${validSessions.length}`);
+  if (sessions.length > 0) {
+    console.log(`[DEBUG] top session:`, JSON.stringify(sessions[0]));
+  }
+  
   const totalSeconds = validSessions.reduce((acc: number, s: any) => acc + (s.elapsed_seconds || 0), 0);
   const totalHours = Math.round((totalSeconds / 3600) * 10) / 10;
   const today = new Date().toISOString().split('T')[0];

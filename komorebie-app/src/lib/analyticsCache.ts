@@ -18,7 +18,7 @@ const STALE_WHILE_REVALIDATE_MS = 30 * 1000; // Serve stale data for 30s while r
 // ─── Types ─────────────────────────────────────────────────────────
 export interface CachedAnalytics {
   profile: any; 
-  sessions: { id: string; status: string; elapsed_seconds?: number; started_at: string }[];
+  sessions: { id: string; status: string; elapsed_seconds?: number; started_at: string; tag?: string | null }[];
   streaks: { focus_date: string; total_focus_seconds: number; sessions_count: number; streak_qualified: boolean }[];
   deadlines: { id: string; deadline_date: string; title: string }[];
   tasks: { id: string; is_completed: boolean; completed_at: string | null }[];
@@ -27,6 +27,10 @@ export interface CachedAnalytics {
   totalSeconds?: number;
   totalSessions?: number;
   tasksDone?: number;
+  todayFocusSeconds?: number;
+  sessionsToday?: number;
+  completedToday?: number;
+  tasksDoneToday?: number;
 }
 
 export interface DailyStats {
@@ -155,6 +159,10 @@ class AnalyticsCacheStore {
           totalSeconds: data.totalSeconds,
           totalSessions: data.totalSessions,
           tasksDone: data.tasksDone,
+          todayFocusSeconds: data.todayFocusSeconds,
+          sessionsToday: data.sessionsToday,
+          completedToday: data.completedToday,
+          tasksDoneToday: data.tasksDoneToday,
           fetchedAt: Date.now(),
         };
         this.cache.set(userId, entry);
@@ -183,7 +191,7 @@ class AnalyticsCacheStore {
       ] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
         supabase.from('focus_sessions')
-          .select('id, status, elapsed_seconds, started_at')
+          .select('id, status, elapsed_seconds, started_at, tag')
           .eq('user_id', userId)
           .order('started_at', { ascending: false })
           .limit(500),
@@ -258,18 +266,18 @@ export function computeStats(data: CachedAnalytics) {
   const sessionsTodayList = validSessions.filter((s) =>
     toLocalISO(new Date(s.started_at)) === today
   );
-  const todayFocusSeconds = sessionsTodayList.reduce((acc: number, s) => acc + (s.elapsed_seconds || 0), 0);
+  const todayFocusSeconds = data.todayFocusSeconds !== undefined ? data.todayFocusSeconds : sessionsTodayList.reduce((acc: number, s) => acc + (s.elapsed_seconds || 0), 0);
 
-  const sessionsToday = sessions.filter((s) =>
+  const sessionsToday = data.sessionsToday !== undefined ? data.sessionsToday : sessions.filter((s) =>
     toLocalISO(new Date(s.started_at)) === today
   ).length;
 
-  const completedToday = sessions.filter((s) =>
+  const completedToday = data.completedToday !== undefined ? data.completedToday : sessions.filter((s) =>
     s.status === 'completed' && toLocalISO(new Date(s.started_at)) === today
   ).length;
 
   const tasksDone = data.tasksDone !== undefined ? data.tasksDone : data.tasks.length;
-  const tasksDoneToday = data.tasks.filter((t) =>
+  const tasksDoneToday = data.tasksDoneToday !== undefined ? data.tasksDoneToday : data.tasks.filter((t) =>
     t.completed_at && toLocalISO(new Date(t.completed_at)) === today
   ).length;
 

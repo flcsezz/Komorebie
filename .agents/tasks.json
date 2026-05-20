@@ -1,0 +1,83 @@
+{
+  "schema_version": "1.0",
+  "instructions": "DO NOT REMOVE OR RENAME TASKS. ONLY change the 'passes' field from false to true when a task is fully complete and verified. Append new tasks if absolutely necessary.",
+  "features": [
+    {
+      "id": "FE-11",
+      "title": "Implement App Settings Page",
+      "description": "Functional UI for theme selection, notification toggles, and account management, persisting via Supabase.",
+      "passes": true,
+      "priority": 1
+    },
+    {
+      "id": "WS-05",
+      "title": "3D experience design",
+      "description": "Environment strategy, performance budgets, companion loop.",
+      "passes": false,
+      "priority": 2
+    },
+    {
+      "id": "WS-07",
+      "title": "Social systems",
+      "description": "Presence, silhouettes, leaderboard constraints.",
+      "passes": false,
+      "priority": 3
+    },
+    {
+      "id": "IA-01",
+      "title": "Convert landing page IA into final marketing sitemap",
+      "description": "Produce route list and page sections.",
+      "passes": false,
+      "priority": 4
+    },
+    {
+      "id": "UX-01",
+      "title": "Design first-session onboarding and quick-start flows",
+      "description": "User-flow doc + wire notes.",
+      "passes": false,
+      "priority": 5
+    },
+    {
+      "id": "UX-02",
+      "title": "Define task capture, active focus, and session summary flows",
+      "description": "Flow spec.",
+      "passes": false,
+      "priority": 6
+    },
+    {
+      "id": "UI-01",
+      "title": "Turn Zen System into reusable tokens and component rules",
+      "description": "Token doc + component inventory.",
+      "passes": false,
+      "priority": 7
+    },
+    {
+      "id": "UI-02",
+      "title": "Audit current pages against Zen System and focus constraints",
+      "description": "Bug list + remediation plan.",
+      "passes": false,
+      "priority": 8
+    },
+    {
+      "id": "FE-03",
+      "title": "Add lazy loading/code-splitting for 3D and route pages",
+      "description": "Reduced initial bundle.",
+      "passes": false,
+      "priority": 9
+    },
+    {
+      "id": "AI-01",
+      "title": "Specify AI note-summary and flashcard generation pipeline",
+      "description": "Edge-function contract.",
+      "passes": false,
+      "priority": 10
+    },
+    {
+      "id": "BUGFIX-STATS-SYNC",
+      "title": "Fix Analytics Stats Synchronization (Focus Time / Sessions)",
+      "description": "Fixed bug where focus time and sessions count weren't updating due to RLS restriction in edge worker REST fallback and missing fields in DataSyncContext cache.",
+      "passes": true,
+      "priority": 11
+    }
+  ]
+}

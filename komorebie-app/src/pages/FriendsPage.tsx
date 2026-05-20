@@ -278,7 +278,7 @@ const FriendsPage: React.FC = () => {
                         value={searchQuery}
                         onChange={(e) => onSearchChange(e.target.value)}
                         placeholder="Search by username or display name..."
-                        className="w-full bg-transparent pl-9 pr-10 py-3 text-sm text-white placeholder-white/15 focus:outline-none outline-none ring-0 font-display font-light tracking-wide"
+                        className="w-full bg-transparent pl-9 pr-10 py-3 text-sm text-white placeholder-white/15 focus:outline-none focus-visible:outline-none outline-none ring-0 font-display font-light tracking-wide"
                         autoFocus
                       />
                       {searching ? (
