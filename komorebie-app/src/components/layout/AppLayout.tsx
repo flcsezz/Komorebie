@@ -28,6 +28,15 @@ import { TIERS, ADMIN_OVERRIDE_KEY, type TierKey } from '../../lib/leagues';
 // Spring configuration for animations
 const springConfig = { type: "spring" as const, stiffness: 300, damping: 35 };
 
+const ManaCrystalIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4 text-emerald-400 drop-shadow-[0_0_4px_rgba(52,211,153,0.5)] animate-pulse" style={{ animationDuration: '3s' }}>
+    <path d="M12 2L5 9L12 22L19 9L12 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+    <path d="M12 2V22" stroke="currentColor" strokeWidth="1" opacity="0.3" />
+    <path d="M5 9H19" stroke="currentColor" strokeWidth="1" opacity="0.3" />
+    <path d="M12 2L8 9L12 22L16 9L12 2Z" stroke="currentColor" strokeWidth="1" opacity="0.7" strokeLinejoin="round" fill="currentColor" fillOpacity="0.05" />
+  </svg>
+);
+
 const BrandingText = () => (
   <Link to="/app" className="flex flex-col justify-center overflow-hidden whitespace-nowrap group outline-none">
     <span className="text-[17px] font-display tracking-[0.25em] font-light text-white/90 group-hover:text-white transition-colors duration-500 leading-none mt-0.5">
@@ -621,36 +630,36 @@ const AppLayout: React.FC = () => {
               </div>
             </div>
             
-{/* Mana Pill - Top Left */}
-             <div className="flex items-center">
-               <div className="flex items-center gap-2 px-3 py-1.5 bg-sage-200/10 border border-sage-200/20 rounded-full transition-all duration-300 hover:bg-sage-200/15">
-                 <Sparkles className="w-3.5 h-3.5 text-sage-200" />
-                 <span className="text-xs font-bold text-sage-200 tabular-nums">{stats.mana.toLocaleString()}</span>
-                 <span className="text-[9px] text-white/40 uppercase tracking-widest">mana</span>
-               </div>
-             </div>
-             
-             <div className="relative">
-               <button 
-                 onClick={() => setShowProfileMenu(!showProfileMenu)}
-                 className={`flex items-center gap-3 pl-1 pr-3 py-0.5 rounded-full transition-all duration-300 cursor-pointer group border ${
-                   showProfileMenu ? 'bg-white/10 border-white/20' : 'bg-white/5 border-white/10'
-                 }`}
-               >
-                 {profile?.avatar_url ? (
-                   <OptimizedImage src={profile.avatar_url} alt="PFP" className="w-7 h-7 rounded-full border border-white/5" />
-                 ) : (
-                   <div className="w-7 h-7 rounded-full bg-sage-200/20 flex items-center justify-center border border-white/5 overflow-hidden relative">
-                     <span className="text-sage-200 text-[10px] font-bold relative z-10">
-                       {(profile?.display_name || user?.email || 'E').charAt(0).toUpperCase()}
-                     </span>
-                   </div>
-                 )}
-                 <span className="text-xs font-light text-white/50 group-hover:text-white transition-colors flex items-center gap-2">
-                   <span className="hidden sm:inline">{profile?.display_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Explorer'}</span>
-                   <ChevronDown className={`w-3 h-3 transition-transform duration-300 ${showProfileMenu ? 'rotate-180' : ''}`} />
-                 </span>
-               </button>
+            {/* Premium, Animated Mana Pill dropdown trigger */}
+            <div className="relative">
+              <button 
+                onClick={() => setShowProfileMenu(!showProfileMenu)}
+                className={`flex items-center gap-3 pl-3.5 pr-1.5 py-1 rounded-full transition-all duration-300 cursor-pointer group border backdrop-blur-xl ${
+                  showProfileMenu 
+                    ? 'bg-gradient-to-r from-emerald-500/20 to-teal-500/20 border-emerald-400/40 shadow-[0_0_20px_rgba(52,211,153,0.25)]' 
+                    : 'bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border-emerald-500/20 hover:border-emerald-400/30 hover:shadow-[0_0_15px_rgba(52,211,153,0.15)]'
+                }`}
+              >
+                <div className="flex items-center gap-1.5">
+                  <ManaCrystalIcon />
+                  <span className="text-xs font-bold text-emerald-200 tabular-nums tracking-wide">{stats.mana.toLocaleString()}</span>
+                  <span className="text-[8px] text-emerald-400/60 uppercase tracking-widest font-mono">mana</span>
+                </div>
+                
+                <div className="h-4 w-px bg-emerald-500/20" />
+                
+                {profile?.avatar_url ? (
+                  <OptimizedImage src={profile.avatar_url} alt="PFP" className="w-6.5 h-6.5 rounded-full border border-emerald-400/20" />
+                ) : (
+                  <div className="w-6.5 h-6.5 rounded-full bg-emerald-500/20 flex items-center justify-center border border-emerald-400/20 overflow-hidden relative">
+                    <span className="text-emerald-300 text-[9px] font-bold">
+                      {(profile?.display_name || user?.email || 'E').charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                )}
+                
+                <ChevronDown className={`w-3.5 h-3.5 text-emerald-400/50 group-hover:text-emerald-400 transition-all duration-300 ${showProfileMenu ? 'rotate-180' : ''}`} />
+              </button>
 
                <AnimatePresence>
                  {showProfileMenu && (
