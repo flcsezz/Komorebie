@@ -61,6 +61,13 @@
       "commit": "9a6adef",
       "tested": true,
       "notes": "Unified aggregation pipeline (aggregation.ts) for identical metrics on client/worker. Implemented atomic complete_focus_session() RPC to insert sessions, upsert streaks, update profiles in 1 transaction. Rewrote spend_mana() atomically. Added index CONCURRENTLY to focus_sessions and streaks. Fixed heartbeat dependency array in ZenClockContext."
+    },
+    {
+      "date": "2026-05-20T11:35:00Z",
+      "task_id": "BUGFIX-BIO-HABIT-VALIDATION",
+      "commit": "109dd75",
+      "tested": true,
+      "notes": "Resolved profile bio persistence failure by invalidating the edge/in-memory cache on update. Hardened habits frequency field validation with 1-7 limits and a premium error helper text, locking save/confirm button."
     }
   ]
 }
