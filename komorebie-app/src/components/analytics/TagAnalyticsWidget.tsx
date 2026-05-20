@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Tag, PieChart, Activity, Palette, X, RotateCcw } from 'lucide-react';
 import { fetchTagAnalytics, type TagAnalyticData } from '../../lib/analytics';
@@ -53,8 +53,85 @@ export const TagAnalyticsWidget: React.FC<TagAnalyticsWidgetProps> = ({ userId }
   const [editingTag, setEditingTag] = useState<string | null>(null);
   const [selectedColor, setSelectedColor] = useState<string>('#B7C9B0');
 
+  // Compute filtered tag data for donut chart & legend
+  const displayedTagData = tagData.filter(item => !excludeUntagged || item.tag !== 'Untagged');
+  const displayedTotalSeconds = displayedTagData.reduce((acc, curr) => acc + curr.total_seconds, 0);
+
+  // Compute unique colors for all active tags to ensure no duplicate colors exist on chart/legend
+  const uniqueTagColors = useMemo(() => {
+    const resolved: Record<string, string> = {};
+    const usedColors = new Set<string>();
+
+    // First pass: assign explicit/saved colors
+    displayedTagData.forEach(item => {
+      if (item.tag === 'Untagged') {
+        resolved[item.tag] = tagColors['Untagged'] || 'rgba(148, 163, 184, 0.5)';
+        usedColors.add(resolved[item.tag].toLowerCase());
+      } else {
+        const savedColor = tagColors[item.tag];
+        if (savedColor) {
+          resolved[item.tag] = savedColor;
+          usedColors.add(savedColor.toLowerCase());
+        }
+      }
+    });
+
+    // Second pass: for tags without saved colors or if there are collisions
+    displayedTagData.forEach(item => {
+      if (resolved[item.tag]) return;
+
+      // Try default color
+      let color = getDefaultTagColor(item.tag);
+      let count = 0;
+      
+      // If color is already used, change the hue slightly until we find a unique one
+      while (usedColors.has(color.toLowerCase()) && count < 360) {
+        const match = color.match(/hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/);
+        if (match) {
+          const newHue = (parseInt(match[1]) + 30) % 360;
+          color = `hsl(${newHue}, ${match[2]}%, ${match[3]}%)`;
+        } else {
+          color = `hsl(${(count * 60) % 360}, 70%, 65%)`;
+        }
+        count++;
+      }
+      
+      resolved[item.tag] = color;
+      usedColors.add(color.toLowerCase());
+    });
+
+    // Third pass: resolve any collisions in the explicit user-selected colors as well
+    const colorToTags: Record<string, string[]> = {};
+    Object.entries(resolved).forEach(([tag, color]) => {
+      const c = color.toLowerCase();
+      if (!colorToTags[c]) colorToTags[c] = [];
+      colorToTags[c].push(tag);
+    });
+
+    Object.values(colorToTags).forEach((tags) => {
+      if (tags.length > 1) {
+        tags.slice(1).forEach((tag, idx) => {
+          let shiftCount = 0;
+          while (true) {
+            const hue = (shiftCount * 45 + idx * 60 + 120) % 360;
+            const newColor = `hsl(${hue}, 70%, 65%)`;
+            if (!usedColors.has(newColor.toLowerCase())) {
+              resolved[tag] = newColor;
+              usedColors.add(newColor.toLowerCase());
+              break;
+            }
+            shiftCount++;
+            if (shiftCount > 20) break;
+          }
+        });
+      }
+    });
+
+    return resolved;
+  }, [displayedTagData, tagColors]);
+
   const getTagColor = (tag: string) => {
-    return tagColors[tag] || (tag === 'Untagged' ? 'rgba(148, 163, 184, 0.5)' : getDefaultTagColor(tag));
+    return uniqueTagColors[tag] || tagColors[tag] || (tag === 'Untagged' ? 'rgba(148, 163, 184, 0.5)' : getDefaultTagColor(tag));
   };
 
   useEffect(() => {
@@ -99,10 +176,6 @@ export const TagAnalyticsWidget: React.FC<TagAnalyticsWidgetProps> = ({ userId }
       setEditingTag(null);
     }
   };
-
-  // Compute filtered tag data for donut chart & legend
-  const displayedTagData = tagData.filter(item => !excludeUntagged || item.tag !== 'Untagged');
-  const displayedTotalSeconds = displayedTagData.reduce((acc, curr) => acc + curr.total_seconds, 0);
 
   if (loading) {
     return (
@@ -311,36 +384,49 @@ export const TagAnalyticsWidget: React.FC<TagAnalyticsWidgetProps> = ({ userId }
               </div>
  
               {/* Preview */}
-              <div className="mb-6 p-4 rounded-2xl bg-white/[0.02] border border-white/5 flex items-center justify-center gap-3">
-                <div 
-                  className="w-4 h-4 rounded-full transition-all duration-500 shadow-lg"
-                  style={{ backgroundColor: selectedColor, boxShadow: `0 0 15px ${selectedColor}80` }}
-                />
-                <span className="text-xs font-semibold text-white/80 capitalize">
-                  {editingTag}
-                </span>
-                <span className="text-[10px] font-mono text-white/30 lowercase">
-                  ({selectedColor})
-                </span>
+              <div className="mb-6 p-4 rounded-2xl bg-white/[0.02] border border-white/5 flex flex-col items-center justify-center gap-1">
+                <div className="flex items-center gap-3">
+                  <div 
+                    className="w-4 h-4 rounded-full transition-all duration-500 shadow-lg"
+                    style={{ backgroundColor: selectedColor, boxShadow: `0 0 15px ${selectedColor}80` }}
+                  />
+                  <span className="text-xs font-semibold text-white/80 capitalize">
+                    {editingTag}
+                  </span>
+                  <span className="text-[10px] font-mono text-white/30 lowercase">
+                    ({selectedColor})
+                  </span>
+                </div>
+                {Object.entries(tagColors).some(([t, color]) => t !== editingTag && color.toLowerCase() === selectedColor.toLowerCase()) && (
+                  <p className="text-red-400 text-[10px] font-mono uppercase mt-1 text-center">Color is already assigned to another tag</p>
+                )}
               </div>
 
               {/* Color Selection Grid */}
               <div className="grid grid-cols-5 gap-3.5 mb-6">
                 {PRESET_COLORS.map((preset) => {
                   const isSelected = selectedColor.toLowerCase() === preset.value.toLowerCase();
+                  const isUsed = Object.entries(tagColors).some(([t, color]) => 
+                    t !== editingTag && color.toLowerCase() === preset.value.toLowerCase()
+                  );
                   return (
                     <button
                       key={preset.name}
+                      disabled={isUsed}
                       onClick={() => setSelectedColor(preset.value)}
                       className={`
                         w-8 h-8 rounded-full relative cursor-pointer transition-all duration-300 hover:scale-110
                         ${isSelected ? 'ring-2 ring-white ring-offset-2 ring-offset-slate-950 scale-110 shadow-lg' : 'opacity-80 hover:opacity-100'}
+                        ${isUsed ? 'opacity-20 cursor-not-allowed line-through' : ''}
                       `}
                       style={{ backgroundColor: preset.value }}
-                      title={preset.name}
+                      title={isUsed ? `${preset.name} (Used by another tag)` : preset.name}
                     >
                       {isSelected && (
                         <div className="absolute inset-0 rounded-full border border-white/40 scale-120 animate-pulse" />
+                      )}
+                      {isUsed && (
+                        <div className="absolute inset-0 flex items-center justify-center text-[10px] text-white font-bold opacity-60">✕</div>
                       )}
                     </button>
                   );
@@ -370,8 +456,9 @@ export const TagAnalyticsWidget: React.FC<TagAnalyticsWidgetProps> = ({ userId }
                   Reset
                 </button>
                 <button
+                  disabled={Object.entries(tagColors).some(([t, color]) => t !== editingTag && color.toLowerCase() === selectedColor.toLowerCase())}
                   onClick={handleSaveColor}
-                  className="flex-1 px-4 py-2.5 rounded-xl bg-sage-200 text-slate-950 text-[10px] font-bold uppercase tracking-widest hover:bg-sage-100 active:scale-98 transition-all shadow-[0_0_20px_rgba(183,201,176,0.2)] flex items-center justify-center cursor-pointer"
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-sage-200 text-slate-950 text-[10px] font-bold uppercase tracking-widest hover:bg-sage-100 active:scale-98 transition-all shadow-[0_0_20px_rgba(183,201,176,0.2)] flex items-center justify-center cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   Save Color
                 </button>

@@ -69,9 +69,6 @@ export const TagDonutChart: React.FC<TagDonutChartProps> = ({
       currentOffset += item.percentage;
       
       let color = getTagColor(item.tag);
-      if (item.tag === 'Untagged') {
-        color = tagColors['Untagged'] || 'rgba(183, 201, 176, 0.45)';
-      }
       
       return {
         ...item,

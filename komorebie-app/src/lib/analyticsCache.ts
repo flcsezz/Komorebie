@@ -18,7 +18,7 @@ const STALE_WHILE_REVALIDATE_MS = 30 * 1000; // Serve stale data for 30s while r
 // ─── Types ─────────────────────────────────────────────────────────
 export interface CachedAnalytics {
   profile: any; 
-  sessions: { id: string; status: string; elapsed_seconds?: number; started_at: string }[];
+  sessions: { id: string; status: string; elapsed_seconds?: number; started_at: string; tag?: string | null }[];
   streaks: { focus_date: string; total_focus_seconds: number; sessions_count: number; streak_qualified: boolean }[];
   deadlines: { id: string; deadline_date: string; title: string }[];
   tasks: { id: string; is_completed: boolean; completed_at: string | null }[];
@@ -191,7 +191,7 @@ class AnalyticsCacheStore {
       ] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
         supabase.from('focus_sessions')
-          .select('id, status, elapsed_seconds, started_at')
+          .select('id, status, elapsed_seconds, started_at, tag')
           .eq('user_id', userId)
           .order('started_at', { ascending: false })
           .limit(500),

@@ -107,9 +107,9 @@ const FlowAnalytics: React.FC = () => {
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-[calc(66.666%-7px)_calc(33.333%+7px)] gap-8">
         {/* Weekly Distribution */}
-        <div className="lg:col-span-2">
+        <div>
           <GlassCard className="p-8 h-[450px] flex flex-col">
             <div className="flex items-center justify-between mb-8">
               <div>
@@ -156,7 +156,7 @@ const FlowAnalytics: React.FC = () => {
         </div>
 
         {/* Tag Analytics Widget */}
-        <div className="lg:col-span-1">
+        <div>
           {user?.id && <TagAnalyticsWidget userId={user.id} />}
         </div>
       </div>

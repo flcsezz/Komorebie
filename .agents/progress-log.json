@@ -30,9 +30,16 @@
     {
       "date": "2026-05-19T11:00:00Z",
       "task_id": "BUGFIX-STATS-SYNC",
-      "commit": "PENDING",
+      "commit": "bc0be26",
       "tested": true,
       "notes": "Fixed root cause of 'focus time today/all time not updating'. Solved RLS block in the Cloudflare Worker's Supabase REST fallback by passing down the user authHeader. This ensures the worker can fetch focus_sessions data successfully, computing totals and avoiding cache resets to 0. Also wired up missing edge-computed fields like 'todayFocusSeconds' inside analyticsCache to optimize frontend computation."
+    },
+    {
+      "date": "2026-05-20T07:00:00Z",
+      "task_id": "FE-12",
+      "commit": "PENDING",
+      "tested": true,
+      "notes": "Completed implementation of user-defined tag creation, 6-tag limits, atomic delete/migration, edge sync, and resolved Tag Analytics Widget color consistency and dashboard layout adjustments."
     }
   ]
 }

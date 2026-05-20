@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform, animate } from 'framer-motion';
-import { Music, Check, Volume2, Tag, Plus } from 'lucide-react';
+import { Music, Check, Volume2, Tag, Plus, ChevronDown, Trash2 } from 'lucide-react';
 import { useZenClock } from '../../hooks/useZenClock';
+import { useDataSync } from '../../context/DataSyncContext';
 
 const ALARM_PRESETS = [
   { id: 'none', name: 'No Alarm', url: 'none' },
@@ -9,6 +10,19 @@ const ALARM_PRESETS = [
   { id: 'digital', name: 'Digital', url: 'https://assets.mixkit.co/active_storage/sfx/1003/1003-preview.mp3' },
   { id: 'birds', name: 'Birds', url: 'https://assets.mixkit.co/active_storage/sfx/134/134-preview.mp3' },
   { id: 'bowl', name: 'Tibetan Bowl', url: 'https://assets.mixkit.co/active_storage/sfx/2865/2865-preview.mp3' },
+];
+
+const PRESET_COLORS = [
+  { name: 'Sage', value: '#B7C9B0' },
+  { name: 'Forest', value: '#829B74' },
+  { name: 'Sakura', value: '#EFC7C8' },
+  { name: 'Sunset Gold', value: '#D4AF37' },
+  { name: 'Lavender', value: '#BDB2FF' },
+  { name: 'Ocean Blue', value: '#A0C4FF' },
+  { name: 'Teal', value: '#9BF6FF' },
+  { name: 'Mint', value: '#CAFFBF' },
+  { name: 'Apricot', value: '#FFD6A5' },
+  { name: 'Coral', value: '#FFADAD' },
 ];
 
 const ZenClock: React.FC = () => {
@@ -34,28 +48,42 @@ const ZenClock: React.FC = () => {
   const [showAlarms, setShowAlarms] = useState(false);
   const alarmMenuRef = useRef<HTMLDivElement>(null);
 
-  // Local tag input — only commits to context (and cloud) on confirm
-  const [tagInput, setTagInput] = useState(currentTag || '');
-  const tagInputRef = useRef<HTMLInputElement>(null);
+  const { tagColors, setTagColor, deleteTag } = useDataSync();
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+  
+  const [newTagName, setNewTagName] = useState('');
+  const [newTagColor, setNewTagColor] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Keep local input in sync when context tag changes externally (e.g. quick-tag click, cloud sync)
+  // Dropdown click outside listener
   useEffect(() => {
-    setTagInput(currentTag || '');
-  }, [currentTag]);
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
 
-  const commitTag = () => {
-    const trimmed = tagInput.trim().substring(0, 20);
-    setCurrentTag(trimmed || null);
-    // Blur input after commit for cleaner UX
-    tagInputRef.current?.blur();
-  };
-
-  const handleTagKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      commitTag();
+    if (showDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
     }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showDropdown]);
+
+  const handleDeleteTag = async (tagToDelete: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (currentTag === tagToDelete) {
+      setCurrentTag(null);
+    }
+    await deleteTag(tagToDelete);
   };
+
+  const unusedPresets = PRESET_COLORS.filter(preset => 
+    !Object.values(tagColors).some(usedColor => usedColor.toLowerCase() === preset.value.toLowerCase())
+  );
 
   // Click outside listener
   useEffect(() => {
@@ -363,77 +391,288 @@ const ZenClock: React.FC = () => {
         </div>
       </motion.div>
 
-      {/* Tag Selector Pill */}
+      {/* Tag Selector Pill / Dropdown */}
       <motion.div
         initial={{ y: 15 }}
         animate={{ y: 0 }}
         className="mt-6 flex flex-col items-center gap-2 z-30 opacity-0 group-hover/clock:opacity-100 focus-within:opacity-100 transition-opacity duration-500"
       >
-        <div 
-          className={`flex items-center gap-2 px-4 py-2 rounded-full backdrop-blur-md border transition-all duration-500 ${
-            isActive 
-              ? 'bg-slate-950/20 border-white/5 text-white/50' 
-              : 'bg-slate-950/40 border-white/10 text-white/70 hover:border-white/20 focus-within:border-sage-200/40 focus-within:shadow-[0_0_20px_rgba(183,201,176,0.1)]'
-          }`}
-        >
-          <Tag className={`w-3.5 h-3.5 ${currentTag ? 'text-sage-200 animate-pulse' : 'text-white/30'}`} />
-          
-          <input
-            ref={tagInputRef}
-            type="text"
-            value={tagInput}
-            onChange={(e) => setTagInput(e.target.value.substring(0, 20))}
-            onKeyDown={handleTagKeyDown}
+        {Object.keys(tagColors).length === 0 ? (
+          <motion.button
+            whileHover={!isActive ? { scale: 1.05 } : {}}
+            whileTap={!isActive ? { scale: 0.95 } : {}}
+            onClick={() => {
+              if (isActive) return;
+              setNewTagName('');
+              setNewTagColor(unusedPresets[0]?.value || '#B7C9B0');
+              setErrorMsg('');
+              setShowAddModal(true);
+            }}
             disabled={isActive}
-            placeholder="Add a tag..."
-            className="bg-transparent border-none outline-none text-[13px] text-white placeholder-white/35 font-sans font-medium w-32 tracking-wide focus:ring-0 focus-visible:outline-none p-0 text-center"
-          />
-
-          {/* Confirm button — only show when local input differs from committed tag */}
-          {!isActive && tagInput.trim() && tagInput.trim() !== (currentTag || '') && (
+            className="flex items-center gap-2 px-4 py-2 rounded-full backdrop-blur-md border border-white/10 bg-slate-950/40 text-white/70 hover:border-white/20 transition-all duration-300 cursor-pointer text-xs font-semibold uppercase tracking-wider shadow-lg disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <Plus className="w-3.5 h-3.5 text-sage-200" />
+            Add Tag
+          </motion.button>
+        ) : (
+          <div className="relative" ref={dropdownRef}>
             <motion.button
-              initial={{ scale: 0, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0, opacity: 0 }}
-              onClick={commitTag}
-              className="w-5 h-5 rounded-full bg-sage-200/20 border border-sage-200/30 flex items-center justify-center text-sage-200 hover:bg-sage-200/30 transition-all cursor-pointer focus-visible:outline-none"
+              whileHover={!isActive ? { scale: 1.02 } : {}}
+              whileTap={!isActive ? { scale: 0.98 } : {}}
+              onClick={() => !isActive && setShowDropdown(!showDropdown)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-full backdrop-blur-md border transition-all duration-300 ${
+                isActive 
+                  ? 'bg-slate-950/20 border-white/5 text-white/40 cursor-default' 
+                  : 'bg-slate-950/40 border-white/10 text-white/80 hover:border-white/20 cursor-pointer'
+              }`}
             >
-              <Plus className="w-3 h-3" />
+              <Tag className="w-3.5 h-3.5" style={{ color: currentTag ? (tagColors[currentTag] || '#B7C9B0') : 'rgba(255,255,255,0.4)' }} />
+              <span className="text-[13px] font-sans font-medium tracking-wide truncate max-w-[100px]">
+                {currentTag || 'No Tag'}
+              </span>
+              {!isActive && <ChevronDown className="w-3 h-3 opacity-60 ml-0.5" />}
             </motion.button>
-          )}
 
-          {!isActive && currentTag && tagInput.trim() === (currentTag || '') && (
-            <button
-              onClick={() => { setCurrentTag(null); setTagInput(''); }}
-              className="text-white/30 hover:text-white transition-colors cursor-pointer focus-visible:outline-none"
-            >
-              <span className="text-[10px] font-bold">✕</span>
-            </button>
-          )}
-        </div>
-
-        {/* Quick Tag Recommendations (Only show if not active) */}
-        <AnimatePresence>
-          {!isActive && !currentTag && !tagInput.trim() && (
-            <motion.div 
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="flex items-center gap-1.5 mt-1 overflow-hidden"
-            >
-              {['code', 'design', 'math', 'read', 'write'].map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setCurrentTag(t)}
-                  className="px-3 py-1 rounded-full bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 text-[10px] font-mono text-white/40 hover:text-white transition-all duration-300 cursor-pointer uppercase tracking-wider focus-visible:outline-none"
+            {/* Dropdown menu */}
+            <AnimatePresence>
+              {showDropdown && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                  transition={{ duration: 0.2 }}
+                  className="absolute top-full mt-2 left-1/2 -translate-x-1/2 w-48 bg-slate-900/90 border border-white/10 backdrop-blur-xl rounded-2xl shadow-2xl p-2 z-50 flex flex-col gap-1"
                 >
-                  {t}
-                </button>
-              ))}
-            </motion.div>
-          )}
-        </AnimatePresence>
+                  {/* No Tag Option */}
+                  <button
+                    onClick={() => {
+                      setCurrentTag(null);
+                      setShowDropdown(false);
+                    }}
+                    className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-xl text-left text-[11px] font-semibold tracking-wider uppercase transition-colors hover:bg-white/5 ${
+                      !currentTag ? 'text-sage-200 bg-white/5' : 'text-white/50'
+                    }`}
+                  >
+                    <div className="w-2 h-2 rounded-full bg-white/20" />
+                    No Tag
+                  </button>
+                  
+                  <div className="h-[1px] bg-white/5 my-1" />
+
+                  {/* Tags List */}
+                  <div className="max-h-36 overflow-y-auto flex flex-col gap-0.5 custom-scrollbar">
+                    {Object.keys(tagColors).map((tag) => {
+                      const color = tagColors[tag];
+                      const isSelected = currentTag === tag;
+                      return (
+                        <div
+                          key={tag}
+                          className={`group/item w-full flex items-center justify-between px-3 py-1.5 rounded-xl transition-all ${
+                            isSelected ? 'bg-white/5 text-white' : 'text-white/60 hover:bg-white/5'
+                          }`}
+                        >
+                          <button
+                            onClick={() => {
+                              setCurrentTag(tag);
+                              setShowDropdown(false);
+                            }}
+                            className="flex-1 flex items-center gap-2 text-left text-[11px] font-semibold truncate capitalize"
+                          >
+                            <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+                            <span className="truncate">{tag}</span>
+                          </button>
+                          <button
+                            onClick={(e) => handleDeleteTag(tag, e)}
+                            className="opacity-0 group-hover/item:opacity-100 p-0.5 rounded text-white/40 hover:text-red-400 transition-all ml-1 cursor-pointer"
+                            title="Delete Tag"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="h-[1px] bg-white/5 my-1" />
+
+                  {/* Add Tag Option */}
+                  {Object.keys(tagColors).length >= 6 ? (
+                    <div className="w-full text-center px-3 py-2 rounded-xl text-[10px] font-mono uppercase tracking-widest text-white/30 bg-white/[0.02]">
+                      Max Tags
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        setNewTagName('');
+                        setNewTagColor(unusedPresets[0]?.value || '#B7C9B0');
+                        setErrorMsg('');
+                        setShowDropdown(false);
+                        setShowAddModal(true);
+                      }}
+                      className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-center text-[10px] font-bold uppercase tracking-wider text-sage-200 hover:text-white bg-sage-200/10 border border-sage-200/20 hover:bg-sage-200/20 transition-all cursor-pointer"
+                    >
+                      <Plus className="w-3 h-3" />
+                      Add Tag
+                    </button>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        )}
       </motion.div>
+
+      {/* Add Tag Modal */}
+      <AnimatePresence>
+        {showAddModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowAddModal(false)}
+              className="absolute inset-0 bg-slate-950/80 backdrop-blur-md"
+            />
+            
+            {/* Modal Body */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              className="relative w-full max-w-sm bg-slate-900/90 border border-white/10 p-6 rounded-3xl shadow-2xl backdrop-blur-2xl z-10"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-2.5">
+                  <Tag className="w-5 h-5 text-sage-200" />
+                  <div>
+                    <h4 className="text-sm font-display font-medium text-white uppercase tracking-wider">
+                      Create New Tag
+                    </h4>
+                    <p className="text-[9px] font-mono text-white/40 uppercase">
+                      Customize your tag & color
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowAddModal(false)}
+                  className="p-1 rounded-xl bg-white/5 border border-white/5 text-white/50 hover:text-white transition-all cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Form */}
+              <div className="flex flex-col gap-4 mb-6">
+                <div>
+                  <label className="block text-[10px] font-mono text-white/40 uppercase tracking-widest mb-1.5">Tag Name (Max 13 Chars)</label>
+                  <input
+                    type="text"
+                    maxLength={13}
+                    placeholder="e.g. coding"
+                    value={newTagName}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      // Allow letters, numbers, spaces, hyphens, and underscores only
+                      const sanitized = val.replace(/[^a-zA-Z0-9\s-_]/g, '');
+                      setNewTagName(sanitized);
+                      if (tagColors[sanitized.trim()]) {
+                        setErrorMsg('Tag name already exists');
+                      } else {
+                        setErrorMsg('');
+                      }
+                    }}
+                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white placeholder-white/20 outline-none focus:border-sage-200/40 focus:ring-0 transition-colors"
+                  />
+                  {errorMsg && <p className="text-red-400 text-[10px] mt-1 font-mono uppercase">{errorMsg}</p>}
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-mono text-white/40 uppercase tracking-widest mb-1.5">Select Unique Color</label>
+                  
+                  {/* Preset Colors Grid */}
+                  <div className="grid grid-cols-5 gap-3.5 mb-4">
+                    {PRESET_COLORS.map((preset) => {
+                      const isSelected = newTagColor.toLowerCase() === preset.value.toLowerCase();
+                      const isUsed = Object.values(tagColors).some(usedColor => usedColor.toLowerCase() === preset.value.toLowerCase());
+                      
+                      return (
+                        <button
+                          key={preset.name}
+                          disabled={isUsed}
+                          onClick={() => {
+                            setNewTagColor(preset.value);
+                          }}
+                          className={`
+                            w-8 h-8 rounded-full relative cursor-pointer transition-all duration-300 hover:scale-110
+                            ${isSelected ? 'ring-2 ring-white scale-110 shadow-lg' : 'opacity-80'}
+                            ${isUsed ? 'opacity-20 cursor-not-allowed line-through' : ''}
+                          `}
+                          style={{ backgroundColor: preset.value }}
+                          title={isUsed ? `${preset.name} (Already in use)` : preset.name}
+                        >
+                          {isSelected && (
+                            <div className="absolute inset-0 rounded-full border border-white/40 scale-120 animate-pulse" />
+                          )}
+                          {isUsed && (
+                            <div className="absolute inset-0 flex items-center justify-center text-[10px] text-white font-bold opacity-60">✕</div>
+                          )}
+                        </button>
+                      );
+                    })}
+
+                    {/* Custom Color Input Wrapper */}
+                    <div className="relative w-8 h-8 rounded-full border border-white/10 overflow-hidden flex items-center justify-center bg-gradient-to-tr from-pink-500 via-purple-500 to-blue-500 hover:scale-110 transition-all cursor-pointer">
+                      <input
+                        type="color"
+                        value={newTagColor.startsWith('#') ? newTagColor : '#B7C9B0'}
+                        onChange={(e) => {
+                          const color = e.target.value;
+                          setNewTagColor(color);
+                          const exists = Object.values(tagColors).some(usedColor => usedColor.toLowerCase() === color.toLowerCase());
+                          if (exists) {
+                            setErrorMsg('Color is already assigned to another tag');
+                          } else {
+                            setErrorMsg('');
+                          }
+                        }}
+                        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                        title="Custom Color"
+                      />
+                      <span className="text-[10px] font-bold text-white pointer-events-none">+</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowAddModal(false)}
+                  className="flex-1 px-4 py-2.5 rounded-xl border border-white/5 bg-white/5 text-[10px] font-mono uppercase tracking-widest text-white/40 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  disabled={!newTagName.trim() || !!errorMsg || Object.keys(tagColors).length >= 6}
+                  onClick={async () => {
+                    const name = newTagName.trim();
+                    if (!name) return;
+                    
+                    await setTagColor(name, newTagColor);
+                    setCurrentTag(name);
+                    setShowAddModal(false);
+                  }}
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-sage-200 text-slate-950 text-[10px] font-bold uppercase tracking-widest hover:bg-sage-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-[0_0_20px_rgba(183,201,176,0.2)] cursor-pointer"
+                >
+                  Create Tag
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Alarms and Pomodoro Toggle Section */}
       <AnimatePresence>

@@ -266,7 +266,8 @@ export default {
 
           const ALLOWED_DATA_TYPES = [
             'tasks', 'habits', 'habit_logs', 'deadlines', 'user_preferences',
-            'notes', 'flashcard_decks', 'flashcard_cards', 'flashcard_study_sessions'
+            'notes', 'flashcard_decks', 'flashcard_cards', 'flashcard_study_sessions',
+            'tag_colors'
           ];
 
           if (!ALLOWED_DATA_TYPES.includes(body.data_type)) {
@@ -340,7 +341,8 @@ export default {
         const dataTypes = [
           'tasks', 'habits', 'habit_logs', 'deadlines', 
           'user_preferences', 'notes', 'flashcard_decks', 
-          'flashcard_cards', 'flashcard_study_sessions'
+          'flashcard_cards', 'flashcard_study_sessions',
+          'tag_colors'
         ];
 
         for (const type of dataTypes) {
