@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "instructions": "DO NOT REMOVE OR RENAME TASKS. ONLY change the 'passes' field from false to true when a task is fully complete and verified. Append new tasks if absolutely necessary.",
+  "instructions": "DO NOT REMOVE OR RENAME TASKS (UNLESS user specifies). ONLY change the 'passes' field from false to true when a task is fully complete and verified. Append new tasks if necessary.",
   "features": [
     {
       "id": "FE-11",
@@ -92,6 +92,13 @@
       "description": "Unified premium, pulsing, glassmorphic Mana Pill dropdown trigger in the top-right header. Fixed infinite loading spinner on empty TagAnalyticsWidget and added full multi-user friend analytics support.",
       "passes": true,
       "priority": 13
+    },
+    {
+      "id": "DISCORD-RPC-AND-PROD-PLAN",
+      "title": "Discord RPC integration & 0-cost Production Planning",
+      "description": "Architect a custom Discord Rich Presence flow for ZenClock focusing sessions (displaying live streak and focus times) and design a high-quality 0-cost analytics, error tracking, and MCP stack. Run deep repository integrity checks.",
+      "passes": false,
+      "priority": 14
     }
   ]
 }

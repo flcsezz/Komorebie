@@ -3,16 +3,12 @@ This file is wiped and rewritten at the start of each new session.
 It contains the narrowed scope of work for the active agent.
 
 ## Active Task
-- **FE-12**: Implement Custom Tag System and analytics integration.
-- **Goal**: Fully migrate ZenClock tag suggestion system to user-defined color tagging with limits and delete safety.
+- **DISCORD-RPC-AND-PROD-PLAN**: Plan Discord Custom Rich Presence integration, design 0-cost production stack (analytics, error-tracking, developer MCPs), and run systematic integrity/bug-hunting.
+- **Goal**: Deliver high-craft implementation designs, absolute 0-cost tool recommendations, and execute full-workspace integrity checks/bug fixing for Komorebie app.
 
 ## Status
-- [x] Task identified
-- [x] Schema constraints and RPCs updated
-- [x] Dropdown, Modal, and 6-tag limits implemented
-- [x] Tag deletion atomic migration implemented
-- [x] TagAnalyticsWidget & TagDonutChart color uniqueness resolved
-- [x] FlowAnalytics widget sizes adjusted (tag +7px, weekly -7px)
-- [x] Production build verified successfully
-- [ ] Committed to git
-- [x] `progress-log.json` updated
+- [ ] Task identified & planned
+- [ ] Discord RPC architecture designed
+- [ ] Production 0-cost stack finalized
+- [ ] Workspace bug-hunting and integrity audit performed
+- [ ] Progress log updated

@@ -71,7 +71,9 @@ export const TagAnalyticsWidget: React.FC<TagAnalyticsWidgetProps> = ({ userId }
 
   // Derived state resolution based on current user view
   const loading = isCurrentUser ? syncLoading : friendLoading;
-  const tagColors = isCurrentUser ? syncTagColors : {};
+  const tagColors = useMemo(() => {
+    return isCurrentUser ? syncTagColors : {};
+  }, [isCurrentUser, syncTagColors]);
   const tagData = isCurrentUser 
     ? (timeRange === 'today' ? syncTagData.today : syncTagData.all)
     : (timeRange === 'today' ? friendTagData.today : friendTagData.all);
@@ -287,7 +289,6 @@ export const TagAnalyticsWidget: React.FC<TagAnalyticsWidgetProps> = ({ userId }
           onHover={setHoveredTag}
           getTagColor={getTagColor}
           onSelectSegment={handleEditColor}
-          tagColors={tagColors}
         />
       </div>
 

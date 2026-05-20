@@ -9,7 +9,6 @@ interface TagDonutChartProps {
   onHover: (tag: string | null) => void;
   getTagColor: (tag: string) => string;
   onSelectSegment?: (tag: string) => void;
-  tagColors?: Record<string, string>;
 }
 
 const formatDuration = (seconds: number) => {
@@ -26,8 +25,7 @@ export const TagDonutChart: React.FC<TagDonutChartProps> = ({
   hoveredTag, 
   onHover, 
   getTagColor,
-  onSelectSegment,
-  tagColors = {}
+  onSelectSegment
 }) => {
   const size = 200;
   const strokeWidth = 14;
@@ -63,21 +61,21 @@ export const TagDonutChart: React.FC<TagDonutChartProps> = ({
       }));
     }
 
+    const result = [];
     let currentOffset = 0;
-    return adjustedSegments.map((item) => {
+    for (const item of adjustedSegments) {
       const segmentOffset = currentOffset;
       currentOffset += item.percentage;
-      
-      let color = getTagColor(item.tag);
-      
-      return {
+      const color = getTagColor(item.tag);
+      result.push({
         ...item,
         offset: segmentOffset * circumference,
         length: item.percentage * circumference,
         color
-      };
-    });
-  }, [data, circumference, getTagColor, tagColors]);
+      });
+    }
+    return result;
+  }, [data, circumference, getTagColor]);
 
   const activeData = useMemo(() => 
     chartSegments.find(s => s.tag === hoveredTag) || null,

@@ -71,6 +71,7 @@ const EMPTY_STATS: SyncStats = {
 
 export const DataSyncProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
+  const userId = user?.id;
   const [data, setData] = useState<CachedAnalytics | null>(null);
   const [rankings, setRankings] = useState<SyncRankings>({ globalRank: null, leagueRank: null, totalUsers: 0 });
   const [tagColors, setTagColors] = useState<Record<string, string>>({});
@@ -78,12 +79,12 @@ export const DataSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const hasDataRef = useRef(false);
 
   // Load tag colors directly from Supabase
-  const loadTagColors = useCallback(async (userId: string) => {
+  const loadTagColors = useCallback(async (uId: string) => {
     try {
       const { data: tcData, error: tcErr } = await supabase
         .from('tag_colors')
         .select('tag, color')
-        .eq('user_id', userId);
+        .eq('user_id', uId);
       
       if (tcErr) throw tcErr;
       
@@ -98,7 +99,7 @@ export const DataSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, []);
 
   const setTagColor = useCallback(async (tag: string, color: string) => {
-    if (!user?.id) return;
+    if (!userId) return;
 
     // Optimistic update
     setTagColors(prev => ({
@@ -110,7 +111,7 @@ export const DataSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const { error } = await supabase
         .from('tag_colors')
         .upsert({
-          user_id: user.id,
+          user_id: userId,
           tag,
           color,
           updated_at: new Date().toISOString()
@@ -122,9 +123,9 @@ export const DataSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     } catch (err) {
       console.error('DataSync: failed to save tag color', err);
       // Revert or reload from server to stay in sync
-      loadTagColors(user.id);
+      loadTagColors(userId);
     }
-  }, [user?.id, loadTagColors]);
+  }, [userId, loadTagColors]);
 
   // Keep ref in sync with state
   useEffect(() => { hasDataRef.current = !!data; }, [data]);
@@ -196,7 +197,7 @@ export const DataSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // fetchDirectFromSupabase removed — analyticsCache.ts handles this internally.
 
   const refresh = useCallback(async (force = false) => {
-    if (!user?.id) {
+    if (!userId) {
       setData(null);
       setTagColors({});
       setLoading(false);
@@ -209,27 +210,27 @@ export const DataSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
 
     // Fire off tag colors fetch in parallel
-    loadTagColors(user.id);
+    loadTagColors(userId);
 
     try {
       // ─── Step 1: Check in-memory cache first ───────────────────────
       // When force=true, still use a very-recently-populated cache (< 10s old)
       // to avoid a redundant edge-worker call right after analyticsCache.invalidate().
-      const _cached = analyticsCache.get(user.id);
+      const _cached = analyticsCache.get(userId);
       const _cacheAge = _cached ? Date.now() - _cached.fetchedAt : Infinity;
-      if (_cached && (!force ? !analyticsCache.isStale(user.id) : _cacheAge < 10_000)) {
+      if (_cached && (!force ? !analyticsCache.isStale(userId) : _cacheAge < 10_000)) {
         console.log(`DataSync: Using ${force ? 'very-fresh' : 'cached'} in-memory data (${Math.round(_cacheAge / 1000)}s old)`);
         setData(_cached);
         setLoading(false);
-        fetchRankings(user.id, _cached.totalSeconds || 0);
+        fetchRankings(userId, _cached.totalSeconds || 0);
         return;
       }
 
       // ─── Delegate to analyticsCache (handles edge + direct fallback) ──
-      const result = await analyticsCache.fetch(user.id, force);
+      const result = await analyticsCache.fetch(userId, force);
       if (result) {
         setData(result);
-        fetchRankings(user.id, result.totalSeconds ?? 0);
+        fetchRankings(userId, result.totalSeconds ?? 0);
       } else if (!hasDataRef.current) {
         // Absolute last resort — prevent infinite loading spinner
         setData({ profile: {}, sessions: [], streaks: [], deadlines: [], tasks: [], fetchedAt: Date.now() } as CachedAnalytics);
@@ -242,10 +243,10 @@ export const DataSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     } finally {
       setLoading(false);
     }
-  }, [user, fetchRankings]);
+  }, [userId, loadTagColors, fetchRankings]);
 
   const deleteTag = useCallback(async (tag: string) => {
-    if (!user?.id) return;
+    if (!userId) return;
 
     // Optimistic update
     setTagColors(prev => {
@@ -259,7 +260,7 @@ export const DataSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const { error: deleteErr } = await supabase
         .from('tag_colors')
         .delete()
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .eq('tag', tag);
 
       if (deleteErr) throw deleteErr;
@@ -268,19 +269,19 @@ export const DataSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const { error: updateErr } = await supabase
         .from('focus_sessions')
         .update({ tag: null })
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .eq('tag', tag);
 
       if (updateErr) throw updateErr;
 
       // 3. Invalidate cache and trigger update
-      await analyticsCache.invalidate(user.id);
+      await analyticsCache.invalidate(userId);
       refresh(true);
     } catch (err) {
       console.error('DataSync: failed to delete tag', err);
-      loadTagColors(user.id);
+      loadTagColors(userId);
     }
-  }, [user?.id, loadTagColors, refresh]);
+  }, [userId, loadTagColors, refresh]);
 
   // Initial load + visibility-based refresh
   useEffect(() => {
