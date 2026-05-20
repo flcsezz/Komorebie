@@ -89,11 +89,11 @@ const TaskCapture: React.FC = () => {
           className="w-full md:w-auto flex flex-col gap-4 transition-all duration-700 ease-in-out order-1 md:order-2"
           style={{ flex: isActive ? '6.78 1 0%' : '6.55 1 0%' }}
         >
-          <GlassCard variant="icy" className="p-6 flex items-center justify-center min-h-[380px]">
+          <GlassCard variant="icy" className="relative p-6 flex items-center justify-center min-h-[380px] z-20">
             <ZenClock />
           </GlassCard>
  
-          <GlassCard variant="icy" className="p-3">
+          <GlassCard variant="icy" className="relative p-3 z-10">
             <SoundscapeSelector />
           </GlassCard>
         </div>
