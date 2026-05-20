@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform, animate } from 'framer-motion';
-import { Music, Check, Volume2, Tag, Plus, ChevronDown, Trash2 } from 'lucide-react';
+import { Tag, Plus, ChevronDown, Trash2, Settings, Play, Square } from 'lucide-react';
 import { useZenClock } from '../../hooks/useZenClock';
 import { useDataSync } from '../../context/DataSyncContext';
 
@@ -42,11 +42,29 @@ const ZenClock: React.FC = () => {
     completeSession,
     skipBreak,
     currentTag,
-    setCurrentTag
+    setCurrentTag,
+    pomodoroWorkTime,
+    pomodoroBreakTime,
+    pomodoroLongBreakTime,
+    setPomodoroWorkTime,
+    setPomodoroBreakTime,
+    setPomodoroLongBreakTime
   } = useZenClock();
 
-  const [showAlarms, setShowAlarms] = useState(false);
-  const alarmMenuRef = useRef<HTMLDivElement>(null);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [activeTab, setActiveTab] = useState<'timer' | 'pomodoro' | 'alarm'>('timer');
+
+  // Input states for Timer Section
+  const [timerMinutesInput, setTimerMinutesInput] = useState(duration.toString());
+
+  // Input states for Pomodoro Section
+  const [pomodoroWorkInput, setPomodoroWorkInput] = useState(pomodoroWorkTime.toString());
+  const [pomodoroBreakInput, setPomodoroBreakInput] = useState(pomodoroBreakTime.toString());
+  const [pomodoroLongBreakInput, setPomodoroLongBreakInput] = useState(pomodoroLongBreakTime.toString());
+
+  // Preview Audio states for Alarms Section
+  const [previewingAlarmId, setPreviewingAlarmId] = useState<string | null>(null);
+  const previewAudioRef = useRef<HTMLAudioElement | null>(null);
 
   const { tagColors, setTagColor, deleteTag } = useDataSync();
   const [showDropdown, setShowDropdown] = useState(false);
@@ -56,6 +74,16 @@ const ZenClock: React.FC = () => {
   const [newTagColor, setNewTagColor] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Sync inputs with state when modal is opened or state changes
+  useEffect(() => {
+    if (showSettingsModal) {
+      setTimerMinutesInput(duration.toString());
+      setPomodoroWorkInput(pomodoroWorkTime.toString());
+      setPomodoroBreakInput(pomodoroBreakTime.toString());
+      setPomodoroLongBreakInput(pomodoroLongBreakTime.toString());
+    }
+  }, [showSettingsModal, duration, pomodoroWorkTime, pomodoroBreakTime, pomodoroLongBreakTime]);
 
   // Dropdown click outside listener
   useEffect(() => {
@@ -85,21 +113,46 @@ const ZenClock: React.FC = () => {
     !Object.values(tagColors).some(usedColor => usedColor.toLowerCase() === preset.value.toLowerCase())
   );
 
-  // Click outside listener
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (alarmMenuRef.current && !alarmMenuRef.current.contains(event.target as Node)) {
-        setShowAlarms(false);
+  const handleToggleAlarmPreview = (id: string, url: string) => {
+    if (previewingAlarmId === id) {
+      if (previewAudioRef.current) {
+        previewAudioRef.current.pause();
+        previewAudioRef.current = null;
       }
-    };
+      setPreviewingAlarmId(null);
+    } else {
+      if (previewAudioRef.current) {
+        previewAudioRef.current.pause();
+      }
+      const audio = new Audio(url);
+      audio.volume = 0.4;
+      previewAudioRef.current = audio;
+      setPreviewingAlarmId(id);
+      audio.play().catch(err => console.error("Alarm preview failed:", err));
+      
+      // Auto-stop preview after 4 seconds
+      const timeout = setTimeout(() => {
+        if (previewAudioRef.current === audio) {
+          audio.pause();
+          setPreviewingAlarmId(null);
+        }
+      }, 4000);
 
-    if (showAlarms) {
-      document.addEventListener('mousedown', handleClickOutside);
+      audio.onended = () => {
+        clearTimeout(timeout);
+        setPreviewingAlarmId(null);
+      };
     }
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [showAlarms]);
+  };
+
+  const handleCloseSettings = () => {
+    if (previewAudioRef.current) {
+      previewAudioRef.current.pause();
+      previewAudioRef.current = null;
+    }
+    setPreviewingAlarmId(null);
+    setShowSettingsModal(false);
+  };
 
   // Motion values for smooth counting
   const displayDuration = useMotionValue(duration);
@@ -682,76 +735,15 @@ const ZenClock: React.FC = () => {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
             className="absolute bottom-0 right-0 z-40 flex flex-col items-end gap-3"
-            ref={alarmMenuRef}
           >
-            {/* Alarm Selector Menu */}
-            <AnimatePresence>
-              {showAlarms && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9, y: 10 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.9, y: 10 }}
-                  className="glass rounded-2xl p-4 shadow-2xl min-w-[200px] mb-2 border-white/10"
-                >
-                  <div className="text-[11px] font-bold text-white/60 uppercase tracking-widest mb-3 px-1 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Volume2 className="w-3 h-3" />
-                      Alarm Sound
-                    </div>
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    {ALARM_PRESETS.map((alarm) => (
-                      <button
-                        key={alarm.id}
-                        onClick={() => {
-                          setSelectedAlarm(alarm.url);
-                          // Play preview only if not 'none'
-                          if (alarm.url !== 'none') {
-                            // Stop any existing preview before starting a new one
-                            if ((window as any).__zenPreviewAudio) {
-                              (window as any).__zenPreviewAudio.pause();
-                              (window as any).__zenPreviewAudio.src = '';
-                            }
-                            const preview = new Audio(alarm.url);
-                            preview.volume = 0.4;
-                            (window as any).__zenPreviewAudio = preview;
-                            preview.play().catch(() => {});
-                            setTimeout(() => {
-                              preview.pause();
-                              preview.src = ''; // Release the resource
-                            }, 2000);
-                          }
-                        }}
-                        className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-xs transition-all duration-300 cursor-pointer ${
-                          selectedAlarm === alarm.url 
-                            ? 'bg-sage-200/20 text-sage-200 border border-sage-200/20' 
-                            : 'text-white/50 hover:bg-white/5 hover:text-white border border-transparent'
-                        }`}
-                      >
-                        <span className="font-medium">{alarm.name}</span>
-                        {selectedAlarm === alarm.url && (
-                          <motion.div
-                            initial={{ scale: 0 }}
-                            animate={{ scale: 1 }}
-                          >
-                            <Check className="w-3.5 h-3.5" />
-                          </motion.div>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Music Icon Button */}
+            {/* Settings Gear Button */}
             <button 
-              onClick={() => setShowAlarms(!showAlarms)}
-              className={`w-10 h-10 rounded-full flex items-center justify-center border transition-all duration-300 cursor-pointer ${
-                showAlarms ? 'bg-sage-200/20 border-sage-200/40 text-sage-200' : 'bg-slate-950/40 border-white/5 text-white/40 hover:text-white hover:bg-white/10'
-              } opacity-0 group-hover/clock:opacity-100`}
+              onClick={() => setShowSettingsModal(true)}
+              className="w-10 h-10 rounded-full flex items-center justify-center border transition-all duration-300 cursor-pointer bg-slate-950/40 border-white/5 text-white/40 hover:text-white hover:bg-white/10 opacity-0 group-hover/clock:opacity-100 focus-visible:opacity-100 outline-none"
+              title="Zen Clock Settings"
+              aria-label="Zen Clock Settings"
             >
-              <Music className="w-4 h-4" />
+              <Settings className="w-4 h-4 transition-transform duration-500 hover:rotate-45" />
             </button>
 
             {/* Pomodoro Toggle */}
@@ -777,6 +769,328 @@ const ZenClock: React.FC = () => {
               </button>
             </div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ZenClock Settings Modal */}
+      <AnimatePresence>
+        {showSettingsModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={handleCloseSettings}
+              className="absolute inset-0 bg-slate-950/40 backdrop-blur-md"
+            />
+            
+            {/* Modal Body */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              className="relative w-full max-w-md bg-slate-950/85 border border-white/10 p-6 rounded-3xl shadow-2xl backdrop-blur-2xl z-10 overflow-hidden"
+            >
+              {/* Glow accent */}
+              <div className="absolute -top-24 -left-24 w-48 h-48 rounded-full bg-sage-200/10 blur-3xl pointer-events-none" />
+              <div className="absolute -bottom-24 -right-24 w-48 h-48 rounded-full bg-blue-500/10 blur-3xl pointer-events-none" />
+
+              {/* Header */}
+              <div className="flex items-center justify-between mb-6 relative z-10">
+                <div className="flex items-center gap-2.5">
+                  <Settings className="w-5 h-5 text-sage-200 animate-spin-slow" />
+                  <div>
+                    <h4 className="text-sm font-display font-medium text-white uppercase tracking-wider">
+                      ZenClock Settings
+                    </h4>
+                    <p className="text-[9px] font-mono text-white/40 uppercase">
+                      Customize your focus sanctuary
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={handleCloseSettings}
+                  className="p-1 rounded-xl bg-white/5 border border-white/5 text-white/50 hover:text-white transition-all cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Tabs */}
+              <div className="flex bg-white/5 p-1 rounded-2xl mb-6 relative z-10 border border-white/5">
+                {(['timer', 'pomodoro', 'alarm'] as const).map((tab) => {
+                  const isActiveTab = activeTab === tab;
+                  return (
+                    <button
+                      key={tab}
+                      onClick={() => setActiveTab(tab)}
+                      className={`flex-1 py-2 text-center text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all relative cursor-pointer ${
+                        isActiveTab ? 'text-slate-950 font-black' : 'text-white/40 hover:text-white'
+                      }`}
+                    >
+                      {isActiveTab && (
+                        <motion.div
+                          layoutId="activeSettingsTab"
+                          className="absolute inset-0 bg-sage-200 rounded-xl -z-10 shadow-lg"
+                          transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                        />
+                      )}
+                      {tab}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Tab Content */}
+              <div className="min-h-[220px] flex flex-col justify-between relative z-10">
+                <AnimatePresence mode="wait">
+                  {activeTab === 'timer' && (
+                    <motion.div
+                      key="timer-tab"
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 10 }}
+                      transition={{ duration: 0.2 }}
+                      className="flex flex-col gap-4"
+                    >
+                      <div>
+                        <label className="block text-[10px] font-mono text-white/40 uppercase tracking-widest mb-1.5">
+                          Standard Duration (Minutes)
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            min={1}
+                            max={240}
+                            placeholder="e.g. 25"
+                            value={timerMinutesInput}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === '' || /^\d*$/.test(val)) {
+                                setTimerMinutesInput(val);
+                              }
+                            }}
+                            className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white placeholder-white/20 outline-none focus:border-sage-200/40 transition-colors"
+                          />
+                          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-mono text-white/20 uppercase">
+                            min
+                          </span>
+                        </div>
+                        <p className="text-[9px] font-mono text-white/30 mt-2 uppercase tracking-wide">
+                          ⚠️ Value must be between 1 and 240 minutes.
+                        </p>
+                      </div>
+
+                      <button
+                        disabled={
+                          !timerMinutesInput || 
+                          isNaN(parseInt(timerMinutesInput, 10)) || 
+                          parseInt(timerMinutesInput, 10) < 1 || 
+                          parseInt(timerMinutesInput, 10) > 240
+                        }
+                        onClick={() => {
+                          const m = parseInt(timerMinutesInput, 10);
+                          setDuration(m);
+                          handleCloseSettings();
+                        }}
+                        className="w-full mt-4 py-3 rounded-xl bg-sage-200 text-slate-950 text-[10px] font-bold uppercase tracking-widest hover:bg-sage-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-[0_0_20px_rgba(183,201,176,0.2)] cursor-pointer"
+                      >
+                        Save Timer Duration
+                      </button>
+                    </motion.div>
+                  )}
+
+                  {activeTab === 'pomodoro' && (
+                    <motion.div
+                      key="pomodoro-tab"
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 10 }}
+                      transition={{ duration: 0.2 }}
+                      className="flex flex-col gap-4"
+                    >
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[10px] font-mono text-white/40 uppercase tracking-widest mb-1.5">
+                            Focus Interval
+                          </label>
+                          <div className="relative">
+                            <input
+                              type="number"
+                              min={1}
+                              max={180}
+                              placeholder="25"
+                              value={pomodoroWorkInput}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (val === '' || /^\d*$/.test(val)) {
+                                  setPomodoroWorkInput(val);
+                                }
+                              }}
+                              className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white placeholder-white/20 outline-none focus:border-sage-200/40 transition-colors"
+                            />
+                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-mono text-white/20 uppercase">
+                              min
+                            </span>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-mono text-white/40 uppercase tracking-widest mb-1.5">
+                            Short Break
+                          </label>
+                          <div className="relative">
+                            <input
+                              type="number"
+                              min={1}
+                              max={180}
+                              placeholder="5"
+                              value={pomodoroBreakInput}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (val === '' || /^\d*$/.test(val)) {
+                                  setPomodoroBreakInput(val);
+                                }
+                              }}
+                              className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white placeholder-white/20 outline-none focus:border-sage-200/40 transition-colors"
+                            />
+                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-mono text-white/20 uppercase">
+                              min
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-mono text-white/40 uppercase tracking-widest mb-1.5">
+                          Long Break
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            min={1}
+                            max={180}
+                            placeholder="15"
+                            value={pomodoroLongBreakInput}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === '' || /^\d*$/.test(val)) {
+                                setPomodoroLongBreakInput(val);
+                              }
+                            }}
+                            className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white placeholder-white/20 outline-none focus:border-sage-200/40 transition-colors"
+                          />
+                          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-mono text-white/20 uppercase">
+                            min
+                          </span>
+                        </div>
+                      </div>
+
+                      <p className="text-[9px] font-mono text-white/30 uppercase tracking-wide">
+                        ⚠️ Focus & Break intervals must be between 1 and 180 minutes.
+                      </p>
+
+                      <button
+                        disabled={
+                          !pomodoroWorkInput || isNaN(parseInt(pomodoroWorkInput, 10)) || parseInt(pomodoroWorkInput, 10) < 1 || parseInt(pomodoroWorkInput, 10) > 180 ||
+                          !pomodoroBreakInput || isNaN(parseInt(pomodoroBreakInput, 10)) || parseInt(pomodoroBreakInput, 10) < 1 || parseInt(pomodoroBreakInput, 10) > 180 ||
+                          !pomodoroLongBreakInput || isNaN(parseInt(pomodoroLongBreakInput, 10)) || parseInt(pomodoroLongBreakInput, 10) < 1 || parseInt(pomodoroLongBreakInput, 10) > 180
+                        }
+                        onClick={() => {
+                          const w = parseInt(pomodoroWorkInput, 10);
+                          const b = parseInt(pomodoroBreakInput, 10);
+                          const lb = parseInt(pomodoroLongBreakInput, 10);
+                          setPomodoroWorkTime(w);
+                          setPomodoroBreakTime(b);
+                          setPomodoroLongBreakTime(lb);
+                          
+                          if (isPomodoroMode && !isActive) {
+                            const nextDur = pomodoroState === 'work' ? w : (pomodoroState === 'shortBreak' ? b : lb);
+                            setDuration(nextDur);
+                          }
+                          handleCloseSettings();
+                        }}
+                        className="w-full mt-2 py-3 rounded-xl bg-sage-200 text-slate-950 text-[10px] font-bold uppercase tracking-widest hover:bg-sage-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-[0_0_20px_rgba(183,201,176,0.2)] cursor-pointer"
+                      >
+                        Save Pomodoro Intervals
+                      </button>
+                    </motion.div>
+                  )}
+
+                  {activeTab === 'alarm' && (
+                    <motion.div
+                      key="alarm-tab"
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 10 }}
+                      transition={{ duration: 0.2 }}
+                      className="flex flex-col gap-2 max-h-[250px] overflow-y-auto pr-1 custom-scrollbar w-full"
+                    >
+                      {ALARM_PRESETS.map((alarm) => {
+                        const isSelected = selectedAlarm === alarm.url;
+                        const isTesting = previewingAlarmId === alarm.id;
+                        return (
+                          <div
+                            key={alarm.id}
+                            className={`flex items-center justify-between p-2 rounded-2xl border transition-all duration-300 ${
+                              isSelected 
+                                ? 'bg-sage-200/10 border-sage-200/30 text-white' 
+                                : 'bg-white/5 border-white/5 text-white/70 hover:bg-white/10 hover:border-white/10'
+                            }`}
+                          >
+                            <div className="flex flex-col pl-2">
+                              <span className="text-xs font-semibold tracking-wide capitalize">
+                                {alarm.name}
+                              </span>
+                              <span className="text-[8px] font-mono text-white/30 uppercase tracking-widest">
+                                {alarm.id === 'none' ? 'silent finish' : 'audio cue'}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              {/* Test Button */}
+                              {alarm.url !== 'none' && (
+                                <button
+                                  onClick={() => handleToggleAlarmPreview(alarm.id, alarm.url)}
+                                  className={`p-2 rounded-xl transition-all border flex items-center justify-center cursor-pointer ${
+                                    isTesting 
+                                      ? 'bg-red-500/20 border-red-500/30 text-red-400' 
+                                      : 'bg-white/5 border-white/5 text-white/40 hover:text-white hover:bg-white/10'
+                                  }`}
+                                  title={isTesting ? "Stop Test" : "Test Alarm"}
+                                >
+                                  {isTesting ? (
+                                    <Square className="w-3.5 h-3.5 fill-red-400/20" strokeWidth={2} />
+                                  ) : (
+                                    <Play className="w-3.5 h-3.5 fill-white/10" strokeWidth={2} />
+                                  )}
+                                </button>
+                              )}
+
+                              {/* Apply Button */}
+                              <button
+                                onClick={() => {
+                                  setSelectedAlarm(alarm.url);
+                                }}
+                                className={`px-3 py-2 rounded-xl text-[9px] font-bold uppercase tracking-wider transition-all border cursor-pointer ${
+                                  isSelected 
+                                    ? 'bg-sage-200 text-slate-950 border-sage-200 shadow-md font-black' 
+                                    : 'bg-slate-950/40 border-white/5 text-white/50 hover:text-white hover:border-white/10'
+                                }`}
+                              >
+                                {isSelected ? 'Applied' : 'Apply'}
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
 

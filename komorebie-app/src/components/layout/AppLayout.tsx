@@ -3,12 +3,12 @@ import { Outlet, Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
 import { 
-  LayoutDashboard, Layers, 
-  Settings, LogOut, Users,
-  Crown, Bell, Palette, Menu, ChevronDown, Maximize, Minimize,
-  Calendar, SlidersHorizontal, Music, Image as ImageIcon,
-  Trophy, LifeBuoy, Clock, BarChart3, Flame, Sparkles, Check,
-  ListChecks
+  LayoutDashboard, Layers,
+  LogOut, Users,
+  Crown, Menu, ChevronDown, Maximize, Minimize,
+  Calendar, Music, Image as ImageIcon,
+  Trophy, Clock, BarChart3, Flame, Sparkles, Check,
+  ListChecks, Settings, Palette
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useDataSync } from '../../context/DataSyncContext';
@@ -485,9 +485,8 @@ const AppLayout: React.FC = () => {
 
             {/* Preferences */}
             <SidebarSection label="Preferences" isCollapsed={isCollapsed}>
-              <SidebarLink to="/app/customize" icon={SlidersHorizontal} label="Customize" active={location.pathname === '/app/customize'} isCollapsed={isCollapsed} />
-              <SidebarLink to="/app/music" icon={Music} label="Music" active={location.pathname === '/app/music'} isCollapsed={isCollapsed} />
-              <SidebarLink to="/app/background" icon={ImageIcon} label="Background" active={location.pathname === '/app/background'} isCollapsed={isCollapsed} />
+               <SidebarLink to="/app/music" icon={Music} label="Music" active={location.pathname === '/app/music'} isCollapsed={isCollapsed} />
+               <SidebarLink to="/app/background" icon={ImageIcon} label="Background" active={location.pathname === '/app/background'} isCollapsed={isCollapsed} />
             </SidebarSection>
 
             {/* Community */}
@@ -497,29 +496,27 @@ const AppLayout: React.FC = () => {
             </SidebarSection>
           </div>
 
-          {/* Footer */}
-          <div className="p-4 border-t border-white/5 space-y-1 bg-slate-950/10">
-            <SidebarLink to="/app/settings" icon={Settings} label="Settings" active={location.pathname === '/app/settings'} isCollapsed={isCollapsed} />
-            <SidebarLink to="/app/contact" icon={LifeBuoy} label="Contact Us" active={location.pathname === '/app/contact'} isCollapsed={isCollapsed} />
-            <button 
-              onClick={handleSignOut}
-              className={`w-full flex items-center gap-3 px-4 py-2 text-red-400/60 hover:text-red-400 hover:bg-red-400/5 rounded-xl transition-colors duration-300 text-sm font-light group cursor-pointer ${isCollapsed ? 'justify-center' : ''}`}
-            >
-              <LogOut className="w-5 h-5 transition-transform group-hover:-translate-x-0.5" strokeWidth={1.5} />
-              <AnimatePresence initial={false}>
-                {!isCollapsed && (
-                  <motion.span
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -10 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    Log out
-                  </motion.span>
-                )}
-              </AnimatePresence>
-            </button>
-          </div>
+{/* Footer */}
+           <div className="p-4 border-t border-white/5 space-y-1 bg-slate-950/10">
+             <button 
+               onClick={handleSignOut}
+               className={`w-full flex items-center gap-3 px-4 py-2 text-red-400/60 hover:text-red-400 hover:bg-red-400/5 rounded-xl transition-colors duration-300 text-sm font-light group cursor-pointer ${isCollapsed ? 'justify-center' : ''}`}
+             >
+               <LogOut className="w-5 h-5 transition-transform group-hover:-translate-x-0.5" strokeWidth={1.5} />
+               <AnimatePresence initial={false}>
+                 {!isCollapsed && (
+                   <motion.span
+                     initial={{ opacity: 0, x: -10 }}
+                     animate={{ opacity: 1, x: 0 }}
+                     exit={{ opacity: 0, x: -10 }}
+                     transition={{ duration: 0.2 }}
+                   >
+                     Log out
+                   </motion.span>
+                 )}
+               </AnimatePresence>
+             </button>
+           </div>
         </motion.aside>
         )}
 
@@ -624,92 +621,86 @@ const AppLayout: React.FC = () => {
               </div>
             </div>
             
-            <div className="flex items-center gap-3" ref={profileMenuRef}>
-              <div className="relative">
-                <button 
-                  onClick={() => setShowProfileMenu(!showProfileMenu)}
-                  className={`flex items-center gap-3 pl-1 pr-3 py-0.5 rounded-full transition-all duration-300 cursor-pointer group border ${
-                    showProfileMenu ? 'bg-white/10 border-white/20' : 'bg-white/5 border-white/10'
-                  }`}
-                >
-                  {profile?.avatar_url ? (
-                    <OptimizedImage src={profile.avatar_url} alt="PFP" className="w-7 h-7 rounded-full border border-white/5" />
-                  ) : (
-                    <div className="w-7 h-7 rounded-full bg-sage-200/20 flex items-center justify-center border border-white/5 overflow-hidden relative">
-                      <span className="text-sage-200 text-[10px] font-bold relative z-10">
-                        {(profile?.display_name || user?.email || 'E').charAt(0).toUpperCase()}
-                      </span>
-                    </div>
-                  )}
-                  <span className="text-xs font-light text-white/50 group-hover:text-white transition-colors flex items-center gap-2">
-                    <span className="hidden sm:inline">{profile?.display_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Explorer'}</span>
-                    <ChevronDown className={`w-3 h-3 transition-transform duration-300 ${showProfileMenu ? 'rotate-180' : ''}`} />
-                  </span>
-                </button>
+{/* Mana Pill - Top Left */}
+             <div className="flex items-center">
+               <div className="flex items-center gap-2 px-3 py-1.5 bg-sage-200/10 border border-sage-200/20 rounded-full transition-all duration-300 hover:bg-sage-200/15">
+                 <Sparkles className="w-3.5 h-3.5 text-sage-200" />
+                 <span className="text-xs font-bold text-sage-200 tabular-nums">{stats.mana.toLocaleString()}</span>
+                 <span className="text-[9px] text-white/40 uppercase tracking-widest">mana</span>
+               </div>
+             </div>
+             
+             <div className="relative">
+               <button 
+                 onClick={() => setShowProfileMenu(!showProfileMenu)}
+                 className={`flex items-center gap-3 pl-1 pr-3 py-0.5 rounded-full transition-all duration-300 cursor-pointer group border ${
+                   showProfileMenu ? 'bg-white/10 border-white/20' : 'bg-white/5 border-white/10'
+                 }`}
+               >
+                 {profile?.avatar_url ? (
+                   <OptimizedImage src={profile.avatar_url} alt="PFP" className="w-7 h-7 rounded-full border border-white/5" />
+                 ) : (
+                   <div className="w-7 h-7 rounded-full bg-sage-200/20 flex items-center justify-center border border-white/5 overflow-hidden relative">
+                     <span className="text-sage-200 text-[10px] font-bold relative z-10">
+                       {(profile?.display_name || user?.email || 'E').charAt(0).toUpperCase()}
+                     </span>
+                   </div>
+                 )}
+                 <span className="text-xs font-light text-white/50 group-hover:text-white transition-colors flex items-center gap-2">
+                   <span className="hidden sm:inline">{profile?.display_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Explorer'}</span>
+                   <ChevronDown className={`w-3 h-3 transition-transform duration-300 ${showProfileMenu ? 'rotate-180' : ''}`} />
+                 </span>
+               </button>
 
-                <AnimatePresence>
-                  {showProfileMenu && (
-                    <motion.div 
-                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                      className="absolute top-12 right-0 w-48 bg-slate-950/80 backdrop-blur-3xl border border-white/10 rounded-2xl p-2 z-[100] shadow-2xl"
-                    >
-                      <div className="px-3 py-2 mb-1 border-b border-white/5">
-                        <p className="text-[11px] font-bold text-white/90 truncate">{profile?.display_name || 'Explorer'}</p>
-                        <p className="text-[10px] text-white/40 font-medium truncate">@{profile?.username || 'explorer'}</p>
-                        
-                        <div className="flex items-center gap-3 mt-2">
-                          <div className="flex items-center gap-1 text-[10px] text-amber-400 font-bold">
-                            <Flame className="w-3 h-3" />
-                            {stats.currentStreak}d
-                          </div>
-                          <div className="flex items-center gap-1 text-[10px] text-sage-200 font-bold">
-                            <Sparkles className="w-3 h-3" />
-                            {stats.mana}
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="space-y-0.5">
-                        <Link 
-                          to="/app/profile" 
-                          onClick={() => setShowProfileMenu(false)}
-                          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[12px] text-white/60 hover:bg-white/5 hover:text-white transition-all group font-medium"
-                        >
-                          <Users className="w-4 h-4 opacity-50 group-hover:opacity-100" />
-                          My Sanctuary
-                        </Link>
-                        <Link 
-                          to="/app/settings" 
-                          onClick={() => setShowProfileMenu(false)}
-                          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[12px] text-white/60 hover:bg-white/5 hover:text-white transition-all group font-medium"
-                        >
-                          <Settings className="w-4 h-4 opacity-50 group-hover:opacity-100" />
-                          Settings
-                        </Link>
-                        <div className="h-px bg-white/5 my-1 mx-2" />
-                        <button 
-                          onClick={() => {
-                            setShowProfileMenu(false);
-                            handleSignOut();
-                          }}
-                          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[12px] text-red-400/80 hover:bg-red-400/5 hover:text-red-400 transition-all group cursor-pointer font-medium"
-                        >
-                          <LogOut className="w-4 h-4 opacity-50 group-hover:opacity-100" />
-                          Log Out
-                        </button>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-              
-              <button className="p-2 bg-white/5 border border-white/10 rounded-full transition-colors hover:bg-white/10 text-white/30 hover:text-white cursor-pointer relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage-200/50" aria-label="Notifications">
-                <Bell className="w-3.5 h-3.5" strokeWidth={1.5} />
-                <div className="absolute top-1.5 right-1.5 w-1 h-1 bg-sage-200 rounded-full border border-slate-950" />
-              </button>
-            </div>
+               <AnimatePresence>
+                 {showProfileMenu && (
+                   <motion.div 
+                     initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                     animate={{ opacity: 1, y: 0, scale: 1 }}
+                     exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                     className="absolute top-12 right-0 w-48 bg-slate-950/80 backdrop-blur-3xl border border-white/10 rounded-2xl p-2 z-[100] shadow-2xl"
+                   >
+                     <div className="px-3 py-2 mb-1 border-b border-white/5">
+                       <p className="text-[11px] font-bold text-white/90 truncate">{profile?.display_name || 'Explorer'}</p>
+                       <p className="text-[10px] text-white/40 font-medium truncate">@{profile?.username || 'explorer'}</p>
+                       
+                       <div className="flex items-center gap-3 mt-2">
+                         <div className="flex items-center gap-1 text-[10px] text-amber-400 font-bold">
+                           <Flame className="w-3 h-3" />
+                           {stats.currentStreak}d
+                         </div>
+                         <div className="flex items-center gap-1 text-[10px] text-sage-200 font-bold">
+                           <Sparkles className="w-3 h-3" />
+                           {stats.mana}
+                         </div>
+                       </div>
+                     </div>
+                     
+                     <div className="space-y-0.5">
+                       <Link 
+                         to="/app/profile" 
+                         onClick={() => setShowProfileMenu(false)}
+                         className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[12px] text-white/60 hover:bg-white/5 hover:text-white transition-all group font-medium"
+                       >
+                         <Users className="w-4 h-4 opacity-50 group-hover:opacity-100" />
+                         My Sanctuary
+                       </Link>
+                       <div className="h-px bg-white/5 my-1 mx-2" />
+                       <button 
+                         onClick={() => {
+                           setShowProfileMenu(false);
+                           handleSignOut();
+                         }}
+                         className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[12px] text-red-400/80 hover:bg-red-400/5 hover:text-red-400 transition-all group cursor-pointer font-medium"
+                       >
+                         <LogOut className="w-4 h-4 opacity-50 group-hover:opacity-100" />
+                         Log Out
+                       </button>
+                     </div>
+                   </motion.div>
+                 )}
+               </AnimatePresence>
+             </div>
           </header>
 
           {/* Page Content */}

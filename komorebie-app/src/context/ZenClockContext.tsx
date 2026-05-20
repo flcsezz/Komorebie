@@ -15,6 +15,12 @@ export interface ZenClockContextType {
   isAlarmPlaying: boolean;
   isSessionComplete: boolean;
   currentTag: string | null;
+  pomodoroWorkTime: number;
+  pomodoroBreakTime: number;
+  pomodoroLongBreakTime: number;
+  setPomodoroWorkTime: (m: number) => void;
+  setPomodoroBreakTime: (m: number) => void;
+  setPomodoroLongBreakTime: (m: number) => void;
   setCurrentTag: (tag: string | null) => void;
   toggleTimer: () => Promise<void>;
   setDuration: (duration: number) => void;
@@ -29,9 +35,6 @@ export interface ZenClockContextType {
 const ZenClockContext = createContext<ZenClockContextType | undefined>(undefined);
 
 // Pomodoro duration constants (minutes)
-const POMODORO_WORK_MINUTES = 25;
-const POMODORO_SHORT_BREAK_MINUTES = 5;
-const POMODORO_LONG_BREAK_MINUTES = 15;
 const POMODORO_TOTAL_CYCLES = 4;
 
 // Failsafe constants
@@ -39,6 +42,34 @@ const MAX_SESSION_OVERTIME_SECONDS = 1800; // 30 minutes max overtime
 const STALE_SESSION_THRESHOLD_MS = 3600 * 1000; // 1 hour stale limit
 
 export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [pomodoroWorkTime, setPomodoroWorkTimeState] = useState(() => {
+    const saved = localStorage.getItem('zen-pomodoro-work-time');
+    return saved ? parseInt(saved, 10) : 25;
+  });
+  const [pomodoroBreakTime, setPomodoroBreakTimeState] = useState(() => {
+    const saved = localStorage.getItem('zen-pomodoro-short-break-time');
+    return saved ? parseInt(saved, 10) : 5;
+  });
+  const [pomodoroLongBreakTime, setPomodoroLongBreakTimeState] = useState(() => {
+    const saved = localStorage.getItem('zen-pomodoro-long-break-time');
+    return saved ? parseInt(saved, 10) : 15;
+  });
+
+  const setPomodoroWorkTime = useCallback((m: number) => {
+    setPomodoroWorkTimeState(m);
+    localStorage.setItem('zen-pomodoro-work-time', m.toString());
+  }, []);
+
+  const setPomodoroBreakTime = useCallback((m: number) => {
+    setPomodoroBreakTimeState(m);
+    localStorage.setItem('zen-pomodoro-short-break-time', m.toString());
+  }, []);
+
+  const setPomodoroLongBreakTime = useCallback((m: number) => {
+    setPomodoroLongBreakTimeState(m);
+    localStorage.setItem('zen-pomodoro-long-break-time', m.toString());
+  }, []);
+
   const [isPomodoroMode, setIsPomodoroModeState] = useState(() => {
     return localStorage.getItem('zen-pomodoro-mode') === 'true';
   });
@@ -283,10 +314,10 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     audioRef.current.play().catch(err => console.error("Alarm play failed:", err));
     setIsAlarmPlaying(true);
 
-    // Stop automatically after 7 seconds
+    // Stop automatically after 10 seconds
     alarmTimeoutRef.current = setTimeout(() => {
       stopAlarm();
-    }, 7000);
+    }, 10000);
   }, [selectedAlarm, stopAlarm]);
 
   const playTransitionSound = useCallback(() => {
@@ -358,10 +389,10 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       // Work → Break
       if (pomodoroCycle >= POMODORO_TOTAL_CYCLES) {
         nextPomState = 'longBreak';
-        nextDurationMinutes = POMODORO_LONG_BREAK_MINUTES;
+        nextDurationMinutes = pomodoroLongBreakTime;
       } else {
         nextPomState = 'shortBreak';
-        nextDurationMinutes = POMODORO_SHORT_BREAK_MINUTES;
+        nextDurationMinutes = pomodoroBreakTime;
       }
     } else {
       // Break → Work (or end of full cycle)
@@ -370,20 +401,20 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         console.log('[Zen] Full Pomodoro set complete (4 cycles + long break)');
         setPomodoroState('work');
         setPomodoroCycle(1);
-        setDurationState(POMODORO_WORK_MINUTES);
-        setTimeLeft(POMODORO_WORK_MINUTES * 60);
+        setDurationState(pomodoroWorkTime);
+        setTimeLeft(pomodoroWorkTime * 60);
         setIsActive(false);
         setIsSessionComplete(true);
         setSessionStartTime(null);
         setTargetEndTime(null);
         playAlarm(); // Play full alarm for end of Pomodoro set
-        syncTimerToCloud(false, null, POMODORO_WORK_MINUTES * 60, true, 'work', POMODORO_WORK_MINUTES * 60);
+        syncTimerToCloud(false, null, pomodoroWorkTime * 60, true, 'work', pomodoroWorkTime * 60);
         return;
       } else {
         // Short break ended → advance cycle, start work
         nextCycle = pomodoroCycle + 1;
         nextPomState = 'work';
-        nextDurationMinutes = POMODORO_WORK_MINUTES;
+        nextDurationMinutes = pomodoroWorkTime;
       }
     }
 
@@ -411,7 +442,7 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     syncTimerToCloud(true, startTime, nextDurationSeconds, true, nextPomState, nextDurationSeconds);
 
     console.log(`[Zen] Pomodoro auto-advanced: ${pomodoroState} → ${nextPomState}, cycle ${nextCycle}/${POMODORO_TOTAL_CYCLES}`);
-  }, [pomodoroState, pomodoroCycle, duration, sessionStartTime, timeLeft, logSessionIfQualified, playTransitionSound, playAlarm, syncTimerToCloud]);
+  }, [pomodoroState, pomodoroCycle, duration, sessionStartTime, timeLeft, logSessionIfQualified, playTransitionSound, playAlarm, syncTimerToCloud, pomodoroWorkTime, pomodoroBreakTime, pomodoroLongBreakTime]);
 
   /**
    * completeSession — called when the user manually clicks "COMPLETE SESSION".
@@ -441,7 +472,7 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (isPomodoroMode) {
       // Reset to work state for new Pomodoro set
       nextPomState = 'work';
-      nextDuration = POMODORO_WORK_MINUTES;
+      nextDuration = pomodoroWorkTime;
       setPomodoroState(nextPomState);
       setPomodoroCycle(1);
     }
@@ -454,7 +485,7 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     
     // SYNC: Clear active timer from cloud with the NEW state
     await syncTimerToCloudImmediate(false, null, nextDuration * 60, isPomodoroMode, nextPomState, nextDuration * 60);
-  }, [isPomodoroMode, pomodoroState, duration, timeLeft, sessionStartTime, stopAlarm, syncTimerToCloudImmediate, logSessionIfQualified]);
+  }, [isPomodoroMode, pomodoroState, duration, timeLeft, sessionStartTime, stopAlarm, syncTimerToCloudImmediate, logSessionIfQualified, pomodoroWorkTime]);
 
   const skipBreak = useCallback(() => {
     if (isPomodoroMode && (pomodoroState === 'shortBreak' || pomodoroState === 'longBreak')) {
@@ -465,7 +496,7 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setPomodoroCycle(nextCycle);
       
       setPomodoroState('work');
-      const nextDuration = POMODORO_WORK_MINUTES;
+      const nextDuration = pomodoroWorkTime;
       setDurationState(nextDuration);
       setTimeLeft(nextDuration * 60);
       setIsActive(true);
@@ -480,7 +511,7 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setTargetEndTime(targetEnd);
       syncTimerToCloudImmediate(true, startTime, nextDuration * 60, isPomodoroMode, 'work', nextDuration * 60);
     }
-  }, [isPomodoroMode, pomodoroState, pomodoroCycle, stopAlarm, syncTimerToCloudImmediate]);
+  }, [isPomodoroMode, pomodoroState, pomodoroCycle, stopAlarm, syncTimerToCloudImmediate, pomodoroWorkTime]);
 
   // Cloud heartbeat — writes every 70s while active.
   // Dep array intentionally excludes isPomodoroMode/pomodoroState:
@@ -681,7 +712,7 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setIsPomodoroModeState(enabled);
     if (!isActive && !isSessionComplete) {
       if (enabled) setPomodoroState('work');
-      const nextDuration = POMODORO_WORK_MINUTES;
+      const nextDuration = enabled ? pomodoroWorkTime : duration;
       setDurationState(nextDuration);
       setTimeLeft(nextDuration * 60);
       setPomodoroCycle(1); // Always reset cycle when toggling mode
@@ -746,6 +777,12 @@ export const ZenClockProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       isAlarmPlaying,
       isSessionComplete,
       currentTag,
+      pomodoroWorkTime,
+      pomodoroBreakTime,
+      pomodoroLongBreakTime,
+      setPomodoroWorkTime,
+      setPomodoroBreakTime,
+      setPomodoroLongBreakTime,
       setCurrentTag,
       toggleTimer,
       setDuration,
