@@ -458,15 +458,16 @@ function computeAnalyticsFromMega(mega: any) {
   const tasks = mega.tasks || [];
   const deadlines = mega.deadlines || [];
 
+  // A "valid" session: completed status OR elapsed >= 5 minutes (300s).
+  // This is the canonical definition used for ALL stats — ensuring Focus time,
+  // Sessions count, and completedToday are always computed from the same set.
   const validSessions = sessions.filter((s: any) => s.status === 'completed' || (s.elapsed_seconds || 0) >= 300);
-  
-  console.log(`[DEBUG] sessions count: ${sessions.length}, valid: ${validSessions.length}`);
-  if (sessions.length > 0) {
-    console.log(`[DEBUG] top session:`, JSON.stringify(sessions[0]));
-  }
-  
+
   const totalSeconds = validSessions.reduce((acc: number, s: any) => acc + (s.elapsed_seconds || 0), 0);
   const totalHours = Math.round((totalSeconds / 3600) * 10) / 10;
+
+  // Use UTC date string throughout the worker — matches DB CURRENT_DATE (UTC).
+  // The client analyticsCache also uses UTC via toISOString(), ensuring alignment.
   const today = new Date().toISOString().split('T')[0];
 
   const toDateStr = (val: any) => {
@@ -475,10 +476,11 @@ function computeAnalyticsFromMega(mega: any) {
     return s.split('T')[0];
   };
 
+  // All three "today" metrics derived from the same validSessions — no divergence.
   const sessionsTodayList = validSessions.filter((s: any) => toDateStr(s.started_at) === today);
   const todayFocusSeconds = sessionsTodayList.reduce((acc: number, s: any) => acc + (s.elapsed_seconds || 0), 0);
-  const sessionsToday = sessions.filter((s: any) => toDateStr(s.started_at) === today).length;
-  const completedToday = sessions.filter((s: any) => s.status === 'completed' && toDateStr(s.started_at) === today).length;
+  const sessionsToday = sessionsTodayList.length;
+  const completedToday = sessionsTodayList.filter((s: any) => s.status === 'completed').length;
   
   const tasksDone = tasks.filter((t: any) => t.is_completed).length;
   const tasksDoneToday = tasks.filter((t: any) => t.is_completed && t.completed_at && toDateStr(t.completed_at) === today).length;

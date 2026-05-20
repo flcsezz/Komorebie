@@ -1,14 +1,19 @@
 import { supabase } from './supabase';
 
 /**
- * Helper to get YYYY-MM-DD in local time.
+ * Convert a Date to a YYYY-MM-DD string in UTC.
+ *
+ * All date comparisons in this app use UTC to stay consistent with:
+ *   - The Cloudflare Worker (toISOString().split('T')[0])
+ *   - Supabase CURRENT_DATE (UTC-based)
+ *   - focus_sessions.started_at (stored as UTC timestamptz)
+ *
+ * Previously this used local time, which caused sessions to appear on the
+ * wrong day for users in UTC± timezones (e.g. UTC+5:30 after 18:30 local).
  */
-export const toLocalISO = (date: Date) => {
+export const toLocalISO = (date: Date): string => {
   if (!date || isNaN(date.getTime())) return '1970-01-01';
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
+  return date.toISOString().split('T')[0];
 };
 
 // ─── Cache configuration ───────────────────────────────────────────
