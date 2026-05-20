@@ -75,6 +75,13 @@
       "commit": "be5109f",
       "tested": true,
       "notes": "Replaced music icon in ZenClock with a settings gear icon. Implemented a beautiful glass settings modal with three high-craft tabs: Timer duration adjustment, Pomodoro Focus/Break customizable intervals, and an interactive Alarm Sound test and apply panel with automatic resource cleanup."
+    },
+    {
+      "date": "2026-05-20T12:00:00Z",
+      "task_id": "FE-14-MANA-AND-TAGS-BUGFIX",
+      "commit": "7ce6f04",
+      "tested": true,
+      "notes": "Replaced top-right profile pill with a unified, high-craft Mana Pill dropdown trigger featuring a custom crystalline SVG with soft pulsing emerald glow. Resolved infinite loading spinner in TagAnalyticsWidget by checking data-sync loading state rather than empty data length, enabling a clean fallback to the empty state when no focus sessions are recorded. Added multi-user target analytics support to dynamically render correct tag distributions for friend profiles."
     }
   ]
 }

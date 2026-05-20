@@ -85,6 +85,13 @@
       "description": "Replaces Music icon with a Settings Gear. Opens a gorgeous glass modal with Timer duration, Pomodoro work/break intervals, and interactive alarm sound preview test & apply cues.",
       "passes": true,
       "priority": 12
+    },
+    {
+      "id": "FE-14-MANA-AND-TAGS-BUGFIX",
+      "title": "Premium Mana Pill & Tag Analytics Fixes",
+      "description": "Unified premium, pulsing, glassmorphic Mana Pill dropdown trigger in the top-right header. Fixed infinite loading spinner on empty TagAnalyticsWidget and added full multi-user friend analytics support.",
+      "passes": true,
+      "priority": 13
     }
   ]
 }
