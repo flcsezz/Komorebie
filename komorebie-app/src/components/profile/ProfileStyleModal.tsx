@@ -5,6 +5,7 @@ import GlassCard from '../ui/GlassCard';
 import { ALL_BACKGROUNDS, PUBLIC_BACKGROUNDS, SPECIAL_BACKGROUNDS, ADMIN_MUSIC } from '../../lib/backgrounds';
 import { supabase } from '../../lib/supabase';
 import ResilientVideo from '../ui/ResilientVideo';
+import { analyticsCache } from '../../lib/analyticsCache';
 
 interface ProfileStyleModalProps {
   isOpen: boolean;
@@ -53,6 +54,7 @@ const ProfileStyleModal: React.FC<ProfileStyleModalProps> = ({
         .eq('id', userId);
       
       if (error) throw error;
+      await analyticsCache.invalidate(userId);
       await onUpdate();
     } catch (err) {
       console.error('Failed to update profile background:', err);
@@ -71,6 +73,7 @@ const ProfileStyleModal: React.FC<ProfileStyleModalProps> = ({
         .eq('id', userId);
       
       if (error) throw error;
+      await analyticsCache.invalidate(userId);
       await onUpdate();
     } catch (err) {
       console.error('Failed to update profile music:', err);

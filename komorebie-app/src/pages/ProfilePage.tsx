@@ -14,6 +14,7 @@ import ProfileStyleModal from '../components/profile/ProfileStyleModal';
 import { resolveProfileDecoration } from '../lib/profile-utils';
 import OptimizedImage from '../components/ui/OptimizedImage';
 import { TagAnalyticsWidget } from '../components/analytics/TagAnalyticsWidget';
+import { analyticsCache } from '../lib/analyticsCache';
 
 const ProfilePage: React.FC = () => {
   const { user } = useAuth();
@@ -157,6 +158,7 @@ const ProfilePage: React.FC = () => {
         ...updates,
         display_name_updated_at: new Date().toISOString()
       }).eq('id', user.id);
+      await analyticsCache.invalidate(user.id);
       await refresh();
       setShowSettings(false);
     } catch (err) {
@@ -200,6 +202,7 @@ const ProfilePage: React.FC = () => {
         
       if (updateError) throw updateError;
       
+      await analyticsCache.invalidate(user.id);
       await refresh();
     } catch (err) {
       console.error('Avatar upload error:', err);

@@ -26,6 +26,7 @@ import GlassCard from '../components/ui/GlassCard';
 import ZenSelect from '../components/ui/ZenSelect';
 import { useZenClock } from '../hooks/useZenClock';
 import { fetchTagAnalytics } from '../lib/analytics';
+import { analyticsCache } from '../lib/analyticsCache';
 
 const THEME_PRESETS = [
   { 
@@ -249,6 +250,7 @@ const SettingsPage: React.FC = () => {
 
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
+      await analyticsCache.invalidate(user.id);
       await refresh();
     } catch (err) {
       console.error('Failed to save settings:', err);

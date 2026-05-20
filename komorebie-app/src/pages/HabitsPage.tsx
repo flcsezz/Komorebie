@@ -96,6 +96,14 @@ const HabitsPage: React.FC = () => {
     await toggle(habitId, date);
   };
 
+  const isSaveDisabled = !editingHabit || !editingHabit.name.trim() || (
+    editingHabit.frequency_type === 'x_per_week' && (
+      isNaN(editingHabit.target_per_week) ||
+      editingHabit.target_per_week < 1 || 
+      editingHabit.target_per_week > 7
+    )
+  );
+
   return (
     <div className="min-h-full w-full max-w-[1100px] mx-auto pt-8 px-4 pb-20">
       {/* Header */}
@@ -385,10 +393,34 @@ const HabitsPage: React.FC = () => {
                       <div>
                         <label className="block text-[10px] text-white/50 uppercase tracking-[0.2em] mb-2 font-bold">Target Times per Week</label>
                         <input
-                          type="number" min="1" max="7" value={editingHabit.target_per_week}
-                          onChange={e => setEditingHabit({ ...editingHabit, target_per_week: parseInt(e.target.value) || 1 })}
-                          className="w-full bg-white/[0.05] border border-white/20 rounded-xl px-4 py-3 text-white text-sm font-medium focus:outline-none focus:border-sage-200 transition-colors"
+                          type="number" 
+                          min="1" 
+                          max="7" 
+                          value={editingHabit.target_per_week === 0 || isNaN(editingHabit.target_per_week) ? '' : editingHabit.target_per_week}
+                          onChange={e => {
+                            const val = e.target.value;
+                            if (val === '') {
+                              setEditingHabit({ ...editingHabit, target_per_week: 0 });
+                            } else {
+                              const parsed = parseInt(val, 10);
+                              setEditingHabit({ ...editingHabit, target_per_week: isNaN(parsed) ? 0 : parsed });
+                            }
+                          }}
+                          className={`w-full bg-white/[0.05] border rounded-xl px-4 py-3 text-white text-sm font-medium focus:outline-none transition-colors ${
+                            editingHabit.target_per_week < 1 || editingHabit.target_per_week > 7
+                              ? 'border-red-400/50 focus:border-red-400'
+                              : 'border-white/20 focus:border-sage-200'
+                          }`}
                         />
+                        <p className={`text-[10px] mt-1.5 font-medium transition-colors ${
+                          editingHabit.target_per_week < 1 || editingHabit.target_per_week > 7
+                            ? 'text-red-400/90'
+                            : 'text-white/40'
+                        }`}>
+                          {editingHabit.target_per_week < 1 || editingHabit.target_per_week > 7
+                            ? '⚠️ Field cannot be empty, 0, or greater than 7'
+                            : 'Specify how many days per week you target this habit.'}
+                        </p>
                       </div>
                     )}
 
@@ -403,7 +435,12 @@ const HabitsPage: React.FC = () => {
                       )}
                       <button 
                         onClick={handleSave}
-                        className="flex-[2] bg-sage-200 text-slate-950 py-3 rounded-xl font-bold hover:bg-sage-200/90 transition-all shadow-lg text-sm cursor-pointer"
+                        disabled={isSaveDisabled || saving}
+                        className={`flex-[2] py-3 rounded-xl font-bold transition-all shadow-lg text-sm cursor-pointer ${
+                          isSaveDisabled 
+                            ? 'bg-white/5 border border-white/10 text-white/30 cursor-not-allowed shadow-none' 
+                            : 'bg-sage-200 text-slate-950 hover:bg-sage-200/90'
+                        }`}
                       >
                         {saving ? 'Saving...' : editingHabit.id ? 'Update Habit' : 'Plant Habit'}
                       </button>
